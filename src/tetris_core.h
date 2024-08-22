@@ -331,25 +331,32 @@ namespace TetrisAI
             return comboTable[combo];
         }
     };
-    using Wallkick = std::vector<std::vector<std::vector<std::pair<int8_t, int8_t>>>>;
+    using TetrisWallkick = std::vector<std::vector<std::vector<std::pair<int8_t, int8_t>>>>;
     struct TetrisMino
     {
         uint8_t data[4][4];
-        Wallkick rotate_right;
-        Wallkick rotate_left;
-        Wallkick rotate_180;
+        TetrisWallkick rotate_right;
+        TetrisWallkick rotate_left;
+        TetrisWallkick rotate_180;
         int8_t up_offset[4];
         int8_t down_offset[4];
         int8_t left_offset[4];
         int8_t right_offset[4];
-        // here
     };
+    using TetrisMinotypes = std::map<TetrisMinoType, TetrisMino>;
+    using TetrisMinocache = std::map<TetrisMinoType, std::vector<std::map<int8_t, uint32_t[4]>>>;
+    using TetrisMinocacheMini = std::vector<std::map<int8_t, uint32_t[4]>>;
     struct TetrisMinoManager
     {
-        std::shared_ptr<std::map<TetrisMinoType, TetrisMino>> mino_list;
-        std::shared_ptr<std::map<TetrisMinoType, TetrisMino>> get()
+        TetrisMinotypes mino_list;
+        TetrisMinocache move_cache;
+        TetrisMinotypes get()
         {
             return mino_list;
+        }
+        TetrisMinocache get_move_cache()
+        {
+            return move_cache;
         }
         TetrisMinoManager(std::string path)
         {
@@ -357,7 +364,6 @@ namespace TetrisAI
             std::ifstream file(path);
             file >> jsondata;
             file.close();
-            mino_list = std::make_shared<std::map<TetrisMinoType, TetrisMino>>();
             try
             {
                 jsondata = jsondata["minotypes"];
@@ -399,8 +405,9 @@ namespace TetrisAI
                             {
                                 kick.push_back(std::make_pair(data[k][0], data[k][1]));
                             }
-                            else {
-                                throw std::runtime_error("An error occurred while parsing the mino file, please check your file configuration.");
+                            else
+                            {
+                                throw std::runtime_error("clockwise kicktest missing xy");
                             }
                             kicks.push_back(kick);
                         }
@@ -418,8 +425,9 @@ namespace TetrisAI
                             {
                                 kick.push_back(std::make_pair(data[k][0], data[k][1]));
                             }
-                            else {
-                                throw std::runtime_error("An error occurred while parsing the mino file, please check your file configuration.");
+                            else
+                            {
+                                throw std::runtime_error("counter clockwise kicktest missing xy");
                             }
                             kicks.push_back(kick);
                         }
@@ -437,15 +445,37 @@ namespace TetrisAI
                             {
                                 kick.push_back(std::make_pair(data[k][0], data[k][1]));
                             }
-                            else {
-                                throw std::runtime_error("An error occurred while parsing the mino file, please check your file configuration.");
+                            else
+                            {
+                                throw std::runtime_error("180 kicktest missing xy");
                             }
                             kicks.push_back(kick);
                         }
                         mino.rotate_180.push_back(kicks);
                     }
-                    char char_to_type_index = jsondata[i]["type"].get<std::string>()[0];
-                    mino_list->insert(std::make_pair(char_to_type[char_to_type_index], mino));
+                    char type = jsondata[i]["type"].get<std::string>()[0];
+                    mino_list.insert(std::make_pair(char_to_type[type], mino));
+                    auto &data = move_cache[char_to_type[type]];
+                    for (int8_t i = 0; i < 4; ++i)
+                    {
+                        std::map<int8_t, uint32_t[4]> moves;
+                        int8_t offset_right = 28 - mino.right_offset[i];
+                        for (int8_t j = mino.left_offset[i]; j <= offset_right; ++j)
+                        {
+                            for (int8_t k = 0; k < 4; ++k)
+                            {
+                                if (j < 0)
+                                {
+                                    moves[j][k] = mino.data[i][k] >> -j;
+                                }
+                                else
+                                {
+                                    moves[j][k] = mino.data[i][k] << j;
+                                }
+                            }
+                        }
+                        data.push_back(moves);
+                    }
                 }
             }
             catch (std::exception &e)
@@ -453,6 +483,229 @@ namespace TetrisAI
                 printf("%s\n", e.what());
                 throw std::runtime_error("An error occurred while parsing the mino file, please check your file configuration.");
             }
+        }
+    };
+    struct TetrisInstructor
+    {
+        TetrisMap &map;
+        TetrisMinocacheMini &move_cache;
+        TetrisMino &mino;
+        TetrisInstructor(TetrisMap &map, TetrisMinocacheMini &move_cache, TetrisMino &mino) : map(map), move_cache(move_cache), mino(mino) {}
+        bool l(TetrisActive &active)
+        {
+            active.x -= 1;
+            if (active.x < mino.left_offset[active.r])
+            {
+                active.x += 1;
+                return false;
+            }
+            if (active.y >= map.roof)
+                return true;
+            if (map.board[active.y + 0] & move_cache[active.r][active.x][0] ||
+                map.board[active.y + 1] & move_cache[active.r][active.x][1] ||
+                map.board[active.y + 2] & move_cache[active.r][active.x][2] ||
+                map.board[active.y + 3] & move_cache[active.r][active.x][3])
+            {
+                active.x += 1;
+                return false;
+            }
+            return true;
+        }
+        bool r(TetrisActive &active)
+        {
+            active.x += 1;
+            if (active.x > map.width - mino.right_offset[active.r] - 4)
+            {
+                active.x -= 1;
+                return false;
+            }
+            if (active.y >= map.roof)
+                return true;
+            if (map.board[active.y + 0] & move_cache[active.r][active.x][0] ||
+                map.board[active.y + 1] & move_cache[active.r][active.x][1] ||
+                map.board[active.y + 2] & move_cache[active.r][active.x][2] ||
+                map.board[active.y + 3] & move_cache[active.r][active.x][3])
+            {
+                active.x -= 1;
+                return false;
+            }
+            return true;
+        }
+        bool L(TetrisActive &active)
+        {
+            if (active.x == mino.left_offset[active.r])
+                return false;
+            if (active.y >= map.roof)
+            {
+                active.x = mino.left_offset[active.r];
+                return true;
+            }
+            int count = 0;
+            for (; active.x >= mino.left_offset[active.r]; active.x--, ++count)
+            {
+                if (map.board[active.y + 0] & move_cache[active.r][active.x][0] ||
+                    map.board[active.y + 1] & move_cache[active.r][active.x][1] ||
+                    map.board[active.y + 2] & move_cache[active.r][active.x][2] ||
+                    map.board[active.y + 3] & move_cache[active.r][active.x][3])
+                {
+                    active.x += 1;
+                    return count;
+                }
+            }
+            return count;
+        }
+        bool R(TetrisActive &active)
+        {
+            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
+            if (active.x == rightmost)
+                return false;
+            if (active.y >= map.roof)
+            {
+                active.x = rightmost;
+                return true;
+            }
+            int count = 0;
+            for (; active.x <= rightmost; active.x++, ++count)
+            {
+                if (map.board[active.y + 0] & move_cache[active.r][active.x][0] ||
+                    map.board[active.y + 1] & move_cache[active.r][active.x][1] ||
+                    map.board[active.y + 2] & move_cache[active.r][active.x][2] ||
+                    map.board[active.y + 3] & move_cache[active.r][active.x][3])
+                {
+                    active.x -= 1;
+                    return count;
+                }
+            }
+            return count;
+        }
+        bool d(TetrisActive &active)
+        {
+            if (active.y >= map.roof)
+            {
+                active.y = map.roof;
+                return true;
+            }
+            active.y -= 1;
+            if (active.y < mino.down_offset[active.r] ||
+                map.board[active.y + 0] & move_cache[active.r][active.x][0] ||
+                map.board[active.y + 1] & move_cache[active.r][active.x][1] ||
+                map.board[active.y + 2] & move_cache[active.r][active.x][2] ||
+                map.board[active.y + 3] & move_cache[active.r][active.x][3])
+            {
+                active.y += 1;
+                return false;
+            }
+            return true;
+        }
+        bool D(TetrisActive &active)
+        {
+            if (active.y == mino.down_offset[active.r])
+                return false;
+            int count = 0;
+            if (active.y >= map.roof)
+            {
+                active.y = mino.down_offset[active.r];
+                ++count;
+            }
+            for (; active.y >= mino.down_offset[active.r]; active.y--, ++count)
+            {
+                if (map.board[active.y + 0] & move_cache[active.r][active.x][0] ||
+                    map.board[active.y + 1] & move_cache[active.r][active.x][1] ||
+                    map.board[active.y + 2] & move_cache[active.r][active.x][2] ||
+                    map.board[active.y + 3] & move_cache[active.r][active.x][3])
+                {
+                    active.y += 1;
+                    return count;
+                }
+            }
+            return count;
+        }
+        bool c(TetrisActive &active)
+        {
+            active.r = (active.r + 1) & 3;
+            if (!(map.board[active.y + 0] & move_cache[active.r][active.x][0] ||
+                  map.board[active.y + 1] & move_cache[active.r][active.x][1] ||
+                  map.board[active.y + 2] & move_cache[active.r][active.x][2] ||
+                  map.board[active.y + 3] & move_cache[active.r][active.x][3]))
+            {
+                return true;
+            }
+            for (int i = 0; i < mino.rotate_right[active.r].size(); i++)
+            {
+                int8_t x = active.x + mino.rotate_right[active.r][i][0].first;
+                int8_t y = active.y + mino.rotate_right[active.r][i][0].second;
+                if (x < mino.left_offset[active.r] || x > map.width - mino.right_offset[active.r] - 4 || y < mino.down_offset[active.r])
+                    continue;
+                if (!(map.board[y + 0] & move_cache[active.r][x][0] ||
+                      map.board[y + 1] & move_cache[active.r][x][1] ||
+                      map.board[y + 2] & move_cache[active.r][x][2] ||
+                      map.board[y + 3] & move_cache[active.r][x][3]))
+                {
+                    active.x = x;
+                    active.y = y;
+                    return true;
+                }
+            }
+            active.r = (active.r - 1) & 3;
+            return false;
+        }
+        bool z(TetrisActive &active)
+        {
+            active.r = (active.r - 1) & 3;
+            if (!(map.board[active.y + 0] & move_cache[active.r][active.x][0] ||
+                  map.board[active.y + 1] & move_cache[active.r][active.x][1] ||
+                  map.board[active.y + 2] & move_cache[active.r][active.x][2] ||
+                  map.board[active.y + 3] & move_cache[active.r][active.x][3]))
+            {
+                return true;
+            }
+            for (int i = 0; i < mino.rotate_left[active.r].size(); i++)
+            {
+                int8_t x = active.x + mino.rotate_left[active.r][i][0].first;
+                int8_t y = active.y + mino.rotate_left[active.r][i][0].second;
+                if (x < mino.left_offset[active.r] || x > map.width - mino.right_offset[active.r] - 4 || y < mino.down_offset[active.r])
+                    continue;
+                if (!(map.board[y + 0] & move_cache[active.r][x][0] ||
+                      map.board[y + 1] & move_cache[active.r][x][1] ||
+                      map.board[y + 2] & move_cache[active.r][x][2] ||
+                      map.board[y + 3] & move_cache[active.r][x][3]))
+                {
+                    active.x = x;
+                    active.y = y;
+                    return true;
+                }
+            }
+            active.r = (active.r + 1) & 3;
+            return false;
+        }
+        bool x(TetrisActive &active)
+        {
+            active.r = (active.r + 2) & 3;
+            if (!(map.board[active.y + 0] & move_cache[active.r][active.x][0] ||
+                  map.board[active.y + 1] & move_cache[active.r][active.x][1] ||
+                  map.board[active.y + 2] & move_cache[active.r][active.x][2] ||
+                  map.board[active.y + 3] & move_cache[active.r][active.x][3]))
+            {
+                return true;
+            }
+            for (int i = 0; i < mino.rotate_180[active.r].size(); i++)
+            {
+                int8_t x = active.x + mino.rotate_180[active.r][i][0].first;
+                int8_t y = active.y + mino.rotate_180[active.r][i][0].second;
+                if (x < mino.left_offset[active.r] || x > map.width - mino.right_offset[active.r] - 4 || y < mino.down_offset[active.r])
+                    continue;
+                if (!(map.board[y + 0] & move_cache[active.r][x][0] ||
+                      map.board[y + 1] & move_cache[active.r][x][1] ||
+                      map.board[y + 2] & move_cache[active.r][x][2] ||
+                      map.board[y + 3] & move_cache[active.r][x][3]))
+                {
+                    active.x = x;
+                    active.y = y;
+                    return true;
+                }
+            }
+            active.r = (active.r - 2) & 3;
+            return false;
         }
     };
 }
