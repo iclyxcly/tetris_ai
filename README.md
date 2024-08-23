@@ -2,7 +2,7 @@
  
 todo
 
-move tests
+move tests #completed
 movegen
 node
 treenode

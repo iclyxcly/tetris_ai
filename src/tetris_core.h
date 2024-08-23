@@ -331,7 +331,7 @@ namespace TetrisAI
             return comboTable[combo];
         }
     };
-    using TetrisWallkick = std::vector<std::vector<std::vector<std::pair<int8_t, int8_t>>>>;
+    using TetrisWallkick = std::vector<std::vector<std::pair<int8_t, int8_t>>>;
     struct TetrisMino
     {
         uint8_t data[4][4];
@@ -397,10 +397,9 @@ namespace TetrisAI
                     for (int8_t j = 0; j < 4; j++)
                     {
                         auto data = jsondata[i]["clockwise_kicks"][j];
-                        std::vector<std::vector<std::pair<int8_t, int8_t>>> kicks;
+                        std::vector<std::pair<int8_t, int8_t>> kick;
                         for (int8_t k = 0; k < data.size(); k++)
                         {
-                            std::vector<std::pair<int8_t, int8_t>> kick;
                             if (data[k].size() == 2)
                             {
                                 kick.push_back(std::make_pair(data[k][0], data[k][1]));
@@ -409,18 +408,16 @@ namespace TetrisAI
                             {
                                 throw std::runtime_error("clockwise kicktest missing xy");
                             }
-                            kicks.push_back(kick);
                         }
-                        mino.rotate_right.push_back(kicks);
+                        mino.rotate_right.push_back(kick);
                     }
                     // counterclockwise_kicks
                     for (int8_t j = 0; j < 4; j++)
                     {
                         auto data = jsondata[i]["counter_clockwise_kicks"][j];
-                        std::vector<std::vector<std::pair<int8_t, int8_t>>> kicks;
+                            std::vector<std::pair<int8_t, int8_t>> kick;
                         for (int8_t k = 0; k < data.size(); k++)
                         {
-                            std::vector<std::pair<int8_t, int8_t>> kick;
                             if (data[k].size() == 2)
                             {
                                 kick.push_back(std::make_pair(data[k][0], data[k][1]));
@@ -429,18 +426,16 @@ namespace TetrisAI
                             {
                                 throw std::runtime_error("counter clockwise kicktest missing xy");
                             }
-                            kicks.push_back(kick);
                         }
-                        mino.rotate_left.push_back(kicks);
+                        mino.rotate_left.push_back(kick);
                     }
                     // 180_kicks
                     for (int8_t j = 0; j < 4; j++)
                     {
                         auto data = jsondata[i]["180_kicks"][j];
-                        std::vector<std::vector<std::pair<int8_t, int8_t>>> kicks;
+                            std::vector<std::pair<int8_t, int8_t>> kick;
                         for (int8_t k = 0; k < data.size(); k++)
                         {
-                            std::vector<std::pair<int8_t, int8_t>> kick;
                             if (data[k].size() == 2)
                             {
                                 kick.push_back(std::make_pair(data[k][0], data[k][1]));
@@ -449,9 +444,8 @@ namespace TetrisAI
                             {
                                 throw std::runtime_error("180 kicktest missing xy");
                             }
-                            kicks.push_back(kick);
                         }
-                        mino.rotate_180.push_back(kicks);
+                        mino.rotate_180.push_back(kick);
                     }
                     char type = jsondata[i]["type"].get<std::string>()[0];
                     mino_list.insert(std::make_pair(char_to_type[type], mino));
@@ -632,8 +626,8 @@ namespace TetrisAI
             }
             for (int i = 0; i < mino.rotate_right[active.r].size(); i++)
             {
-                int8_t x = active.x + mino.rotate_right[active.r][i][0].first;
-                int8_t y = active.y + mino.rotate_right[active.r][i][0].second;
+                int8_t x = active.x + mino.rotate_right[active.r][i].first;
+                int8_t y = active.y + mino.rotate_right[active.r][i].second;
                 if (x < mino.left_offset[active.r] || x > map.width - mino.right_offset[active.r] - 4 || y < mino.down_offset[active.r])
                     continue;
                 if (!(map.board[y + 0] & move_cache[active.r][x][0] ||
@@ -661,8 +655,8 @@ namespace TetrisAI
             }
             for (int i = 0; i < mino.rotate_left[active.r].size(); i++)
             {
-                int8_t x = active.x + mino.rotate_left[active.r][i][0].first;
-                int8_t y = active.y + mino.rotate_left[active.r][i][0].second;
+                int8_t x = active.x + mino.rotate_left[active.r][i].first;
+                int8_t y = active.y + mino.rotate_left[active.r][i].second;
                 if (x < mino.left_offset[active.r] || x > map.width - mino.right_offset[active.r] - 4 || y < mino.down_offset[active.r])
                     continue;
                 if (!(map.board[y + 0] & move_cache[active.r][x][0] ||
@@ -690,8 +684,8 @@ namespace TetrisAI
             }
             for (int i = 0; i < mino.rotate_180[active.r].size(); i++)
             {
-                int8_t x = active.x + mino.rotate_180[active.r][i][0].first;
-                int8_t y = active.y + mino.rotate_180[active.r][i][0].second;
+                int8_t x = active.x + mino.rotate_180[active.r][i].first;
+                int8_t y = active.y + mino.rotate_180[active.r][i].second;
                 if (x < mino.left_offset[active.r] || x > map.width - mino.right_offset[active.r] - 4 || y < mino.down_offset[active.r])
                     continue;
                 if (!(map.board[y + 0] & move_cache[active.r][x][0] ||
