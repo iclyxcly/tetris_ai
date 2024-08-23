@@ -185,7 +185,7 @@ namespace TetrisAI
         bool allow_D;
         bool allow_d;
         bool allow_180;
-        int8_t beam_width;
+        std::size_t beam_width;
         time_t target_time;
         TetrisConfig() : default_x(3), default_y(20), default_r(0), can_hold(true), allow_LR(true), allow_lr(true), allow_D(true), allow_d(true), allow_180(true), beam_width(8), target_time(100) {}
     };
@@ -914,6 +914,7 @@ namespace TetrisAI
     using TetrisChildNode = std::vector<std::shared_ptr<TetrisNode>>;
     struct TetrisNode
     {
+        std::size_t version;
         bool running;
         bool complete;
         double rating;
@@ -921,7 +922,7 @@ namespace TetrisAI
         TetrisMap map;
         TetrisStatus status;
         TetrisChildNode children;
-        TetrisNode(TetrisParentNode parent, TetrisMap map, TetrisStatus status) : parent(parent), map(map), status(status)
+        TetrisNode(std::size_t version, TetrisParentNode parent, TetrisMap map, TetrisStatus status) : version(version), parent(parent), map(map), status(status)
         {
             running = false;
             complete = false;
@@ -938,6 +939,14 @@ namespace TetrisAI
             return rating;
         }
     };
+    struct TetrisNodeSorter
+    {
+        bool operator()(const std::shared_ptr<TetrisNode> &a, const std::shared_ptr<TetrisNode> &b)
+        {
+            return a->rating > b->rating;
+        }
+    };
+    using TetrisNodeResult = std::pair<double, std::queue<TetrisActive>>;
     struct TetrisTree
     {
         std::shared_ptr<TetrisNode> root;
@@ -945,16 +954,16 @@ namespace TetrisAI
         TetrisMap map_memory;
         TetrisConfig &config;
         TetrisStatus status;
-        uint8_t depth;
+        std::size_t stable_version;
         std::size_t nodes;
-        std::pair<double, std::queue<TetrisActive>> best;
-        std::pair<double, std::queue<TetrisActive>> beta;
+        TetrisNodeResult stable, beta;
         TetrisTree(TetrisMap &map, TetrisConfig &config, TetrisStatus status) : map_memory(map), config(config), status(status)
         {
             root = std::make_shared<TetrisNode>(nullptr, status.next.active, map_memory, status);
             tasks.push(root);
-            best.first = std::numeric_limits<double>::denorm_min();
+            stable.first = std::numeric_limits<double>::denorm_min();
             beta.first = std::numeric_limits<double>::denorm_min();
+            stable_version = 0;
         }
         bool next_advance(std::shared_ptr<TetrisNode> &node)
         {
@@ -964,12 +973,46 @@ namespace TetrisAI
         {
             return node->status.next.change_hold();
         }
-        void eliminate(std::shared_ptr<TetrisNode> &node)
+        void update_task(std::shared_ptr<TetrisNode> &node)
         {
-            for (std::size_t i = node->children.size(); i > 0; i--)
+            if (node->children.empty())
+            {
+                return;
+            }
+            if (node->children.size() > config.beam_width)
+            {
+                std::sort(node->children.begin(), node->children.end(), TetrisNodeSorter());
+            }
+            for (std::size_t i = config.beam_width; i < node->children.size(); i--)
             {
                 node->children.erase(node->children.begin() + i - 1);
             }
+            for (auto &child : node->children)
+            {
+                tasks.push(child);
+            }
+        }
+        void compare_and_update(std::shared_ptr<TetrisNode> &node)
+        {
+            if (node->version == stable_version)
+            {
+                ++stable_version;
+                stable = beta;
+                beta.first = std::numeric_limits<double>::denorm_min();
+            }
+            TetrisNodeResult alpha;
+            alpha.first = node->calc_rating(alpha.second);
+            if (!node->children.empty())
+            {
+                alpha.first += node->children[0]->rating;
+                alpha.second.push(node->children[0]->status.next.active);
+            }
+            if (alpha.first > beta.first)
+            {
+                beta = alpha;
+            }
+            node->complete = true;
+            node->running = false;
         }
     };
 }
