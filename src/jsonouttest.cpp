@@ -56,38 +56,29 @@ int main()
 
         printf("\n");
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < mino.second.rotate_right.size(); i++)
         {
             printf("cw %s\n", type_to_string_cw[i].c_str());
-            for (int j = 0; j < mino.second.rotate_right[i].size(); j++)
+            for (int k = 0; k < mino.second.rotate_right[i].size(); k++)
             {
-                for (int k = 0; k < mino.second.rotate_right[i][j].size(); k++)
-                {
-                    printf("(%d, %d) ", mino.second.rotate_right[i][j][k].first, mino.second.rotate_right[i][j][k].second);
-                }
-                printf("\n");
+                printf("(%d, %d) ", mino.second.rotate_right[i][k].first, mino.second.rotate_right[i][k].second);
             }
             printf("\n");
         }
 
         printf("\n");
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < mino.second.rotate_left.size(); i++)
         {
             printf("ccw %s\n", type_to_string_ccw[i].c_str());
-            for (int j = 0; j < mino.second.rotate_left[i].size(); j++)
+            for (int k = 0; k < mino.second.rotate_left[i].size(); k++)
             {
-                for (int k = 0; k < mino.second.rotate_left[i][j].size(); k++)
-                {
-                    printf("(%d, %d) ", mino.second.rotate_left[i][j][k].first, mino.second.rotate_left[i][j][k].second);
-                }
-                printf("\n");
+                printf("(%d, %d) ", mino.second.rotate_left[i][k].first, mino.second.rotate_left[i][k].second);
             }
             printf("\n");
         }
-    }
 
-        auto &xd = mino_manager.get_move_cache()[TetrisAI::TetrisMinoType::I];
+        auto xd = mino_manager.get_move_cache()[TetrisAI::TetrisMinoType::I];
         for (int i = 0; i < 4; i++)
         {
             printf("cw %s\n", type_to_string_cw[i].c_str());
@@ -97,10 +88,11 @@ int main()
                 {
                     printf("%s\n", std::bitset<32>(j.second[k]).to_string().c_str());
                 }
-            printf("\n");
+                printf("\n");
             }
             printf("\n");
         }
 
-    return 0;
+        return 0;
+    }
 }
