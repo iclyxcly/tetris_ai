@@ -4,10 +4,10 @@ int main()
 {
     using namespace TetrisAI;
     TetrisConfig config;
-    TetrisActive active(config.default_x, config.default_y, config.default_r, O);
+    TetrisActive active(config.default_x, config.default_y, config.default_r, T);
     TetrisMap map(10, 40);
     TetrisMinoManager mino_manager("botris_srs.json");
-    TetrisPathManager p_mgr(active, config, map, mino_manager.get_move_cache()[O], mino_manager.get()[O]);
+    TetrisPathManager p_mgr(active, config, map, mino_manager.get_move_cache()[T], mino_manager.get()[T]);
     auto start = std::chrono::high_resolution_clock::now();
     p_mgr.run();
     auto end = std::chrono::high_resolution_clock::now();
@@ -25,6 +25,6 @@ int main()
             printf("|\n");
         }
     }
-    printf("result size: %d\n", result.size());
-    printf("time: %lldns\n", std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
+    printf("result size: %ld\n", result.size());
+    printf("time: %ldns\n", std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
 }

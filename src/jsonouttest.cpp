@@ -56,10 +56,10 @@ int main()
 
         printf("\n");
 
-        for (int i = 0; i < mino.second.rotate_right.size(); i++)
+        for (std::size_t i = 0; i < mino.second.rotate_right.size(); i++)
         {
             printf("cw %s\n", type_to_string_cw[i].c_str());
-            for (int k = 0; k < mino.second.rotate_right[i].size(); k++)
+            for (std::size_t k = 0; k < mino.second.rotate_right[i].size(); k++)
             {
                 printf("(%d, %d) ", mino.second.rotate_right[i][k].first, mino.second.rotate_right[i][k].second);
             }
@@ -68,10 +68,10 @@ int main()
 
         printf("\n");
 
-        for (int i = 0; i < mino.second.rotate_left.size(); i++)
+        for (std::size_t i = 0; i < mino.second.rotate_left.size(); i++)
         {
             printf("ccw %s\n", type_to_string_ccw[i].c_str());
-            for (int k = 0; k < mino.second.rotate_left[i].size(); k++)
+            for (std::size_t k = 0; k < mino.second.rotate_left[i].size(); k++)
             {
                 printf("(%d, %d) ", mino.second.rotate_left[i][k].first, mino.second.rotate_left[i][k].second);
             }

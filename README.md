@@ -3,9 +3,11 @@
 todo
 
 move tests #completed
-movegen
-node
-treenode
-memory management
+movegen #completed
+node #done
+treenode #wip
+eval #wip
+node parallelism
+memory management #hmm
 multithread
 trainer
