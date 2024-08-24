@@ -425,7 +425,7 @@ namespace TetrisAI
                     // clockwise_kicks
                     for (int8_t j = 0; j < 4; j++)
                     {
-                        auto data = jsondata[i]["clockwise_kicks"][j];
+                        json data = jsondata[i]["clockwise_kicks"][j];
                         std::vector<std::pair<int8_t, int8_t>> kick;
                         for (int8_t k = 0; k < data.size(); k++)
                         {

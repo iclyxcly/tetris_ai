@@ -32,3 +32,9 @@
 *.app
 /.vscode
 /src/build
+/tetris_ai/x64
+/tetris_ai/.vs
+/movegentest/x64
+/jsontest/x64
+/pendinglinestest/x64
+/tetris_ai/tetris_ai/x64
