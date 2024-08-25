@@ -133,6 +133,10 @@ namespace TetrisAI
             width = other.width;
             roof = other.roof;
         }
+        TetrisMap() : height(40), width(10), roof(0)
+        {
+            memset(board, 0, sizeof(board));
+        }
         void mutate(const uint8_t x, const uint8_t y)
         {
             board[y] ^= BINARY_TEMPLATE[x];
@@ -164,15 +168,11 @@ namespace TetrisAI
         }
         uint8_t scan()
         {
-            roof = 0;
-            for (uint8_t i = height - 1; i >= 0; i--)
+            roof = height - 1;
+            while (board[roof - 1] == 0 && roof > 0)
             {
-                if (board[i] != 0)
-                {
-                    roof = ++i;
-                    break;
-                }
-            }
+                roof--;
+            };
             return roof;
         }
         uint8_t flush()
@@ -204,7 +204,7 @@ namespace TetrisAI
         bool allow_180;
         std::size_t beam_width;
         time_t target_time;
-        TetrisConfig() : default_x(3), default_y(20), default_r(0), can_hold(true), allow_LR(true), allow_lr(true), allow_D(true), allow_d(true), allow_180(true), beam_width(8), target_time(100) {}
+        TetrisConfig() : default_x(3), default_y(20), default_r(0), can_hold(true), allow_LR(true), allow_lr(true), allow_D(true), allow_d(true), allow_180(true), beam_width(1), target_time(100) {}
     };
     struct TetrisCoord
     {
@@ -213,6 +213,7 @@ namespace TetrisAI
         int8_t r;
         TetrisCoord() : x(0), y(0), r(0) {}
         TetrisCoord(const int8_t &x, const int8_t &y, const int8_t &r) : x(x), y(y), r(r) {}
+        TetrisCoord(const TetrisConfig &config) : x(config.default_x), y(config.default_y), r(config.default_r) {}
         bool operator==(const TetrisCoord &other) const
         {
             return x == other.x && y == other.y && r == other.r;
@@ -240,8 +241,27 @@ namespace TetrisAI
         {
             return std::memcmp(snapshot, other, sizeof(snapshot)) == 0;
         }
+        bool operator==(const TetrisActive &other) const
+        {
+            return x == other.x && y == other.y && r == other.r;
+        }
+        void operator=(const TetrisActive &other)
+        {
+            x = other.x;
+            y = other.y;
+            r = other.r;
+            type = other.type;
+            last_rotate = other.last_rotate;
+            last_kick = other.last_kick;
+            path = other.path;
+            std::memcpy(snapshot, other.snapshot, sizeof(snapshot));
+        }
         TetrisActive() : TetrisCoord(), type(EMPTY), last_rotate(false), last_kick(-1) {}
         TetrisActive(const int8_t &x, const int8_t &y, const int8_t &r, const uint8_t &type) : TetrisCoord(x, y, r), type(type), last_rotate(false), last_kick(-1) {}
+        TetrisActive(const TetrisActive &other) : TetrisCoord(other.x, other.y, other.r), type(other.type), last_rotate(other.last_rotate), last_kick(other.last_kick), path(other.path)
+        {
+            std::memcpy(snapshot, other.snapshot, sizeof(snapshot));
+        }
     };
     struct TetrisNextManager
     {
@@ -268,7 +288,7 @@ namespace TetrisAI
             if (!config.can_hold || changed_hold)
                 return false;
 
-            if (hold == 255)
+            if (hold == EMPTY)
             {
                 if (queue.empty())
                     return false;
@@ -353,6 +373,10 @@ namespace TetrisAI
                 }
             }
         }
+        void push_lines(int8_t line)
+        {
+            pending.push(line);
+        }
         TetrisPendingLineManager(std::queue<int8_t> &pending, std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen)
         {
             std::swap(this->pending, pending);
@@ -361,6 +385,7 @@ namespace TetrisAI
         {
             std::swap(pending, other.pending);
         }
+        TetrisPendingLineManager(std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen) {}
     };
     struct TetrisStatus
     {
@@ -404,8 +429,8 @@ namespace TetrisAI
         int8_t left_offset[4];
         int8_t right_offset[4];
     };
-    using TetrisMinotypes = std::unordered_map<TetrisMinoType, TetrisMino>;
-    using TetrisMinocache = std::unordered_map<TetrisMinoType, std::vector<std::unordered_map<int8_t, uint32_t[4]>>>;
+    using TetrisMinotypes = std::unordered_map<uint8_t, TetrisMino>;
+    using TetrisMinocache = std::unordered_map<uint8_t, std::vector<std::unordered_map<int8_t, uint32_t[4]>>>;
     using TetrisMinocacheMini = std::vector<std::unordered_map<int8_t, uint32_t[4]>>;
     struct TetrisMinoManager
     {
@@ -1161,13 +1186,10 @@ namespace TetrisAI
     };
     struct TetrisInstructor
     {
-        TetrisMap &map;
+        const TetrisMap &map;
         TetrisMinocacheMini &move_cache;
         TetrisMino &mino;
-        TetrisInstructor(TetrisMap &map, TetrisMinocacheMini &move_cache, TetrisMino &mino) : map(map), move_cache(move_cache), mino(mino)
-        {
-            map.scan();
-        }
+        TetrisInstructor(const TetrisMap &map, uint8_t type) : map(map), move_cache(TetrisMinoManager::move_cache[type]), mino(TetrisMinoManager::mino_list[type]) {}
         bool integrate(int8_t &x, int8_t &y, int8_t &r) const
         {
             for (int8_t i = -mino.down_offset[r], t = 4 + mino.up_offset[r]; i < t; ++i)
@@ -1316,6 +1338,32 @@ namespace TetrisAI
             {
                 active.last_rotate = false;
                 active.path += 'D';
+            }
+            ++active.y;
+            return count;
+        }
+        bool D_PRESERVE_PATH(TetrisActive &active) const
+        {
+            if (active.y == mino.down_offset[active.r])
+                return false;
+            int count = 0;
+            if (active.y >= map.roof)
+            {
+                active.y = map.roof - 1;
+                active.last_rotate = false;
+                ++count;
+            }
+            while (--active.y >= mino.down_offset[active.r])
+            {
+                ++count;
+                if (!integrate(active.x, active.y, active.r))
+                {
+                    break;
+                }
+            }
+            if (count)
+            {
+                active.last_rotate = false;
             }
             ++active.y;
             return count;
@@ -1475,12 +1523,17 @@ namespace TetrisAI
         }
         void attach(TetrisMap &map_copy, TetrisActive &active) const
         {
+            D_PRESERVE_PATH(active);
             int8_t start = active.y < 0 ? 0 : active.y;
             int8_t end = start + 4;
             for (int i = start; i < end; i++)
             {
                 map_copy.board[i] |= active.snapshot[i - start];
             }
+        }
+        bool check_death(TetrisActive &active) const
+        {
+            return !integrate(active.x, active.y, active.r);
         }
     };
     struct TetrisNode
@@ -1525,25 +1578,14 @@ namespace TetrisAI
     struct TetrisPathManager
     {
         std::queue<TetrisActive> search;
-        std::unordered_set<TetrisCoord, TetrisCoordHash> visited;
+        std::unordered_set<TetrisActive, TetrisCoordHash> visited;
         std::vector<TetrisActive> result;
+        std::vector<std::function<bool(TetrisActive &)>> moves;
         TetrisInstructor instructor;
-        TetrisConfig &config;
-        TetrisPathManager(TetrisActive active, TetrisConfig &config, TetrisMap &map, TetrisMinocacheMini &move_cache, TetrisMino &mino) : instructor(map, move_cache, mino), config(config)
+        TetrisPathManager(TetrisActive active, TetrisConfig &config, TetrisMap &map) : instructor(map, active.type)
         {
             search.push(active);
             visited.insert(active);
-        }
-        void init_new(TetrisActive &active)
-        {
-            visited.clear();
-            result.clear();
-            search.push(active);
-            visited.insert(active);
-        }
-        void test_run()
-        {
-            std::vector<std::function<bool(TetrisActive &)>> moves;
 
             if (config.allow_lr)
             {
@@ -1572,6 +1614,18 @@ namespace TetrisAI
                             { return instructor.c(a); });
             moves.push_back([this](TetrisActive &a)
                             { return instructor.z(a); });
+        }
+        void init_new(TetrisActive &active, TetrisMinocacheMini &move_cache, TetrisMino &mino)
+        {
+            visited.clear();
+            result.clear();
+            search.push(active);
+            visited.insert(active);
+            instructor.move_cache = move_cache;
+            instructor.mino = mino;
+        }
+        void test_run()
+        {
             TetrisActive current, temp;
             while (!search.empty())
             {
@@ -1595,8 +1649,11 @@ namespace TetrisAI
                 }
             }
         }
-        void run(TetrisNode *node, TetrisNextManager &next)
+        TetrisActive run_lite(TetrisMap map, TetrisStatus status, uint8_t mino, TetrisConfig config)
         {
+            double best = std::numeric_limits<double>::lowest();
+            TetrisActive best_active;
+            TetrisActive current(config.default_x, config.default_y, 0, mino), temp;
             std::vector<std::function<bool(TetrisActive &)>> moves;
 
             if (config.allow_lr)
@@ -1626,6 +1683,44 @@ namespace TetrisAI
                             { return instructor.c(a); });
             moves.push_back([this](TetrisActive &a)
                             { return instructor.z(a); });
+            while (!search.empty())
+            {
+                current = search.front();
+                search.pop();
+
+                for (auto &move : moves)
+                {
+                    temp = current;
+                    if (move(temp) && visited.find(temp) == visited.end())
+                    {
+                        search.push(temp);
+                        visited.insert(temp);
+                    }
+                }
+
+                instructor.build_snapshot(current);
+                if (std::find(result.rbegin(), result.rend(), current.snapshot) == result.rend())
+                {
+                    result.push_back(current);
+                    TetrisMap map_copy = map;
+                    TetrisStatus status_copy = status;
+                    status_copy.next.active = current;
+                    status_copy.spin_type = instructor.immobile(current) ? 3 : 0;
+                    instructor.attach(map_copy, current);
+                    status_copy.clear = map_copy.flush();
+                    map_copy.scan();
+                    double rating = TetrisJudge::begin_judgement(status, status_copy, map_copy);
+                    if (rating > best)
+                    {
+                        best = rating;
+                        best_active = current;
+                    }
+                }
+            }
+            return best_active;
+        }
+        void run(TetrisNode *node)
+        {
             TetrisActive current, temp;
             while (!search.empty())
             {
@@ -1648,7 +1743,6 @@ namespace TetrisAI
                     result.push_back(current);
                     TetrisMap map_copy = node->map;
                     TetrisStatus status_copy = node->status;
-                    status_copy.next = next;
                     status_copy.next.active = current;
                     status_copy.spin_type = instructor.immobile(current) ? 3 : 0;
                     instructor.attach(map_copy, current);
@@ -1665,16 +1759,15 @@ namespace TetrisAI
     {
         TetrisNode *root;
         std::queue<TetrisNode *> tasks;
-        TetrisMap map_memory;
         TetrisConfig &config;
-        TetrisStatus status_memory;
         std::size_t stable_version;
         TetrisNodeResult stable, beta;
         TetrisMinoManager mino_manager;
-        TetrisTree(TetrisMap &map, TetrisConfig &config, TetrisStatus status) : map_memory(map), config(config), status_memory(status), mino_manager("botris_srs.json")
+        TetrisTree(TetrisMap &map, TetrisConfig &config, TetrisStatus status) : config(config), mino_manager("botris_srs.json")
         {
+            map.scan();
             stable_version = 0;
-            root = new TetrisNode(stable_version, nullptr, map_memory, status);
+            root = new TetrisNode(stable_version, nullptr, map, status);
             tasks.push(root);
             stable.first = std::numeric_limits<double>::lowest();
             beta.first = std::numeric_limits<double>::lowest();
@@ -1683,13 +1776,9 @@ namespace TetrisAI
         {
             return node->status.next.next();
         }
-        bool change_hold(TetrisNode *&node)
+        bool change_hold(TetrisNode *node)
         {
             return node->status.next.change_hold();
-        }
-        TetrisMinoType get_active_type(TetrisNode *node)
-        {
-            return (TetrisMinoType)node->status.next.active.type;
         }
         void kill_node(TetrisNode *node)
         {
@@ -1705,13 +1794,13 @@ namespace TetrisAI
             {
                 return;
             }
-                std::sort(node->children.begin(), node->children.end(), TetrisNodeSorter());
-			while (node->children.size() > config.beam_width)
-			{
-				kill_node(node->children.back());
-				node->children.pop_back();
-			}
-            for (auto &child : node->children)
+            std::sort(node->children.begin(), node->children.end(), TetrisNodeSorter());
+            while (node->children.size() > config.beam_width)
+            {
+                kill_node(node->children.back());
+                node->children.pop_back();
+            }
+            for (auto child : node->children)
             {
                 tasks.push(child);
             }
@@ -1756,16 +1845,18 @@ namespace TetrisAI
                     }
                 }
             }
-            TetrisMinoType type = get_active_type(node);
-            TetrisPathManager path(node->status.next.active, config, node->map, mino_manager.get_move_cache()[type], mino_manager.get()[type]);
-            path.run(node, node->status.next);
+            {
+                TetrisPathManager path(node->status.next.active, config, node->map);
+                path.run(node);
+            }
             if (config.can_hold && !node->status.next.changed_hold)
             {
                 if (change_hold(node))
                 {
-                    node->status.next.active.path += "v";
-                    path.init_new(node->status.next.active);
-                    path.run(node, node->status.next);
+                    TetrisActive hold = node->status.next.active;
+                    hold.path = "v";
+                    TetrisPathManager path(hold, config, node->map);
+                    path.run(node);
                 }
             }
             update_task(node);

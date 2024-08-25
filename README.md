@@ -11,3 +11,6 @@ node parallelism
 memory management #hmm
 multithread
 trainer
+
+bug:
+node active broken
