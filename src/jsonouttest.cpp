@@ -78,24 +78,20 @@ int main()
             printf("\n");
         }
 
-        auto xd = mino_manager.get_move_cache()[TetrisAI::TetrisMinoType::I][0][3];
-        printf("%s\n", std::bitset<32>(xd[3]).to_string().c_str());
-        printf("%s\n", std::bitset<32>(xd[2]).to_string().c_str());
-        printf("%s\n", std::bitset<32>(xd[1]).to_string().c_str());
-        printf("%s\n", std::bitset<32>(xd[0]).to_string().c_str());
-        // for (int i = 0; i < 4; i++)
-        // {
-        //     printf("cw %s\n", type_to_string_cw[i].c_str());
-        //     for (auto &j : xd[i])
-        //     {
-        //         for (int k = 0; k < 4; k++)
-        //         {
-        //             printf("%s\n", std::bitset<32>(j.second[k]).to_string().c_str());
-        //         }
-        //         printf("\n");
-        //     }
-        //     printf("\n");
-        // }
+        auto xd = mino_manager.get_move_cache()[TetrisAI::TetrisMinoType::O];
+        for (int i = 0; i < 4; i++)
+        {
+            printf("cw %s\n", type_to_string_cw[i].c_str());
+            for (auto &j : xd[i])
+            {
+                for (int k = 0; k < 4; k++)
+                {
+                    printf("%s\n", std::bitset<32>(j.second[k]).to_string().c_str());
+                }
+                printf("\n");
+            }
+            printf("\n");
+        }
     }
         return 0;
 }

@@ -5,6 +5,30 @@
 
 using namespace TetrisAI;
 
+void read_config() {
+	std::ifstream file("param.json");
+	json data;
+	file >> data;
+	p.roof = data["roof"];
+	p.col_trans = data["col_trans"];
+	p.row_trans = data["row_trans"];
+	p.hole_count = data["hole_count"];
+	p.hole_line = data["hole_line"];
+	p.aggregate_height = data["aggregate_height"];
+	p.bumpiness = data["bumpiness"];
+	p.attack = data["attack"];
+	p.b2b = data["b2b"];
+	p.combo = data["combo"];
+	p.clear_1 = data["clear_1"];
+	p.clear_2 = data["clear_2"];
+	p.clear_3 = data["clear_3"];
+	p.clear_4 = data["clear_4"];
+	p.aspin_1 = data["aspin_1"];
+	p.aspin_2 = data["aspin_2"];
+	p.aspin_3 = data["aspin_3"];
+	p.aspin_slot = data["aspin_slot"];
+}
+
 std::queue<uint8_t> generate_bag()
 {
     std::queue<uint8_t> bag;
@@ -33,6 +57,8 @@ int main(void)
         {J, 'J'},
         {EMPTY, ' '}};
     TetrisConfig config;
+    config.target_time = 100;
+    config.can_hold = true;
     TetrisNextManager next(config);
     TetrisMap map(10, 40);
     std::random_device rd;
@@ -44,32 +70,39 @@ int main(void)
     TetrisPendingLineManager pending(dis, mess_dis, gen, mess_gen);
     int16_t b2b = 0, combo = 0;
     uint8_t clear = 0, spin_type = 0;
+    int count = 0;
+    int attack = 0;
+    int total = 0;
     while (true)
     {
+        read_config();
         if (next.queue.size() < 7)
         {
             auto bag = generate_bag();
             next.insert(bag);
         }
         next.next();
-        TetrisActive active(next.active);
+        map.scan();
         TetrisStatus status(b2b, combo, next, pending);
         TetrisTree tree(map, config, status);
         auto result = tree.run();
         result.front().path += "V";
-        TetrisInstructor instructor(map, active.type);
+        if (result.front().path[0] == 'v')
+        {
+            next.change_hold();
+        }
+        TetrisInstructor instructor(map, next.active.type);
         TetrisActive next_active(config.default_x, config.default_y, config.default_r, next.queue.front());
         for (auto &path : result.front().path)
         {
             switch (path)
             {
             case 'v':
-                next.change_hold();
                 break;
             case 'V':
-                instructor.build_snapshot(active);
-                spin_type = instructor.immobile(active) ? 3 : 0;
-                instructor.attach(map, active);
+                instructor.build_snapshot(next.active);
+                spin_type = instructor.immobile(next.active) ? 3 : 0;
+                instructor.attach(map, next.active);
                 clear = map.flush();
                 map.scan();
                 if (instructor.check_death(next_active))
@@ -84,31 +117,31 @@ int main(void)
                 }
                 break;
             case 'l':
-                instructor.l(active);
+                instructor.l(next.active);
                 break;
             case 'r':
-                instructor.r(active);
+                instructor.r(next.active);
                 break;
             case 'L':
-                instructor.L(active);
+                instructor.L(next.active);
                 break;
             case 'R':
-                instructor.R(active);
+                instructor.R(next.active);
                 break;
             case 'd':
-                instructor.d(active);
+                instructor.d(next.active);
                 break;
             case 'D':
-                instructor.D(active);
+                instructor.D(next.active);
                 break;
             case 'x':
-                instructor.x(active);
+                instructor.x(next.active);
                 break;
             case 'c':
-                instructor.c(active);
+                instructor.c(next.active);
                 break;
             case 'z':
-                instructor.z(active);
+                instructor.z(next.active);
                 break;
             }
         }
@@ -118,43 +151,51 @@ int main(void)
             combo = 0;
             break;
         case 1:
-            ++combo;
             if (spin_type == 3)
             {
+                attack += atk.ass + b2b;
                 b2b = 1;
             }
             else
             {
                 b2b = 0;
             }
+            attack += atk.combo_table[combo++];
             break;
         case 2:
-            ++combo;
             if (spin_type == 3)
             {
+                attack += atk.asd + b2b;
                 b2b = 1;
             }
             else
             {
                 b2b = 0;
+                attack += 1;
             }
+            attack += atk.combo_table[combo++];
             break;
         case 3:
-            ++combo;
             if (spin_type == 3)
             {
+                attack += atk.ast + b2b;
                 b2b = 1;
             }
             else
             {
                 b2b = 0;
+                attack += 2;
             }
+            attack += atk.combo_table[combo++];
             break;
         case 4:
+            attack += 4 + b2b;
             b2b = 1;
-            ++combo;
+            attack += atk.combo_table[combo++];
             break;
         }
+        ++count;
+        total += clear;
         for (int i = config.default_y + 4; i >= 0; i--)
         {
             printf("%2d |", i);
@@ -172,7 +213,7 @@ int main(void)
             queue.pop();
         }
         printf("\n");
-        printf("b2b: %d, combo: %d, clear: %d, spin_type: %d\n", b2b, combo, clear, spin_type);
+        printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f\n", b2b, combo, clear, spin_type, attack / (double)count, attack / (double)total);
         printf("path: %s\n", result.front().path.c_str());
     }
     return 0;

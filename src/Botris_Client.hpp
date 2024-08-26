@@ -137,29 +137,29 @@ private:
 		return translated_path;
 	}
 
-	// void read_config() {
-	// 	std::ifstream file("param.json");
-	// 	json data;
-	// 	file >> data;
-	// 	Tetris::p.roof = data["roof"];
-	// 	Tetris::p.col_trans = data["col_trans"];
-	// 	Tetris::p.row_trans = data["row_trans"];
-	// 	Tetris::p.hole_count = data["hole_count"];
-	// 	Tetris::p.hole_line = data["hole_line"];
-	// 	Tetris::p.aggregate_height = data["aggregate_height"];
-	// 	Tetris::p.bumpiness = data["bumpiness"];
-	// 	Tetris::p.attack = data["attack"];
-	// 	Tetris::p.b2b = data["b2b"];
-	// 	Tetris::p.combo = data["combo"];
-	// 	Tetris::p.clear_1 = data["clear_1"];
-	// 	Tetris::p.clear_2 = data["clear_2"];
-	// 	Tetris::p.clear_3 = data["clear_3"];
-	// 	Tetris::p.clear_4 = data["clear_4"];
-	// 	Tetris::p.aspin_1 = data["aspin_1"];
-	// 	Tetris::p.aspin_2 = data["aspin_2"];
-	// 	Tetris::p.aspin_3 = data["aspin_3"];
-	// 	Tetris::p.aspin_slot = data["aspin_slot"];
-	// }
+	void read_config() {
+		std::ifstream file("param.json");
+		json data;
+		file >> data;
+		p.roof = data["roof"];
+		p.col_trans = data["col_trans"];
+		p.row_trans = data["row_trans"];
+		p.hole_count = data["hole_count"];
+		p.hole_line = data["hole_line"];
+		p.aggregate_height = data["aggregate_height"];
+		p.bumpiness = data["bumpiness"];
+		p.attack = data["attack"];
+		p.b2b = data["b2b"];
+		p.combo = data["combo"];
+		p.clear_1 = data["clear_1"];
+		p.clear_2 = data["clear_2"];
+		p.clear_3 = data["clear_3"];
+		p.clear_4 = data["clear_4"];
+		p.aspin_1 = data["aspin_1"];
+		p.aspin_2 = data["aspin_2"];
+		p.aspin_3 = data["aspin_3"];
+		p.aspin_slot = data["aspin_slot"];
+	}
 
 	void data_safeshift(json& data, std::string target) {
 		if (data[target].is_null()) {
@@ -300,6 +300,7 @@ private:
 			}
 			printf("\n");
 		}
+		map.scan();
 		TetrisNextManager next_manager(config);
 		std::queue<uint8_t> queue;
 		for (auto& i : data["queue"]) {
@@ -333,7 +334,7 @@ private:
 		std::mt19937 gen(rd());
 		std::mt19937 mess_gen(rd());
 		TetrisPendingLineManager under_attack(pending, dis, mess_dis, gen, mess_gen);
-		//read_config();
+		read_config();
 		TetrisStatus status(data["b2b"], data["combo"], next_manager, under_attack);
 		TetrisTree runner(map, config, status);
 		auto result = runner.run();

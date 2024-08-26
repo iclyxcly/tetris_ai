@@ -1,0 +1,20 @@
+{
+    "roof": 40,
+    "col_trans": 40,
+    "row_trans": 20,
+    "aggregate_height": 1.1,
+    "bumpiness": 0,
+    "hole_count": 30,
+    "hole_line": 30,
+    "b2b": 240,
+    "attack": 80,
+    "clear_1": -5,
+    "clear_2": -8,
+    "clear_3": -7,
+    "clear_4": 80,
+    "aspin_1": 60,
+    "aspin_2": 60,
+    "aspin_3": 60,
+    "aspin_slot": 40,
+    "combo": 80
+}

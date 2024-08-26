@@ -1,16 +1,9 @@
-# tetris_ai_lib
+# tetris_ai
  
 todo
 
-move tests #completed
-movegen #completed
-node #done
-treenode #wip
 eval #wip
-node parallelism
 memory management #hmm
 multithread
 trainer
-
-bug:
-node active broken
+improve snapshot&attach
