@@ -39,3 +39,8 @@
 /pendinglinestest/x64
 /tetris_ai/tetris_ai/x64
 src/key.json
+src/bottest
+src/bottest_lite
+src/main
+src/jsonouttest
+src/movegentest
