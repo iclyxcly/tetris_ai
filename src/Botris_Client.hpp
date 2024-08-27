@@ -293,13 +293,13 @@ private:
 				}
 			}
 		}
-		for (int i = 20; i >= 0; --i) {
-			printf("%2d ", i);
-			for (int j = 0; j < 10; ++j) {
-				printf("%s", map.full(j, i) ? "[]" : "  ");
-			}
-			printf("\n");
-		}
+		// for (int i = 20; i >= 0; --i) {
+		// 	printf("%2d ", i);
+		// 	for (int j = 0; j < 10; ++j) {
+		// 		printf("%s", map.full(j, i) ? "[]" : "  ");
+		// 	}
+		// 	printf("\n");
+		// }
 		map.scan();
 		TetrisNextManager next_manager(config);
 		std::queue<uint8_t> queue;
@@ -317,17 +317,21 @@ private:
 		config.can_hold = data["canHold"];
 		int last_delay = -1;
 		int16_t total = 0;
+		int16_t acc = 0;
 		std::queue<int8_t> pending;
 		for (auto& i : data["garbageQueued"]) {
 			if (i["delay"] != last_delay) {
 				last_delay = i["delay"];
 				pending.push(total);
-				total = 0;
+				total = 1;
+				++acc;
 			}
 			else {
 				++total;
+				++acc;
 			}
 		}
+		utils::println(utils::INFO, " -> Pending lines: " + std::to_string(acc));
 		std::random_device rd;
 		std::uniform_int_distribution<> dis(0, map.width - 1);
 		std::uniform_int_distribution<> mess_dis(0, 99);

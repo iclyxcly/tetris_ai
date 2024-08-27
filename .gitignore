@@ -44,3 +44,4 @@ src/bottest_lite
 src/main
 src/jsonouttest
 src/movegentest
+src/pendingtest

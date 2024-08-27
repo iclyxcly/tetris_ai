@@ -183,7 +183,7 @@ namespace TetrisAI
             const auto &req = CLEAR_REQUIREMENT[width - 1];
             for (int8_t i = height - 1; i >= 0; i--)
             {
-                if (board[i] == req)
+                if ((board[i] & req) == req)
                 {
                     std::memmove(&board[i], &board[i + 1], sizeof(uint32_t) * (height - i));
                     board[height - 1] = 0;
@@ -206,7 +206,7 @@ namespace TetrisAI
         bool allow_180;
         std::size_t beam_width;
         time_t target_time;
-        TetrisConfig() : default_x(3), default_y(18), default_r(0), can_hold(true), allow_LR(true), allow_lr(true), allow_D(true), allow_d(true), allow_180(false), beam_width(8), target_time(100) {}
+        TetrisConfig() : default_x(3), default_y(17), default_r(0), can_hold(true), allow_LR(true), allow_lr(true), allow_D(true), allow_d(true), allow_180(false), beam_width(8), target_time(100) {}
     };
     struct TetrisCoord
     {
@@ -379,14 +379,8 @@ namespace TetrisAI
         {
             pending.push(line);
         }
-        TetrisPendingLineManager(std::queue<int8_t> &pending, std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen)
-        {
-            std::swap(this->pending, pending);
-        }
-        TetrisPendingLineManager(TetrisPendingLineManager &other) : dis(other.dis), mess_dis(other.mess_dis), gen(other.gen), mess_gen(other.mess_gen)
-        {
-            std::swap(pending, other.pending);
-        }
+        TetrisPendingLineManager(std::queue<int8_t> &pending, std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen), pending(pending) {}
+        TetrisPendingLineManager(TetrisPendingLineManager &other) : dis(other.dis), mess_dis(other.mess_dis), gen(other.gen), mess_gen(other.mess_gen), pending(other.pending) {}
         TetrisPendingLineManager(std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen) {}
     };
     struct TetrisStatus
@@ -411,11 +405,11 @@ namespace TetrisAI
         int16_t allspin_2 = 4;
         int16_t allspin_3 = 6;
         int16_t perfect_clear = 10;
-        int16_t comboTable[12] = {0, 0, 1, 1, 1, 2, 2, 3, 3, 4, -1};
+        int16_t comboTable[13] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, -1};
         int16_t get_combo_table(int16_t combo)
         {
-            if (combo > 11)
-                return comboTable[11];
+            if (combo > 12)
+                return comboTable[12];
             return comboTable[combo];
         }
     };
@@ -598,6 +592,9 @@ namespace TetrisAI
         double bumpiness = 0;
         double hole_count = 24;
         double hole_line = 15;
+        double wide_2 = 0;
+        double wide_3 = 0;
+        double wide_4 = 0;
         double b2b = 320;
         double attack = 40;
         double clear_1 = -100;
@@ -613,16 +610,6 @@ namespace TetrisAI
     } p;
     struct TetrisJudge
     {
-        struct TetrisEvalTemplate
-        {
-            int32_t col_trans = 0;
-            int32_t row_trans = 0;
-            int32_t aggregate_height = 0;
-            int16_t bumpiness = 0;
-            int16_t hole_count = 0;
-            int8_t hole_line = 0;
-            int32_t spin_slot = 0;
-        };
         static void find_s_spin(const TetrisMap &map, int32_t &val)
         { // no problem
             const uint32_t *ref = BINARY_TEMPLATE;
@@ -1073,37 +1060,66 @@ namespace TetrisAI
         }
         static double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map, const bool &dead)
         {
-            TetrisEvalTemplate eval;
-            int aggregate_height[32];
-            memset(aggregate_height, 0, sizeof(aggregate_height));
-            for (int i = 0; i < map.roof; ++i)
+            struct TetrisEvalTemplate
             {
+                int32_t col_trans;
+                int32_t row_trans;
+                int32_t aggregate_height;
+                int32_t aggregate_height_arr[32];
+                int16_t bumpiness;
+                int16_t hole_count;
+                int8_t hole_line;
+                int32_t spin_slot;
+                int8_t wide[32];
+            } eval;
+            memset(&eval, 0, sizeof(eval));
+            for (int i = map.roof - 1; i >= 0; --i)
+            {
+                uint8_t wide_max = 0;
+                uint8_t wide_count = 0;
                 for (int j = 0; j < map.width; j++)
                 {
                     if (map.full(j, i))
                     {
-                        aggregate_height[j] = i + 1;
+                        if (eval.aggregate_height_arr[j] == 0)
+                        {
+                            eval.aggregate_height_arr[j] = i + 1;
+                        }
+                        if (wide_count > wide_max)
+                        {
+                            wide_max = wide_count;
+                        }
+                        wide_count = 0;
+                    }
+                    else
+                    {
+                        wide_count++;
                     }
                     if (j + 1 != map.width)
                     {
                         eval.row_trans += map.full(j, i) != map.full(j + 1, i);
                     }
                 }
-                if (i + 1 < map.roof)
+                if (_mm_popcnt_u32(map.board[i]) == map.width - wide_max)
+                {
+                    eval.wide[wide_max] += 2;
+                }
+                ++eval.wide[wide_max];
+                if (i - 1 >= 0)
                 {
                     int check = eval.hole_count;
-                    eval.hole_count += _mm_popcnt_u32(~map.board[i] & map.board[i + 1]);
+                    eval.hole_count += _mm_popcnt_u32(map.board[i] & ~map.board[i - 1]);
                     eval.hole_line += check != eval.hole_count;
-                    eval.col_trans += _mm_popcnt_u32(map.board[i] ^ map.board[i + 1]);
+                    eval.col_trans += _mm_popcnt_u32(map.board[i] ^ map.board[i - 1]);
                 }
             }
             find_allspin(map, eval.spin_slot);
             for (int i = 0; i < map.width; i++)
             {
-                eval.aggregate_height += aggregate_height[i];
+                eval.aggregate_height += eval.aggregate_height_arr[i];
                 if (i != 0)
                 {
-                    eval.bumpiness += std::abs(aggregate_height[i - 1] - aggregate_height[i]);
+                    eval.bumpiness += std::abs(eval.aggregate_height_arr[i - 1] - eval.aggregate_height_arr[i]);
                 }
             }
             double like = 0;
@@ -1112,10 +1128,6 @@ namespace TetrisAI
             {
             case 0:
                 now.combo = 0;
-                if (now.garbage.pending.size() > 0)
-                {
-                    now.garbage.take_all_damage(map, atk.messiness);
-                }
                 break;
             case 1:
                 if (now.spin_type == 3)
@@ -1130,7 +1142,7 @@ namespace TetrisAI
                     attack += atk.single;
                     now.b2b = 0;
                 }
-                attack += atk.combo_table[now.combo++];
+                attack += atk.combo_table[++now.combo];
                 break;
             case 2:
                 if (now.spin_type == 3)
@@ -1145,7 +1157,7 @@ namespace TetrisAI
                     attack += atk.double_;
                     now.b2b = 0;
                 }
-                attack += atk.combo_table[now.combo++];
+                attack += atk.combo_table[++now.combo];
                 break;
             case 3:
                 if (now.spin_type == 3)
@@ -1160,11 +1172,11 @@ namespace TetrisAI
                     attack += atk.triple;
                     now.b2b = 0;
                 }
-                attack += atk.combo_table[now.combo++];
+                attack += atk.combo_table[++now.combo];
                 break;
             case 4:
                 like += p.clear_4;
-                attack += atk.quad + now.b2b + atk.combo_table[now.combo++];
+                attack += atk.quad + now.b2b + atk.combo_table[++now.combo];
             }
             if (!map.roof)
             {
@@ -1194,11 +1206,14 @@ namespace TetrisAI
             rating -= eval.bumpiness * p.bumpiness;
             rating -= eval.hole_count * p.hole_count;
             rating -= eval.hole_line * p.hole_line;
+            rating += eval.wide[2] * p.wide_2;
+            rating += eval.wide[3] * p.wide_3;
+            rating += eval.wide[4] * p.wide_4;
             rating += eval.spin_slot * p.aspin_slot;
             rating += like * 10;
             rating += attack * p.attack;
             rating += now.b2b * p.b2b;
-            rating += now.combo * p.combo;
+            rating += atk.combo_table[now.combo] * p.combo;
             if ((last.spin_type == 3 || last.clear == 4) && (now.spin_type == 3 || now.clear == 4) && last.clear && now.clear)
             {
                 rating += 999 * now.combo;
@@ -1695,35 +1710,6 @@ namespace TetrisAI
             double best = std::numeric_limits<double>::lowest();
             TetrisActive best_active;
             TetrisActive current(config.default_x, config.default_y, 0, mino), temp;
-            std::vector<std::function<bool(TetrisActive &)>> moves;
-
-            if (config.allow_lr)
-            {
-                moves.push_back([this](TetrisActive &a)
-                                { return instructor.l(a); });
-                moves.push_back([this](TetrisActive &a)
-                                { return instructor.r(a); });
-            }
-            if (config.allow_LR)
-            {
-                moves.push_back([this](TetrisActive &a)
-                                { return instructor.L(a); });
-                moves.push_back([this](TetrisActive &a)
-                                { return instructor.R(a); });
-            }
-            if (config.allow_d)
-                moves.push_back([this](TetrisActive &a)
-                                { return instructor.d(a); });
-            if (config.allow_D)
-                moves.push_back([this](TetrisActive &a)
-                                { return instructor.D(a); });
-            if (config.allow_180)
-                moves.push_back([this](TetrisActive &a)
-                                { return instructor.x(a); });
-            moves.push_back([this](TetrisActive &a)
-                            { return instructor.c(a); });
-            moves.push_back([this](TetrisActive &a)
-                            { return instructor.z(a); });
             while (!search.empty())
             {
                 current = search.front();
@@ -1750,6 +1736,10 @@ namespace TetrisAI
                     instructor.attach(map_copy, current);
                     status_copy.clear = map_copy.flush();
                     map_copy.scan();
+                    if (!status_copy.clear)
+                    {
+                        status_copy.garbage.take_all_damage(map_copy, atk.messiness);
+                    }
                     TetrisActive next = TetrisActive(config.default_x, config.default_y, config.default_r, status.next.queue.front());
                     bool dead = instructor.check_death(next);
                     double rating = TetrisJudge::begin_judgement(status, status_copy, map_copy, dead);
@@ -1791,6 +1781,10 @@ namespace TetrisAI
                     status_copy.spin_type = instructor.immobile(current) ? 3 : 0;
                     instructor.attach(map_copy, current);
                     status_copy.clear = map_copy.flush();
+                    if (!status_copy.clear)
+                    {
+                        status_copy.garbage.take_all_damage(map_copy, atk.messiness);
+                    }
                     map_copy.scan();
                     TetrisActive next = TetrisActive(config.default_x, config.default_y, config.default_r, next_manager.queue.front());
                     bool dead = instructor.check_death(next);

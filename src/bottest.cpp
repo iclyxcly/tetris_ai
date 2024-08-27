@@ -65,16 +65,17 @@ int main(void)
     std::mt19937 gen(rd());
     std::mt19937 mess_gen(rd());
     std::uniform_int_distribution<> dis(0, map.width - 1);
-    std::uniform_int_distribution<> mess_dis(0, 99);
+    std::uniform_int_distribution<> mess_dis(0, 5);
     TetrisMinoManager mino_manager("botris_srs.json");
     TetrisPendingLineManager pending(dis, mess_dis, gen, mess_gen);
     int16_t b2b = 0, combo = 0;
     uint8_t clear = 0, spin_type = 0;
     int count = 0;
-    int attack = 0;
+    int total_atk = 0;
     int total = 0;
     while (true)
     {
+    int attack = 0;
         read_config();
         if (next.queue.size() < 7)
         {
@@ -90,6 +91,11 @@ int main(void)
         if (result.front().path[0] == 'v')
         {
             next.change_hold();
+        }
+        if (count % 6 == 0)
+        {
+            pending.push_lines(3);
+            pending.push_lines(2);
         }
         TetrisInstructor instructor(map, next.active.type);
         TetrisActive next_active(config.default_x, config.default_y, config.default_r, next.queue.front());
@@ -114,6 +120,10 @@ int main(void)
                     b2b = 0;
                     combo = 0;
                     spin_type = 0;
+                    total_atk = 0;
+                    total = 0;
+                    count = 0;
+                    pending.pending = std::queue<int8_t>();
                 }
                 break;
             case 'l':
@@ -149,6 +159,7 @@ int main(void)
         {
         case 0:
             combo = 0;
+            pending.take_all_damage(map, atk.messiness);
             break;
         case 1:
             if (spin_type == 3)
@@ -160,7 +171,7 @@ int main(void)
             {
                 b2b = 0;
             }
-            attack += atk.combo_table[combo++];
+            attack += atk.combo_table[++combo];
             break;
         case 2:
             if (spin_type == 3)
@@ -173,7 +184,7 @@ int main(void)
                 b2b = 0;
                 attack += 1;
             }
-            attack += atk.combo_table[combo++];
+            attack += atk.combo_table[++combo];
             break;
         case 3:
             if (spin_type == 3)
@@ -186,16 +197,18 @@ int main(void)
                 b2b = 0;
                 attack += 2;
             }
-            attack += atk.combo_table[combo++];
+            attack += atk.combo_table[++combo];
             break;
         case 4:
             attack += 4 + b2b;
             b2b = 1;
-            attack += atk.combo_table[combo++];
+            attack += atk.combo_table[++combo];
             break;
         }
         ++count;
         total += clear;
+        total_atk += attack;
+        pending.fight_lines(attack);
         for (int i = config.default_y + 4; i >= 0; i--)
         {
             printf("%2d |", i);
@@ -205,6 +218,7 @@ int main(void)
             }
             printf("|\n");
         }
+        printf("#%d\n", count);
         printf("hold: %c, queue: ", type_to_char[next.hold]);
         auto queue = next.queue;
         while (!queue.empty())
@@ -213,7 +227,7 @@ int main(void)
             queue.pop();
         }
         printf("\n");
-        printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f\n", b2b, combo, clear, spin_type, attack / (double)count, attack / (double)total);
+        printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f\n", b2b, combo, clear, spin_type, total_atk / (double)count, total_atk / (double)total);
         printf("path: %s\n", result.front().path.c_str());
     }
     return 0;
