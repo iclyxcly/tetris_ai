@@ -5,28 +5,32 @@
 
 using namespace TetrisAI;
 
-void read_config() {
-	std::ifstream file("param.json");
-	json data;
-	file >> data;
-	p.roof = data["roof"];
-	p.col_trans = data["col_trans"];
-	p.row_trans = data["row_trans"];
-	p.hole_count = data["hole_count"];
-	p.hole_line = data["hole_line"];
-	p.aggregate_height = data["aggregate_height"];
-	p.bumpiness = data["bumpiness"];
-	p.attack = data["attack"];
-	p.b2b = data["b2b"];
-	p.combo = data["combo"];
-	p.clear_1 = data["clear_1"];
-	p.clear_2 = data["clear_2"];
-	p.clear_3 = data["clear_3"];
-	p.clear_4 = data["clear_4"];
-	p.aspin_1 = data["aspin_1"];
-	p.aspin_2 = data["aspin_2"];
-	p.aspin_3 = data["aspin_3"];
-	p.aspin_slot = data["aspin_slot"];
+void read_config()
+{
+    std::ifstream file("param.json");
+    json data;
+    file >> data;
+    p.roof = data["roof"];
+    p.col_trans = data["col_trans"];
+    p.row_trans = data["row_trans"];
+    p.hole_count = data["hole_count"];
+    p.hole_line = data["hole_line"];
+    p.aggregate_height = data["aggregate_height"];
+    p.bumpiness = data["bumpiness"];
+    p.wide_2 = data["wide_2"];
+    p.wide_3 = data["wide_3"];
+    p.wide_4 = data["wide_4"];
+    p.attack = data["attack"];
+    p.b2b = data["b2b"];
+    p.combo = data["combo"];
+    p.clear_1 = data["clear_1"];
+    p.clear_2 = data["clear_2"];
+    p.clear_3 = data["clear_3"];
+    p.clear_4 = data["clear_4"];
+    p.aspin_1 = data["aspin_1"];
+    p.aspin_2 = data["aspin_2"];
+    p.aspin_3 = data["aspin_3"];
+    p.aspin_slot = data["aspin_slot"];
 }
 
 std::queue<uint8_t> generate_bag()
@@ -68,14 +72,21 @@ int main(void)
     std::uniform_int_distribution<> mess_dis(0, 5);
     TetrisMinoManager mino_manager("botris_srs.json");
     TetrisPendingLineManager pending(dis, mess_dis, gen, mess_gen);
+    std::uniform_int_distribution<> line_dis(2, 3);
+    std::uniform_int_distribution<> piece_dis(2, 2);
+    std::mt19937 line_gen(rd());
+    std::mt19937 piece_gen(rd());
     int16_t b2b = 0, combo = 0;
     uint8_t clear = 0, spin_type = 0;
     int count = 0;
     int total_atk = 0;
     int total = 0;
+    int extra = 0;
+    int total_recv = 0;
+    int piece_rand = piece_dis(piece_gen);
     while (true)
     {
-    int attack = 0;
+        int attack = 0;
         read_config();
         if (next.queue.size() < 7)
         {
@@ -92,10 +103,12 @@ int main(void)
         {
             next.change_hold();
         }
-        if (count % 6 == 0)
+        if (count % piece_rand == 0)
         {
-            pending.push_lines(3);
-            pending.push_lines(2);
+            int recv = line_dis(line_gen);
+            total_recv += recv;
+            pending.push_lines(recv);
+            pending.fight_lines(extra);
         }
         TetrisInstructor instructor(map, next.active.type);
         TetrisActive next_active(config.default_x, config.default_y, config.default_r, next.queue.front());
@@ -124,6 +137,8 @@ int main(void)
                     total = 0;
                     count = 0;
                     pending.pending = std::queue<int8_t>();
+                    extra = 0;
+                    total_recv = 0;
                 }
                 break;
             case 'l':
@@ -208,7 +223,8 @@ int main(void)
         ++count;
         total += clear;
         total_atk += attack;
-        pending.fight_lines(attack);
+        extra += attack;
+        pending.fight_lines(extra);
         for (int i = config.default_y + 4; i >= 0; i--)
         {
             printf("%2d |", i);
@@ -219,6 +235,7 @@ int main(void)
             printf("|\n");
         }
         printf("#%d\n", count);
+        printf("version: %ld, total_nodes: %ld\n", tree.stable_version, tree.total_nodes);
         printf("hold: %c, queue: ", type_to_char[next.hold]);
         auto queue = next.queue;
         while (!queue.empty())
@@ -227,7 +244,7 @@ int main(void)
             queue.pop();
         }
         printf("\n");
-        printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f\n", b2b, combo, clear, spin_type, total_atk / (double)count, total_atk / (double)total);
+        printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f, opponent app: %.2f\n", b2b, combo, clear, spin_type, total_atk / (double)count, total_atk / (double)total, total_recv / (double)count);
         printf("path: %s\n", result.front().path.c_str());
     }
     return 0;

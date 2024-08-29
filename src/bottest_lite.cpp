@@ -6,28 +6,32 @@
 
 using namespace TetrisAI;
 
-void read_config() {
-	std::ifstream file("param.json");
-	json data;
-	file >> data;
-	p.roof = data["roof"];
-	p.col_trans = data["col_trans"];
-	p.row_trans = data["row_trans"];
-	p.hole_count = data["hole_count"];
-	p.hole_line = data["hole_line"];
-	p.aggregate_height = data["aggregate_height"];
-	p.bumpiness = data["bumpiness"];
-	p.attack = data["attack"];
-	p.b2b = data["b2b"];
-	p.combo = data["combo"];
-	p.clear_1 = data["clear_1"];
-	p.clear_2 = data["clear_2"];
-	p.clear_3 = data["clear_3"];
-	p.clear_4 = data["clear_4"];
-	p.aspin_1 = data["aspin_1"];
-	p.aspin_2 = data["aspin_2"];
-	p.aspin_3 = data["aspin_3"];
-	p.aspin_slot = data["aspin_slot"];
+void read_config()
+{
+    std::ifstream file("param.json");
+    json data;
+    file >> data;
+    p.roof = data["roof"];
+    p.col_trans = data["col_trans"];
+    p.row_trans = data["row_trans"];
+    p.hole_count = data["hole_count"];
+    p.hole_line = data["hole_line"];
+    p.aggregate_height = data["aggregate_height"];
+    p.bumpiness = data["bumpiness"];
+    p.wide_2 = data["wide_2"];
+    p.wide_3 = data["wide_3"];
+    p.wide_4 = data["wide_4"];
+    p.attack = data["attack"];
+    p.b2b = data["b2b"];
+    p.combo = data["combo"];
+    p.clear_1 = data["clear_1"];
+    p.clear_2 = data["clear_2"];
+    p.clear_3 = data["clear_3"];
+    p.clear_4 = data["clear_4"];
+    p.aspin_1 = data["aspin_1"];
+    p.aspin_2 = data["aspin_2"];
+    p.aspin_3 = data["aspin_3"];
+    p.aspin_slot = data["aspin_slot"];
 }
 
 std::queue<uint8_t> generate_bag()
@@ -74,7 +78,7 @@ int main(void)
     int total_count = 0;
     double average = 0;
     int death_count = 0;
-        read_config();
+    read_config();
     while (true)
     {
         if (next.queue.size() < 7)
