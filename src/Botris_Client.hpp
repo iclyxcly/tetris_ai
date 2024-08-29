@@ -364,28 +364,29 @@ private:
 		config.can_hold = data["canHold"];
 		int last_delay = -1;
 		int16_t total = 0;
-		int16_t acc = 0;
-		std::queue<int8_t> pending;
+		std::deque<TetrisPendingLine> pending;
 		for (auto &i : data["garbageQueued"])
 		{
-			if (i["delay"] != last_delay)
+			if (last_delay == -1)
 			{
 				last_delay = i["delay"];
-				pending.push(total);
+			}
+			else if (i["delay"] != last_delay)
+			{
+				pending.emplace_back(total, last_delay);
+				last_delay = i["delay"];
 				total = 1;
-				++acc;
 			}
 			else
 			{
 				++total;
-				++acc;
 			}
 		}
 		if (total != 0)
 		{
-			pending.push(total);
+			pending.emplace_back(total, last_delay);
 		}
-		utils::println(utils::INFO, " -> Pending lines: " + std::to_string(acc));
+		utils::println(utils::INFO, " -> Last delay: " + std::to_string(last_delay));
 		std::random_device rd;
 		std::uniform_int_distribution<> dis(0, map.width - 1);
 		std::uniform_int_distribution<> mess_dis(0, 99);

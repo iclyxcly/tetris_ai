@@ -49,6 +49,14 @@ std::queue<uint8_t> generate_bag()
     return bag;
 }
 
+void decay(std::deque<TetrisPendingLine> &pending)
+{
+    for (auto &line : pending)
+    {
+        line.at_depth--;
+    }
+}
+
 int main(void)
 {
     std::map<uint8_t, char> type_to_char = {
@@ -98,6 +106,7 @@ int main(void)
         TetrisStatus status(b2b, combo, next, pending);
         TetrisTree tree(map, config, status);
         auto result = tree.run();
+        decay(pending.pending);
         result.front().path += "V";
         if (result.front().path[0] == 'v')
         {
@@ -107,7 +116,7 @@ int main(void)
         {
             int recv = line_dis(line_gen);
             total_recv += recv;
-            pending.push_lines(recv);
+            pending.push_lines(recv, 1);
             pending.fight_lines(extra);
         }
         TetrisInstructor instructor(map, next.active.type);
@@ -124,22 +133,6 @@ int main(void)
                 instructor.attach(map, next.active);
                 clear = map.flush();
                 map.scan();
-                if (instructor.check_death(next_active))
-                {
-                    map = TetrisMap(10, 40);
-                    next.hold = EMPTY;
-                    next.queue = std::queue<uint8_t>();
-                    clear = 0;
-                    b2b = 0;
-                    combo = 0;
-                    spin_type = 0;
-                    total_atk = 0;
-                    total = 0;
-                    count = 0;
-                    pending.pending = std::queue<int8_t>();
-                    extra = 0;
-                    total_recv = 0;
-                }
                 break;
             case 'l':
                 instructor.l(next.active);
@@ -174,7 +167,7 @@ int main(void)
         {
         case 0:
             combo = 0;
-            pending.take_all_damage(map, atk.messiness);
+            pending.take_all_damage(map, atk.messiness, 0);
             break;
         case 1:
             if (spin_type == 3)
@@ -225,6 +218,22 @@ int main(void)
         total_atk += attack;
         extra += attack;
         pending.fight_lines(extra);
+        if (instructor.check_death(map, next_active))
+        {
+            map = TetrisMap(10, 40);
+            next.hold = EMPTY;
+            next.queue = std::queue<uint8_t>();
+            clear = 0;
+            b2b = 0;
+            combo = 0;
+            spin_type = 0;
+            total_atk = 0;
+            total = 0;
+            count = 0;
+            pending.pending = std::deque<TetrisPendingLine>();
+            extra = 0;
+            total_recv = 0;
+        }
         for (int i = config.default_y + 4; i >= 0; i--)
         {
             printf("%2d |", i);

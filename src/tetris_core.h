@@ -341,6 +341,12 @@ namespace TetrisAI
             queue = other;
         }
     };
+    struct TetrisPendingLine
+    {
+        int8_t lines;
+        int8_t at_depth;
+        TetrisPendingLine(int8_t lines, int8_t at_depth) : lines(lines), at_depth(at_depth) {}
+    };
     struct TetrisPendingLineManager
     {
         // todo: random device
@@ -348,30 +354,30 @@ namespace TetrisAI
         std::uniform_int_distribution<> &mess_dis;
         std::mt19937 gen;
         std::mt19937 mess_gen;
-        std::queue<int8_t> pending;
+        std::deque<TetrisPendingLine> pending;
         void fight_lines(int &attack)
         {
             while (!pending.empty() && attack > 0)
             {
-                if (pending.front() > attack)
+                if (pending.front().lines > attack)
                 {
-                    pending.front() -= attack;
+                    pending.front().lines -= attack;
                     attack = 0;
                 }
                 else
                 {
-                    attack -= pending.front();
-                    pending.pop();
+                    attack -= pending.front().lines;
+                    pending.pop_front();
                 }
             }
         }
-        void take_all_damage(TetrisMap &map, double messiness)
+        void take_all_damage(TetrisMap &map, const double &messiness, const int8_t &depth)
         {
-            while (!pending.empty())
+            while (!pending.empty() && depth >= pending.front().at_depth)
             {
-                int8_t line = pending.front();
+                int8_t line = pending.front().lines;
                 uint8_t index = dis(gen);
-                pending.pop();
+                pending.pop_front();
                 for (int8_t i = 0; i < line; i++)
                 {
                     if (mess_dis(mess_gen) < messiness * 100)
@@ -382,9 +388,9 @@ namespace TetrisAI
                 }
             }
         }
-        void push_lines(int8_t line)
+        void push_lines(int8_t line, int8_t at_depth)
         {
-            pending.push(line);
+            pending.emplace_back(TetrisPendingLine(line, at_depth));
         }
         void operator=(const TetrisPendingLineManager &other)
         {
@@ -394,7 +400,7 @@ namespace TetrisAI
             mess_gen = other.mess_gen;
             pending = other.pending;
         }
-        TetrisPendingLineManager(std::queue<int8_t> &pending, std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen), pending(pending) {}
+        TetrisPendingLineManager(std::deque<TetrisPendingLine> &pending, std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen), pending(pending) {}
         TetrisPendingLineManager(TetrisPendingLineManager &other) : dis(other.dis), mess_dis(other.mess_dis), gen(other.gen), mess_gen(other.mess_gen), pending(other.pending) {}
         TetrisPendingLineManager(std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen) {}
     };
@@ -1882,7 +1888,7 @@ namespace TetrisAI
                     map_copy.scan();
                     if (!status_copy.clear)
                     {
-                        status_copy.garbage.take_all_damage(map_copy, atk.messiness);
+                        status_copy.garbage.take_all_damage(map_copy, atk.messiness, 0);
                     }
                     if (!status_copy.dead)
                     {
@@ -1932,7 +1938,7 @@ namespace TetrisAI
                     status_cache.clear = map_cache.flush();
                     if (!status_cache.clear && !status_cache.garbage.pending.empty())
                     {
-                        status_cache.garbage.take_all_damage(map_cache, atk.messiness);
+                        status_cache.garbage.take_all_damage(map_cache, atk.messiness, node->version);
                     }
                     map_cache.scan();
                     if (!status_cache.dead && next_manager.queue.size() > 0)
