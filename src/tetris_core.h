@@ -13,7 +13,9 @@
 #include <chrono>
 #include "json.hpp"
 #include <nmmintrin.h>
+#if !_MSC_VER
 #define _mm_popcnt_u32 __builtin_popcount
+#endif
 namespace TetrisAI
 {
     using json = nlohmann::json;
@@ -615,30 +617,57 @@ namespace TetrisAI
         double multiplier = 0;
         uint8_t combo_table[20] = {0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4};
     } atk;
+    enum TetrisWeightEnum
+    {
+        ALLSPIN_1,
+        ALLSPIN_2,
+        ALLSPIN_3,
+        ALLSPIN_SLOT,
+        ATTACK,
+        BASIC_ATTACK,
+        ALLSPIN_ATTACK,
+        COMBO_ATTACK,
+        CLEAR_1,
+        CLEAR_2,
+        CLEAR_3,
+        CLEAR_4,
+        B2B,
+        ROOF,
+        COL_TRANS,
+        ROW_TRANS,
+        HOLE_COUNT,
+        HOLE_LINE,
+        WIDE_2,
+        WIDE_3,
+        WIDE_4,
+        HIGH_WIDING,
+        AGGREGATE_HEIGHT,
+        BUMPINESS,
+        HOLD_I,
+        HOLD_SZO,
+        HOLD_LJT,
+        WASTE_I,
+        WASTE_SZO,
+        WASTE_LJT,
+        TANK,
+        ATTACK_FORECAST,
+        ALLSPIN_FORECAST,
+        COMBO_FORECAST,
+        ALLSPIN_CHAIN,
+        SAFE_FORECAST,
+        LIKE_SAFE,
+        WASTE_SAFE,
+        HOLD_SAFE,
+        ALLSPIN_SAFE,
+        CLEAR_SAFE
+    };
     struct TetrisParam
     {
-        double roof = 40;
-        double col_trans = 15;
-        double row_trans = 20;
-        double aggregate_height = 1;
-        double bumpiness = 0;
-        double hole_count = 24;
-        double hole_line = 15;
-        double wide_2 = 0;
-        double wide_3 = 0;
-        double wide_4 = 0;
-        double b2b = 320;
-        double attack = 40;
-        double clear_1 = -100;
-        double clear_2 = -20;
-        double clear_3 = -20;
-        double clear_4 = 20;
-        double aspin_1 = 100;
-        double aspin_2 = 100;
-        double aspin_3 = 100;
-        double aspin_slot = 10;
-        double combo = 20;
-        double acc_rating_rate = 0.2;
+        double weight[64];
+        TetrisParam()
+        {
+            memset(weight, 0, sizeof(weight));
+        }
     } p;
     struct TetrisJudge
     {
@@ -1140,7 +1169,7 @@ namespace TetrisAI
             switch_box[I] = find_i_spin(map, v);
             switch_box[O] = find_o_spin(map, v);
         }
-        static double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map)
+        static double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map, const int8_t &depth)
         {
             struct TetrisEvalTemplate
             {
@@ -1206,7 +1235,18 @@ namespace TetrisAI
                 }
             }
             double like = 0;
+            double waste_like = 0;
+            double hold_like = 0;
+            double allspin_like = 0;
+            double clear_like = 0;
             int attack = 0;
+            int basic_attack = 0;
+            int combo_attack = 0;
+            int allspin_attack = 0;
+
+            auto calc_forecast = [&](double param) {
+                return 1. + depth * param;
+            };
             switch (now.clear)
             {
             case 0:
@@ -1215,152 +1255,151 @@ namespace TetrisAI
             case 1:
                 if (now.spin_type == 3)
                 {
-                    attack += atk.ass + now.b2b;
-                    like += p.aspin_1;
+                    attack += allspin_attack += atk.ass + now.b2b;
+                    like += allspin_like += p.weight[ALLSPIN_1];
                     now.b2b = 1;
                 }
                 else
                 {
-                    like += p.clear_1;
-                    attack += atk.single;
+                    like += clear_like += p.weight[CLEAR_1];
+                    attack += basic_attack += atk.single;
                     now.b2b = 0;
                     switch (now.next.active.type)
                     {
                     case S:
                     case Z:
                     case O:
-                        like -= 3;
+                        like += waste_like += p.weight[WASTE_SZO] * .5;
                         break;
                     case L:
                     case J:
                     case T:
-                        like -= 7;
+                        like += waste_like += p.weight[WASTE_LJT] * .6667;
                     case I:
-                        like -= 10;
+                        like += waste_like += p.weight[WASTE_I] * .75;
                         break;
                     }
                 }
-                attack += atk.combo_table[++now.combo];
+                attack += combo_attack += atk.combo_table[++now.combo];
                 break;
             case 2:
                 if (now.spin_type == 3)
                 {
-                    attack += atk.asd + now.b2b;
-                    like += p.aspin_2;
+                    attack += allspin_attack += atk.asd + now.b2b;
+                    like += allspin_like += p.weight[ALLSPIN_2];
                     now.b2b = 1;
                 }
                 else
                 {
-                    like += p.clear_2;
-                    attack += atk.double_;
+                    like += clear_like += p.weight[CLEAR_2];
+                    attack += basic_attack += atk.double_;
                     now.b2b = 0;
                     switch (now.next.active.type)
                     {
                     case L:
                     case J:
                     case T:
-                        like -= 3;
+                        like += waste_like += p.weight[WASTE_LJT] * .3333;
                     case I:
-                        like -= 7;
+                        like += waste_like += p.weight[WASTE_I] * .5;
                         break;
                     }
                 }
-                attack += atk.combo_table[++now.combo];
+                attack += combo_attack += atk.combo_table[++now.combo];
                 break;
             case 3:
                 if (now.spin_type == 3)
                 {
-                    attack += atk.ast + now.b2b;
-                    like += p.aspin_3;
+                    attack += allspin_attack += atk.ast + now.b2b;
+                    like += allspin_like += p.weight[ALLSPIN_3];
                     now.b2b = 1;
                 }
                 else
                 {
-                    like += p.clear_3;
-                    attack += atk.triple;
+                    like += clear_like += p.weight[CLEAR_3];
+                    attack += basic_attack += atk.triple;
                     now.b2b = 0;
                     switch (now.next.active.type)
                     {
                     case I:
-                        like -= 3;
+                        like += waste_like += p.weight[WASTE_I] * .25;
                         break;
                     }
                 }
-                attack += atk.combo_table[++now.combo];
+                attack += combo_attack += atk.combo_table[++now.combo];
                 break;
             case 4:
-                like += p.clear_4;
-                attack += atk.quad + now.b2b + atk.combo_table[++now.combo];
+                like += clear_like += p.weight[CLEAR_4];
+                attack += basic_attack += atk.quad + now.b2b;
+                now.b2b = 1;
+                attack += combo_attack += atk.combo_table[++now.combo];
             }
             if (!map.roof)
             {
-                attack = atk.pc;
-                like += 999999;
+                attack += atk.pc;
             }
             now.garbage.fight_lines(attack);
-            // std::string output = "";
-            //	for (int i = 24; i >= 0; i--) {
-            //		bool minoAreaY = i >= path.coord.y && i < path.coord.y + 4;
-            //		char buffer[256] = { '\0' };
-            //		sprintf(buffer, "%2d|", i);
-            //		output += buffer;
-            //		for (int j = 0; j < map.width; j++) {
-            //			bool minoAreaX = j >= path.coord.x && j < path.coord.x + 4;
-            //			/*bool minoPixel = minoAreaX && minoAreaY && test.mino_full(Minodata::MINOTYPES[block.coord.t][block.coord.r], j - block.coord.x, i - block.coord.y);*/
-            //			bool minoPixel = minoAreaX && minoAreaY && (Minodata::MINOTYPES[path.coord.t][path.coord.r][3 - (i - path.coord.y)] & (8 >> (j - path.coord.x)));
-            //			output += (map.full(j, i)) || minoPixel ? minoPixel ? "()" : "[]" : "  ";
-            //		}
-            //		output += "|\n";
-            //	}
-            //	printf("%s", output.c_str());
+            like -= std::accumulate(now.garbage.pending.begin(), now.garbage.pending.end(), 0, [](int a, TetrisPendingLine b) { return a + b.lines; }) * depth * p.weight[TANK];
             if ((last.spin_type == 3 || last.clear == 4) && (now.spin_type == 3 || now.clear == 4) && last.clear && now.clear)
             {
-                like += 3 * now.clear * now.combo;
-            }
-            if (last.b2b && !now.b2b)
-            {
-                like += (now.b2b - last.b2b) * p.b2b;
-            }
-            double rating = -map.roof * p.roof;
-            for (int i = map.width - 1; i >= 0; --i)
-            {
-                rating += eval.wide[i] * (10 - i);
+                like += allspin_like += allspin_attack * calc_forecast(p.weight[ALLSPIN_CHAIN]);
             }
             switch (now.next.hold)
             {
             case I:
-                like += 7;
+                like += hold_like += p.weight[HOLD_I];
                 break;
             case S:
             case Z:
             case O:
-                like += 3;
+                like += hold_like += p.weight[HOLD_SZO];
                 break;
             case L:
             case J:
             case T:
-                like += 5;
+                like += hold_like += p.weight[HOLD_LJT];
             }
-            rating -= eval.col_trans * p.col_trans;
-            rating -= eval.row_trans * p.row_trans;
-            rating -= eval.aggregate_height * p.aggregate_height;
-            rating -= eval.bumpiness * p.bumpiness;
-            rating -= eval.hole_count * p.hole_count;
-            rating -= eval.hole_line * p.hole_line;
-            rating += eval.wide[2] * p.wide_2;
-            rating += eval.wide[3] * p.wide_3;
-            rating += eval.wide[4] * p.wide_4;
-            double status_rating = 0;
-            status_rating += eval.spin_slot * p.aspin_slot;
-            status_rating += like * 10;
-            status_rating += attack * p.attack;
-            status_rating += now.b2b * p.b2b;
-            status_rating += atk.combo_table[now.combo] * p.combo;
-            status_rating *= (22.0 - map.roof) / 22.0;
-            if (now.dead)
+            double rating = ((0.
+                    - map.roof * p.weight[ROOF]
+                    - eval.col_trans * p.weight[COL_TRANS]
+                    - eval.row_trans * p.weight[ROW_TRANS]
+                    - eval.aggregate_height * p.weight[AGGREGATE_HEIGHT]
+                    - eval.bumpiness * p.weight[BUMPINESS]
+                    - eval.hole_count * p.weight[HOLE_COUNT]
+                    - eval.hole_line * p.weight[HOLE_LINE]
+                ) * calc_forecast(p.weight[SAFE_FORECAST])
+            );
+            rating += (0.
+                + eval.wide[2] * p.weight[WIDE_2]
+                + eval.wide[3] * p.weight[WIDE_3]
+                + eval.wide[4] * p.weight[WIDE_4]
+            );
+            for (int i = map.width - 1; i >= 0; --i)
             {
-                rating -= 999999999;
+                rating += eval.wide[i] * (map.width - i) * p.weight[HIGH_WIDING];
             }
+            int safe = 20 - map.roof;
+            double like_wine = ((0.
+                + like * (safe + 12) * calc_forecast(p.weight[LIKE_SAFE])
+                + waste_like * (safe + 20) * calc_forecast(p.weight[WASTE_SAFE])
+                + hold_like * (safe + 16) * calc_forecast(p.weight[HOLD_SAFE])
+                + allspin_like * (safe + 14) * calc_forecast(p.weight[ALLSPIN_SAFE])
+                + clear_like * (safe + 6) * calc_forecast(p.weight[CLEAR_SAFE])
+            ));
+            double attack_wine = ((0.
+                + basic_attack * (safe + 16) * calc_forecast(p.weight[BASIC_ATTACK])
+                + combo_attack * (safe + 10) * calc_forecast(p.weight[COMBO_ATTACK])
+                + allspin_attack * (safe + 8) * calc_forecast(p.weight[ALLSPIN_ATTACK])
+            ));
+            double status_rating = ((0.
+                    + eval.spin_slot * (safe + 10 + p.weight[ALLSPIN_SLOT]) * calc_forecast(p.weight[ALLSPIN_FORECAST])
+                    + attack * p.weight[ATTACK] * calc_forecast(p.weight[ATTACK_FORECAST])
+                    + like_wine
+                    + attack_wine
+                    + (now.b2b - last.b2b) * p.weight[B2B]
+                    + atk.combo_table[now.combo] * calc_forecast(p.weight[COMBO_FORECAST])
+                    - now.dead * 99999999.0
+            ));
             return rating + status_rating;
         }
     };
@@ -1895,7 +1934,7 @@ namespace TetrisAI
                         TetrisActive next = TetrisActive(config.default_x, config.default_y, config.default_r, status.next.queue.front());
                         status_copy.dead = instructor.check_death(map_copy, next);
                     }
-                    double rating = TetrisJudge::begin_judgement(status, status_copy, map_copy);
+                    double rating = TetrisJudge::begin_judgement(status, status_copy, map_copy, 1);
                     if (rating > best)
                     {
                         best = rating;
@@ -1946,7 +1985,7 @@ namespace TetrisAI
                         TetrisActive next = TetrisActive(config.default_x, config.default_y, config.default_r, next_manager.queue.front());
                         status_cache.dead = instructor.check_death(map_cache, next);
                     }
-                    double rating = TetrisJudge::begin_judgement(node->status, status_cache, map_cache);
+                    double rating = TetrisJudge::begin_judgement(node->status, status_cache, map_cache, node->version + 1);
                     node->children.push_back(new TetrisNode(rating, node->version + 1, node, map_cache, status_cache));
                 }
             }

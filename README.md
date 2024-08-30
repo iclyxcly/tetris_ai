@@ -2,10 +2,10 @@
  
 todo
 
-eval #wip
-memory management #hmm
-multithread
+eval #done maybe
+multithread #later
 trainer
+pc search (?)
 improve snapshot&attach
 
 
