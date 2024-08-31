@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <queue>
 #include <unistd.h>
+#include <iostream>
 
 using namespace TetrisAI;
 
@@ -11,27 +12,27 @@ void read_config()
     std::ifstream file("param.json");
     json data;
     file >> data;
-    p.roof = data["roof"];
-    p.col_trans = data["col_trans"];
-    p.row_trans = data["row_trans"];
-    p.hole_count = data["hole_count"];
-    p.hole_line = data["hole_line"];
-    p.aggregate_height = data["aggregate_height"];
-    p.bumpiness = data["bumpiness"];
-    p.wide_2 = data["wide_2"];
-    p.wide_3 = data["wide_3"];
-    p.wide_4 = data["wide_4"];
-    p.attack = data["attack"];
-    p.b2b = data["b2b"];
-    p.combo = data["combo"];
-    p.clear_1 = data["clear_1"];
-    p.clear_2 = data["clear_2"];
-    p.clear_3 = data["clear_3"];
-    p.clear_4 = data["clear_4"];
-    p.aspin_1 = data["aspin_1"];
-    p.aspin_2 = data["aspin_2"];
-    p.aspin_3 = data["aspin_3"];
-    p.aspin_slot = data["aspin_slot"];
+    p.weight[ROOF] = data["roof"];
+    p.weight[COL_TRANS] = data["col_trans"];
+    p.weight[ROW_TRANS] = data["row_trans"];
+    p.weight[HOLE_COUNT] = data["hole_count"];
+    p.weight[HOLE_LINE] = data["hole_line"];
+    p.weight[AGGREGATE_HEIGHT] = data["aggregate_height"];
+    p.weight[BUMPINESS] = data["bumpiness"];
+    p.weight[WIDE_2] = data["wide_2"];
+    p.weight[WIDE_3] = data["wide_3"];
+    p.weight[WIDE_4] = data["wide_4"];
+    p.weight[ATTACK] = data["attack"];
+    p.weight[B2B] = data["b2b"];
+    p.weight[] = data["combo"];
+    p.weight[CLEAR_1] = data["clear_1"];
+    p.weight[CLEAR_2] = data["clear_2"];
+    p.weight[CLEAR_3] = data["clear_3"];
+    p.weight[CLEAR_4] = data["clear_4"];
+    p.weight[ALLSPIN_1] = data["aspin_1"];
+    p.weight[ALLSPIN_2] = data["aspin_2"];
+    p.weight[ALLSPIN_3] = data["aspin_3"];
+    p.weight[ALLSPIN_SLOT] = data["aspin_slot"];
 }
 
 std::queue<uint8_t> generate_bag()
@@ -62,7 +63,7 @@ int main(void)
         {J, 'J'},
         {EMPTY, ' '}};
     TetrisConfig config;
-    config.default_y = 10;
+    config.default_y = 20;
     TetrisNextManager next(config);
     TetrisMap map(10, 40);
     std::random_device rd;
@@ -107,7 +108,7 @@ int main(void)
                 instructor.attach(map, active);
                 clear = map.flush();
                 map.scan();
-                if (instructor.check_death(next_active))
+                if (instructor.check_death(map, next_active))
                 {
                     ++death_count;
                     map = TetrisMap(10, 40);
@@ -124,10 +125,17 @@ int main(void)
                     }
                     average = total_count / death_count;
                     count = 0;
-                    if (death_count == 100)
+                    if (death_count == 30)
                     {
                         printf("highest: %d, average: %.2f\n", highest, average);
-                        return 0;
+                        count = 0;
+                        last = 0;
+                        highest = 0;
+                        average = 0;
+                        death_count = 0;
+                        total_count = 0;
+                        std::cin.get();
+                        continue;
                     }
                 }
                 break;
@@ -223,7 +231,8 @@ int main(void)
         // printf("\n");
         // printf("b2b: %d, combo: %d, clear: %d, spin_type: %d\n", b2b, combo, clear, spin_type);
         // printf("path: %s\n", result.path.c_str());
-        printf("#%6d, last: %6d, highest: %6d, average: %.2f, death: %d\n", ++count, last, highest, average, death_count);
+        ++count;
+        // printf("#%6d, last: %6d, highest: %6d, average: %.2f, death: %d\n", count, last, highest, average, death_count);
         ++total_count;
         // usleep(10000);
     }
