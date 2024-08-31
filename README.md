@@ -4,10 +4,11 @@ todo
 
 eval #done maybe
 multithread #later
+
 trainer
 pc search (?)
 improve snapshot&attach
-
+stalling when dead
 
 
 

@@ -325,7 +325,7 @@ namespace TetrisAI
             changed_hold = false;
             return true;
         }
-        void push(uint8_t type)
+        void push(uint8_t &type)
         {
             queue.push(type);
         }
@@ -341,6 +341,14 @@ namespace TetrisAI
         {
             queue = other;
         }
+        bool empty()
+        {
+            return queue.empty();
+        }
+        std::size_t size()
+        {
+            return queue.size();
+        }
     };
     struct TetrisPendingLine
     {
@@ -350,7 +358,6 @@ namespace TetrisAI
     };
     struct TetrisPendingLineManager
     {
-        // todo: random device
         std::uniform_int_distribution<> &dis;
         std::uniform_int_distribution<> &mess_dis;
         std::mt19937 gen;
@@ -401,9 +408,9 @@ namespace TetrisAI
             mess_gen = other.mess_gen;
             pending = other.pending;
         }
-        TetrisPendingLineManager(std::deque<TetrisPendingLine> &pending, std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen), pending(pending) {}
+        TetrisPendingLineManager(std::deque<TetrisPendingLine> &pending, std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(gen), pending(pending) {}
         TetrisPendingLineManager(TetrisPendingLineManager &other) : dis(other.dis), mess_dis(other.mess_dis), gen(other.gen), mess_gen(other.mess_gen), pending(other.pending) {}
-        TetrisPendingLineManager(std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen, std::mt19937 &mess_gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(mess_gen) {}
+        TetrisPendingLineManager(std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(gen) {}
     };
     struct TetrisStatus
     {
