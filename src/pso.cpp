@@ -382,6 +382,10 @@ struct PSOSwarmManager
         {
             if ((particle.matches < low.matches && particle.generation <= low.generation) || particle.generation < low.generation)
             {
+                if (std::find(borrowed_ids.begin(), borrowed_ids.end(), particle.id) != borrowed_ids.end())
+                {
+                    continue;
+                }
                 low = particle;
             }
         }
@@ -412,10 +416,10 @@ struct PSOSwarmManager
     PSOParticleData get_best()
     {
         PSOParticleData best;
-        best.best_score = std::numeric_limits<double>::max();
+        best.best_score = std::numeric_limits<double>::min();
         for (auto &particle : swarm)
         {
-            if (particle.best_score < best.best_score)
+            if (particle.best_score > best.best_score)
             {
                 best = particle;
             }
@@ -492,7 +496,7 @@ int main(void)
     {
         s_mgr.init_pso();
     }
-    const int thread_count = std::thread::hardware_concurrency();
+    const int thread_count = std::thread::hardware_concurrency() - 1;
     std::vector<std::thread> threads;
     std::recursive_mutex mtx;
     TetrisConfig config;
@@ -528,6 +532,7 @@ int main(void)
                 mtx.lock();
                 PSOParticleData particle = s_mgr.find_match();
                 mtx.unlock();
+                //printf("MATCH FOUND ID = %d, THREAD = %d\n", particle.id, index);
                 TetrisPlayer player(config, particle.pos[PSO_CURRENT], dis, mess_dis, gen);
                 auto view_func = [&]()
                 {

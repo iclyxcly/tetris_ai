@@ -656,7 +656,6 @@ namespace TetrisAI
         HOLD_SAFE,
         ALLSPIN_SAFE,
         CLEAR_SAFE,
-        PRUNE_STRICTNESS,
         END_OF_PARAM
     };
     struct TetrisParam
@@ -2011,7 +2010,7 @@ namespace TetrisAI
             double max_score = node->children[0]->rating;
             double min_score = node->children[node->children.size() - 1]->rating;
             double range = max_score - min_score;
-            double prune_threshold = param.weight[PRUNE_STRICTNESS] * range;
+            double prune_threshold = 0.5 * range;
             int i = node->children.size() - 1;
             while (i >= 1 && max_score - node->children[i]->rating > prune_threshold)
             {
