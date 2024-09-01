@@ -45,3 +45,5 @@ src/main
 src/jsonouttest
 src/movegentest
 src/pendingtest
+src/pso
+src/pso_data.bin

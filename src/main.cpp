@@ -4,7 +4,7 @@
 #include "tetris_core.h"
 int main()
 {
-    ix::initNetSystem();
+    // ix::initNetSystem();
     {
         TetrisMinoManager mino_manager("botris_srs.json");
     }

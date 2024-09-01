@@ -1,3 +1,4 @@
+#pragma once
 #include <cstdint>
 #include <random>
 #include <map>
@@ -212,9 +213,8 @@ namespace TetrisAI
         bool allow_D;
         bool allow_d;
         bool allow_x;
-        double prune_strictness;
         time_t target_time;
-        TetrisConfig() : default_x(3), default_y(17), default_r(0), can_hold(true), allow_LR(true), allow_lr(true), allow_D(true), allow_d(true), allow_x(false), prune_strictness(0.4), target_time(100) {}
+        TetrisConfig() : default_x(3), default_y(17), default_r(0), can_hold(true), allow_LR(true), allow_lr(true), allow_D(true), allow_d(true), allow_x(false), target_time(100) {}
     };
     struct TetrisCoord
     {
@@ -280,7 +280,7 @@ namespace TetrisAI
         std::queue<uint8_t> queue;
         uint8_t hold;
         bool changed_hold;
-        TetrisNextManager(TetrisConfig &config) : config(config), active(config.default_x, config.default_y, config.default_r, 0), hold(255), changed_hold(false) {}
+        TetrisNextManager(TetrisConfig &config) : config(config), active(config.default_x, config.default_y, config.default_r, 0), hold(EMPTY), changed_hold(false) {}
         TetrisNextManager(TetrisNextManager &other) : config(other.config), active(other.active), hold(other.hold), changed_hold(other.changed_hold)
         {
             queue = other.queue;
@@ -656,6 +656,7 @@ namespace TetrisAI
         HOLD_SAFE,
         ALLSPIN_SAFE,
         CLEAR_SAFE,
+        PRUNE_STRICTNESS,
         END_OF_PARAM
     };
     struct TetrisParam
@@ -664,6 +665,14 @@ namespace TetrisAI
         TetrisParam()
         {
             memset(weight, 0, sizeof(weight));
+        }
+        bool operator==(const TetrisParam &other) const
+        {
+            return std::memcmp(weight, other.weight, sizeof(weight)) == 0;
+        }
+        bool operator!=(const TetrisParam &other) const
+        {
+            return std::memcmp(weight, other.weight, sizeof(weight)) != 0;
         }
     };
     struct TetrisEvaluation
@@ -1726,6 +1735,13 @@ namespace TetrisAI
         {
             memcpy(map_copy.board, active.snapshot, sizeof(map_copy.board));
         }
+        void dropless_attach(TetrisMap &map_copy, const TetrisActive &active) const
+        {
+            for (int i = std::max<int>(0, active.y); i < active.y + 4; i++)
+            {
+                map_copy.board[i] |= move_cache[active.r][active.x][i - active.y];
+            }
+        }
         bool check_death(const TetrisMap &map_ext, const TetrisActive &active) const
         {
             TetrisMinocacheMini &cache = TetrisMinoManager::move_cache[active.type];
@@ -1995,7 +2011,7 @@ namespace TetrisAI
             double max_score = node->children[0]->rating;
             double min_score = node->children[node->children.size() - 1]->rating;
             double range = max_score - min_score;
-            double prune_threshold = config.prune_strictness * range;
+            double prune_threshold = param.weight[PRUNE_STRICTNESS] * range;
             int i = node->children.size() - 1;
             while (i >= 1 && max_score - node->children[i]->rating > prune_threshold)
             {

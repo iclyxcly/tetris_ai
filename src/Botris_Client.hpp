@@ -1,10 +1,11 @@
 #pragma once
+#include "tetris_core.h"
 #include <iostream>
 #include <fstream>
+#include <stdio.h>
 #include <ixwebsocket/IXNetSystem.h>
 #include <ixwebsocket/IXWebSocket.h>
 #include <ixwebsocket/IXUserAgent.h>
-#include "tetris_core.h"
 #include "json.hpp"
 #include "utils.hpp"
 #include <boost/algorithm/string/join.hpp>
@@ -83,6 +84,7 @@ class Botris_Client
 {
 	using pfunc = void (Botris_Client::*)(json);
 	TetrisConfig config;
+	TetrisParam param;
 	Payload::SessionId session_id;
 	Payload::RoomData room_data;
 
@@ -154,30 +156,16 @@ private:
 
 	void read_config()
 	{
-		std::ifstream file("param.json");
-		json data;
-		file >> data;
-		p.roof = data["roof"];
-		p.col_trans = data["col_trans"];
-		p.row_trans = data["row_trans"];
-		p.hole_count = data["hole_count"];
-		p.hole_line = data["hole_line"];
-		p.aggregate_height = data["aggregate_height"];
-		p.bumpiness = data["bumpiness"];
-		p.wide_2 = data["wide_2"];
-		p.wide_3 = data["wide_3"];
-		p.wide_4 = data["wide_4"];
-		p.attack = data["attack"];
-		p.b2b = data["b2b"];
-		p.combo = data["combo"];
-		p.clear_1 = data["clear_1"];
-		p.clear_2 = data["clear_2"];
-		p.clear_3 = data["clear_3"];
-		p.clear_4 = data["clear_4"];
-		p.aspin_1 = data["aspin_1"];
-		p.aspin_2 = data["aspin_2"];
-		p.aspin_3 = data["aspin_3"];
-		p.aspin_slot = data["aspin_slot"];
+		FILE* file = fopen("best_param.txt", "r");
+		if (file == NULL) {
+			utils::println(utils::ERR, " -> Failed to open best_param.txt");
+			return;
+		}
+		for (int i = 0; i < END_OF_PARAM; ++i)
+		{
+			fscanf(file, "%lf\n", &param.weight[i]);
+		}
+		fclose(file);
 	}
 
 	void data_safeshift(json &data, std::string target)
@@ -364,7 +352,11 @@ private:
 		config.can_hold = data["canHold"];
 		int last_delay = -1;
 		int16_t total = 0;
-		std::deque<TetrisPendingLine> pending;
+		std::random_device rd;
+		std::uniform_int_distribution<> dis(0, map.width - 1);
+		std::uniform_int_distribution<> mess_dis(0, 99);
+		std::mt19937 gen(rd());
+		TetrisPendingLineManager pending(dis, mess_dis, gen);
 		for (auto &i : data["garbageQueued"])
 		{
 			if (last_delay == -1)
@@ -373,7 +365,7 @@ private:
 			}
 			else if (i["delay"] != last_delay)
 			{
-				pending.emplace_back(total, last_delay);
+				pending.push_lines(total, last_delay);
 				last_delay = i["delay"];
 				total = 1;
 			}
@@ -384,18 +376,12 @@ private:
 		}
 		if (total != 0)
 		{
-			pending.emplace_back(total, last_delay);
+			pending.push_lines(total, last_delay);
 		}
 		utils::println(utils::INFO, " -> Last delay: " + std::to_string(last_delay));
-		std::random_device rd;
-		std::uniform_int_distribution<> dis(0, map.width - 1);
-		std::uniform_int_distribution<> mess_dis(0, 99);
-		std::mt19937 gen(rd());
-		std::mt19937 mess_gen(rd());
-		TetrisPendingLineManager under_attack(pending, dis, mess_dis, gen, mess_gen);
 		read_config();
-		TetrisStatus status(data["b2b"], data["combo"], next_manager, under_attack);
-		TetrisTree runner(map, config, status);
+		TetrisStatus status(data["b2b"], data["combo"], next_manager, pending);
+		TetrisTree runner(map, config, status, param);
 		auto result = runner.run();
 		auto path = translate_command(result.front().path);
 		ws_make_move(path);
