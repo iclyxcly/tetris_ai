@@ -379,9 +379,32 @@ namespace TetrisAI
                 }
             }
         }
-        void take_all_damage(TetrisMap &map, const double &messiness, const int8_t &depth)
+        void decay()
         {
-            while (!pending.empty() && depth >= pending.front().at_depth)
+            for (auto &line : pending)
+            {
+                line.at_depth--;
+            }
+        }
+        int8_t estimate_damage()
+        {
+            int8_t damage = 0;
+            for (auto &line : pending)
+            {
+                if (line.at_depth <= 0)
+                {
+                    damage += line.lines;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return damage;
+        }
+        void take_all_damage(TetrisMap &map, const double &messiness)
+        {
+            while (!pending.empty() && pending[0].at_depth <= 0)
             {
                 int8_t line = pending.front().lines;
                 uint8_t index = dis(gen);
@@ -395,6 +418,7 @@ namespace TetrisAI
                     map.push_cheese(1, index);
                 }
             }
+            map.scan();
         }
         void push_lines(int8_t line, int8_t at_depth)
         {
@@ -647,6 +671,9 @@ namespace TetrisAI
         ATTACK_FORECAST,
         ALLSPIN_FORECAST,
         ALLSPIN_CHAIN,
+        TANK,
+        MID_GROUND,
+        HIGH_GROUND,
         END_OF_PARAM
     };
     struct TetrisParam
@@ -655,27 +682,29 @@ namespace TetrisAI
         TetrisParam()
         {
             memset(weight, 0, sizeof(weight));
-            weight[ROOF] = 0;
-            weight[COL_TRANS] = -2.1;
-            weight[ROW_TRANS] = 40;
-            weight[AGGREGATE_HEIGHT] = 2.5;
-            weight[BUMPINESS] = 2;
-            weight[HOLE_COUNT] = 60;
-            weight[HOLE_LINE] = 30;
-            weight[WIDE_2] = 2;
-            weight[WIDE_3] = 4;
-            weight[WIDE_4] = 12;
-            weight[B2B] = 22;
-            weight[ATTACK] = 100;
-            weight[CLEAR_1] = -6;
-            weight[CLEAR_2] = -10;
-            weight[CLEAR_3] = -14;
-            weight[CLEAR_4] = 32;
-            weight[ALLSPIN_1] = 60;
-            weight[ALLSPIN_2] = 48;
-            weight[ALLSPIN_3] = 32;
-            weight[ALLSPIN_SLOT] = 35;
-            weight[COMBO] = 60;
+            // weight[ROOF] = 0;
+            // weight[COL_TRANS] = -2.1;
+            // weight[ROW_TRANS] = 40;
+            // weight[AGGREGATE_HEIGHT] = 2.5;
+            // weight[BUMPINESS] = 2;
+            // weight[HOLE_COUNT] = 60;
+            // weight[HOLE_LINE] = 30;
+            // weight[WIDE_2] = 2;
+            // weight[WIDE_3] = 4;
+            // weight[WIDE_4] = 12;
+            // weight[B2B] = 22;
+            // weight[ATTACK] = 100;
+            // weight[CLEAR_1] = -6;
+            // weight[CLEAR_2] = -10;
+            // weight[CLEAR_3] = -14;
+            // weight[CLEAR_4] = 32;
+            // weight[ALLSPIN_1] = 60;
+            // weight[ALLSPIN_2] = 48;
+            // weight[ALLSPIN_3] = 32;
+            // weight[ALLSPIN_SLOT] = 35;
+            // weight[COMBO] = 60;
+            // weight[MID_GROUND] = 0.8;
+            // weight[HIGH_GROUND] = 0.4;
             // the rest depends on pso
         }
         bool operator==(const TetrisParam &other) const
@@ -685,6 +714,367 @@ namespace TetrisAI
         bool operator!=(const TetrisParam &other) const
         {
             return std::memcmp(weight, other.weight, sizeof(weight)) != 0;
+        }
+    };
+    struct TetrisInstructor
+    {
+        const TetrisMap &map;
+        TetrisMinocacheMini &move_cache;
+        TetrisMino &mino;
+        TetrisInstructor(const TetrisMap &map, uint8_t type) : map(map), move_cache(TetrisMinoManager::move_cache[type]), mino(TetrisMinoManager::mino_list[type]) {}
+        bool integrate(const int8_t &x, const int8_t &y, const int8_t &r) const
+        {
+            for (int8_t i = -mino.down_offset[r], t = 4 + mino.up_offset[r]; i < t; ++i)
+            {
+                if (map.board[y + i] & move_cache[r][x][i])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        bool l(TetrisActive &active) const
+        {
+            active.x -= 1;
+            if (active.x < mino.left_offset[active.r])
+            {
+                active.x += 1;
+                return false;
+            }
+            if (active.y > map.roof)
+            {
+                active.path += 'l';
+                active.last_rotate = false;
+                return true;
+            }
+            if (!integrate(active.x, active.y, active.r))
+            {
+                active.x += 1;
+                return false;
+            }
+            active.last_rotate = false;
+            active.path += 'l';
+            return true;
+        }
+        bool r(TetrisActive &active) const
+        {
+            active.x += 1;
+            if (active.x > map.width - mino.right_offset[active.r] - 4)
+            {
+                active.x -= 1;
+                return false;
+            }
+            if (active.y > map.roof)
+            {
+                active.path += 'r';
+                active.last_rotate = false;
+                return true;
+            }
+            if (!integrate(active.x, active.y, active.r))
+            {
+                active.x -= 1;
+                return false;
+            }
+            active.path += 'r';
+            active.last_rotate = false;
+            return true;
+        }
+        bool L(TetrisActive &active) const
+        {
+            if (active.x == mino.left_offset[active.r])
+                return false;
+            if (active.y > map.roof)
+            {
+                active.x = mino.left_offset[active.r];
+                active.last_rotate = false;
+                active.path += 'L';
+                return true;
+            }
+            int count = 0;
+            while (--active.x >= mino.left_offset[active.r] && integrate(active.x, active.y, active.r))
+            {
+                ++count;
+            }
+            if (count)
+            {
+                active.last_rotate = false;
+                active.path += 'L';
+            }
+            ++active.x;
+            return count;
+        }
+        bool R(TetrisActive &active) const
+        {
+            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
+            if (active.x == rightmost)
+                return false;
+            if (active.y > map.roof)
+            {
+                active.x = rightmost;
+                active.last_rotate = false;
+                active.path += 'R';
+                return true;
+            }
+            int count = 0;
+            while (++active.x <= rightmost && integrate(active.x, active.y, active.r))
+            {
+                ++count;
+            }
+            if (count)
+            {
+                active.last_rotate = false;
+                active.path += 'R';
+            }
+            --active.x;
+            return count;
+        }
+        bool d(TetrisActive &active) const
+        {
+            if (active.y > map.roof)
+            {
+                active.path.append(active.y - map.roof, 'd');
+                active.y = map.roof;
+                active.last_rotate = false;
+                return true;
+            }
+            active.y -= 1;
+            if (active.y < mino.down_offset[active.r] || !integrate(active.x, active.y, active.r))
+            {
+                active.y += 1;
+                return false;
+            }
+            active.last_rotate = false;
+            active.path += 'd';
+            return true;
+        }
+        bool D(TetrisActive &active) const
+        {
+            if (active.y == mino.down_offset[active.r])
+                return false;
+            int count = 0;
+            if (active.y > map.roof)
+            {
+                active.y = map.roof;
+                active.last_rotate = false;
+                ++count;
+            }
+            while (--active.y >= mino.down_offset[active.r] && integrate(active.x, active.y, active.r))
+            {
+                ++count;
+            }
+            if (count)
+            {
+                active.last_rotate = false;
+                active.path += 'D';
+            }
+            ++active.y;
+            return count;
+        }
+        bool D_PRESERVE_PATH(TetrisActive &active) const
+        {
+            if (active.y == mino.down_offset[active.r])
+                return false;
+            int count = 0;
+            if (active.y > map.roof)
+            {
+                active.y = map.roof;
+                active.last_rotate = false;
+                ++count;
+            }
+            while (--active.y >= mino.down_offset[active.r] && integrate(active.x, active.y, active.r))
+            {
+                ++count;
+            }
+            if (count)
+            {
+                active.last_rotate = false;
+            }
+            ++active.y;
+            return count;
+        }
+        void D_PRESERVE_LAST_ROTATE(TetrisActive &active) const
+        {
+            if (active.y == mino.down_offset[active.r])
+                return;
+            if (active.y > map.roof)
+            {
+                active.y = map.roof;
+            }
+            while (--active.y >= mino.down_offset[active.r] && integrate(active.x, active.y, active.r));
+            ++active.y;
+            return;
+        }
+        bool c(TetrisActive &active) const
+        {
+            active.r = (active.r + 1) & 3;
+            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
+            if (active.x >= mino.left_offset[active.r] && active.x <= rightmost && active.y >= mino.down_offset[active.r])
+            {
+                if (integrate(active.x, active.y, active.r))
+                {
+                    active.path += 'c';
+                    active.last_rotate = true;
+                    active.last_kick = -1;
+                    return true;
+                }
+            }
+            int8_t x = 0;
+            int8_t y = 0;
+            for (std::size_t i = 0, max = mino.rotate_right[active.r].size(); i < max; i++)
+            {
+                x = active.x + mino.rotate_right[active.r][i].first;
+                y = active.y + mino.rotate_right[active.r][i].second;
+                if (x < mino.left_offset[active.r] || x > rightmost || y < mino.down_offset[active.r])
+                    continue;
+                if (integrate(x, y, active.r))
+                {
+                    active.x = x;
+                    active.y = y;
+                    active.path += 'c';
+                    active.last_rotate = true;
+                    active.last_kick = i;
+                    return true;
+                }
+            }
+            active.r = (active.r - 1) & 3;
+            return false;
+        }
+        bool z(TetrisActive &active) const
+        {
+            active.r = (active.r - 1) & 3;
+            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
+            if (active.x >= mino.left_offset[active.r] && active.x <= rightmost && active.y >= mino.down_offset[active.r])
+            {
+                if (integrate(active.x, active.y, active.r))
+                {
+                    active.path += 'z';
+                    active.last_rotate = true;
+                    active.last_kick = -1;
+                    return true;
+                }
+            }
+            int8_t x = 0;
+            int8_t y = 0;
+            for (std::size_t i = 0, max = mino.rotate_left[active.r].size(); i < max; i++)
+            {
+                x = active.x + mino.rotate_left[active.r][i].first;
+                y = active.y + mino.rotate_left[active.r][i].second;
+                if (x < mino.left_offset[active.r] || x > rightmost || y < mino.down_offset[active.r])
+                    continue;
+                if (integrate(x, y, active.r))
+                {
+                    active.x = x;
+                    active.y = y;
+                    active.path += 'z';
+                    active.last_rotate = true;
+                    active.last_kick = i;
+                    return true;
+                }
+            }
+            active.r = (active.r + 1) & 3;
+            return false;
+        }
+        bool x(TetrisActive &active) const
+        {
+            active.r = (active.r + 2) & 3;
+            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
+            if (active.x >= mino.left_offset[active.r] && active.x <= rightmost && active.y >= mino.down_offset[active.r])
+            {
+                if (integrate(active.x, active.y, active.r))
+                {
+                    active.path += 'x';
+                    active.last_rotate = true;
+                    active.last_kick = -1;
+                    return true;
+                }
+            }
+            int8_t x = 0;
+            int8_t y = 0;
+            for (std::size_t i = 0, max = mino.rotate_180[active.r].size(); i < max; i++)
+            {
+                x = active.x + mino.rotate_180[active.r][i].first;
+                y = active.y + mino.rotate_180[active.r][i].second;
+                if (x < mino.left_offset[active.r] || x > rightmost || y < mino.down_offset[active.r])
+                    continue;
+                if (integrate(x, y, active.r))
+                {
+                    active.x = x;
+                    active.y = y;
+                    active.path += 'x';
+                    active.last_rotate = true;
+                    active.last_kick = i;
+                    return true;
+                }
+            }
+            active.r = (active.r - 2) & 3;
+            return false;
+        }
+        bool test_up(const TetrisActive &active) const
+        {
+            int8_t test_y = active.y + 1;
+            if (test_y > map.roof)
+                return true;
+            return integrate(active.x, test_y, active.r);
+        }
+        bool test_down(const TetrisActive &active) const
+        {
+            int8_t test_y = active.y - 1;
+            if (test_y < mino.down_offset[active.r])
+                return false;
+            return integrate(active.x, test_y, active.r);
+        }
+        bool test_left(const TetrisActive &active) const
+        {
+            int8_t test_x = active.x - 1;
+            if (test_x < mino.left_offset[active.r])
+                return false;
+            return integrate(test_x, active.y, active.r);
+        }
+        bool test_right(const TetrisActive &active) const
+        {
+            int8_t test_x = active.x + 1;
+            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
+            if (test_x > rightmost)
+                return false;
+            return integrate(test_x, active.y, active.r);
+        }
+        bool immobile(const TetrisActive &active) const
+        {
+            return !test_down(active) && !test_left(active) && !test_right(active) && !test_up(active);
+        }
+        void build_snapshot(TetrisActive &active) const
+        {
+            TetrisActive copy = active;
+            D_PRESERVE_LAST_ROTATE(copy);
+            memcpy(active.snapshot, map.board, sizeof(active.snapshot));
+            for (int i = std::max<int>(0, copy.y); i < copy.y + 4; i++)
+            {
+                active.snapshot[i] |= move_cache[copy.r][copy.x][i - copy.y];
+            }
+        }
+        void attach(TetrisMap &map_copy, const TetrisActive &active) const
+        {
+            memcpy(map_copy.board, active.snapshot, sizeof(map_copy.board));
+        }
+        void dropless_attach(TetrisMap &map_copy, const TetrisActive &active) const
+        {
+            for (int i = std::max<int>(0, active.y); i < active.y + 4; i++)
+            {
+                map_copy.board[i] |= move_cache[active.r][active.x][i - active.y];
+            }
+        }
+        bool check_death(const TetrisMap &map_ext, const TetrisActive &active) const
+        {
+            TetrisMinocacheMini &cache = TetrisMinoManager::move_cache[active.type];
+            TetrisMino &new_mino = TetrisMinoManager::mino_list[active.type];
+            for (int8_t i = -new_mino.down_offset[active.r], t = 4 + new_mino.up_offset[active.r]; i < t; ++i)
+            {
+                if (map_ext.board[active.y + i] & cache[active.r][active.x][i])
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     };
     struct TetrisEvaluation
@@ -1173,78 +1563,17 @@ namespace TetrisAI
             switch_box[I] = find_i_spin(map, v);
             switch_box[O] = find_o_spin(map, v);
         }
-        double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map, const int8_t &depth)
+        double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map, const int8_t &depth, TetrisInstructor &ins)
         {
-            struct TetrisEvalTemplate
-            {
-                int32_t col_trans;
-                int32_t row_trans;
-                int32_t aggregate_height;
-                int32_t aggregate_height_arr[32];
-                int16_t bumpiness;
-                int16_t hole_count;
-                int8_t hole_line;
-                int32_t spin_slot;
-                int8_t wide[32];
-                bool switch_box[7];
-            } eval;
-            memset(&eval, 0, sizeof(eval));
-            for (int i = map.roof - 1; i >= 0; --i)
-            {
-                uint8_t wide_max = 0;
-                uint8_t wide_count = 0;
-                for (int j = 0; j < map.width; j++)
-                {
-                    if (map.full(j, i))
-                    {
-                        if (eval.aggregate_height_arr[j] == 0)
-                        {
-                            eval.aggregate_height_arr[j] = i + 1;
-                        }
-                        if (wide_count > wide_max)
-                        {
-                            wide_max = wide_count;
-                        }
-                        wide_count = 0;
-                    }
-                    else
-                    {
-                        wide_count++;
-                    }
-                    if (j + 1 != map.width)
-                    {
-                        eval.row_trans += map.full(j, i) != map.full(j + 1, i);
-                    }
-                }
-                if (_mm_popcnt_u32(map.board[i]) == map.width - wide_max)
-                {
-                    eval.wide[wide_max] += 2;
-                }
-                ++eval.wide[wide_max];
-                if (i - 1 >= 0)
-                {
-                    int check = eval.hole_count;
-                    eval.hole_count += _mm_popcnt_u32(map.board[i] & ~map.board[i - 1]);
-                    eval.hole_line += check != eval.hole_count;
-                    eval.col_trans += _mm_popcnt_u32(map.board[i] ^ map.board[i - 1]);
-                }
-            }
-            find_allspin(map, eval.spin_slot, eval.switch_box);
-            for (int i = 0; i < map.width; i++)
-            {
-                eval.aggregate_height += eval.aggregate_height_arr[i];
-                if (i != 0)
-                {
-                    eval.bumpiness += std::abs(eval.aggregate_height_arr[i - 1] - eval.aggregate_height_arr[i]);
-                }
-            }
             double like = 0;
             int attack = 0;
             switch (now.clear)
             {
             case 0:
                 like += (22.0 - map.roof) * p.weight[UPSTACK];
+                now.garbage.take_all_damage(map, atk.messiness);
                 now.combo = 0;
+                now.garbage.decay();
                 break;
             case 1:
                 if (now.spin_type == 3)
@@ -1326,6 +1655,79 @@ namespace TetrisAI
                 like += p.weight[CLEAR_4];
                 attack += atk.quad + now.b2b + atk.combo_table[++now.combo];
             }
+            if (!now.next.queue.empty())
+            {
+                auto &c = now.next.config;
+                TetrisActive next_active(c.default_x, c.default_y, c.default_r, now.next.queue.front());
+                if (ins.check_death(map, next_active))
+                {
+                    now.dead = true;
+                }
+            }
+            like -= p.weight[TANK] * now.garbage.estimate_damage() * depth;
+            struct TetrisEvalTemplate
+            {
+                int32_t col_trans;
+                int32_t row_trans;
+                int32_t aggregate_height;
+                int32_t aggregate_height_arr[32];
+                int16_t bumpiness;
+                int16_t hole_count;
+                int8_t hole_line;
+                int32_t spin_slot;
+                int8_t wide[32];
+                bool switch_box[7];
+            } eval;
+            memset(&eval, 0, sizeof(eval));
+            for (int i = map.roof - 1; i >= 0; --i)
+            {
+                uint8_t wide_max = 0;
+                uint8_t wide_count = 0;
+                for (int j = 0; j < map.width; j++)
+                {
+                    if (map.full(j, i))
+                    {
+                        if (eval.aggregate_height_arr[j] == 0)
+                        {
+                            eval.aggregate_height_arr[j] = i + 1;
+                        }
+                        if (wide_count > wide_max)
+                        {
+                            wide_max = wide_count;
+                        }
+                        wide_count = 0;
+                    }
+                    else
+                    {
+                        wide_count++;
+                    }
+                    if (j + 1 != map.width)
+                    {
+                        eval.row_trans += map.full(j, i) != map.full(j + 1, i);
+                    }
+                }
+                if (_mm_popcnt_u32(map.board[i]) == map.width - wide_max)
+                {
+                    eval.wide[wide_max] += 2;
+                }
+                ++eval.wide[wide_max];
+                if (i - 1 >= 0)
+                {
+                    int check = eval.hole_count;
+                    eval.hole_count += _mm_popcnt_u32(map.board[i] & ~map.board[i - 1]);
+                    eval.hole_line += check != eval.hole_count;
+                    eval.col_trans += _mm_popcnt_u32(map.board[i] ^ map.board[i - 1]);
+                }
+            }
+            find_allspin(map, eval.spin_slot, eval.switch_box);
+            for (int i = 0; i < map.width; i++)
+            {
+                eval.aggregate_height += eval.aggregate_height_arr[i];
+                if (i != 0)
+                {
+                    eval.bumpiness += std::abs(eval.aggregate_height_arr[i - 1] - eval.aggregate_height_arr[i]);
+                }
+            }
             if (!map.roof)
             {
                 attack = atk.pc;
@@ -1335,10 +1737,6 @@ namespace TetrisAI
             if ((last.spin_type == 3 || last.clear == 4) && (now.spin_type == 3 || now.clear == 4) && last.clear && now.clear)
             {
                 like += depth * now.combo * p.weight[ALLSPIN_CHAIN];
-            }
-            if (last.b2b && !now.b2b)
-            {
-                like += (now.b2b - last.b2b) * p.weight[B2B];
             }
             double rating = -map.roof * p.weight[ROOF];
             for (int i = map.width - 1; i >= 0; --i)
@@ -1373,375 +1771,14 @@ namespace TetrisAI
             status_rating += eval.spin_slot * p.weight[ALLSPIN_SLOT] * (1. + depth * p.weight[ALLSPIN_FORECAST]);
             status_rating += like * 10;
             status_rating += attack * p.weight[ATTACK] * (1. + depth * p.weight[ATTACK_FORECAST]);
-            status_rating += now.b2b * p.weight[B2B];
-            status_rating *= (22.0 - map.roof) / 22.0;
+            status_rating += (now.b2b - last.b2b) * p.weight[B2B];
             status_rating += atk.combo_table[now.combo] * p.weight[COMBO];
+            status_rating *= map.roof > 7 ? map.roof > 14 ? p.weight[HIGH_GROUND] : p.weight[MID_GROUND] : 1;
             if (now.dead)
             {
                 rating -= 999999999;
             }
             return rating + status_rating;
-        }
-    };
-    struct TetrisInstructor
-    {
-        const TetrisMap &map;
-        TetrisMinocacheMini &move_cache;
-        TetrisMino &mino;
-        TetrisInstructor(const TetrisMap &map, uint8_t type) : map(map), move_cache(TetrisMinoManager::move_cache[type]), mino(TetrisMinoManager::mino_list[type]) {}
-        bool integrate(const int8_t &x, const int8_t &y, const int8_t &r) const
-        {
-            for (int8_t i = -mino.down_offset[r], t = 4 + mino.up_offset[r]; i < t; ++i)
-            {
-                if (map.board[y + i] & move_cache[r][x][i])
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-        bool l(TetrisActive &active) const
-        {
-            active.x -= 1;
-            if (active.x < mino.left_offset[active.r])
-            {
-                active.x += 1;
-                return false;
-            }
-            if (active.y > map.roof)
-            {
-                active.path += 'l';
-                active.last_rotate = false;
-                return true;
-            }
-            if (!integrate(active.x, active.y, active.r))
-            {
-                active.x += 1;
-                return false;
-            }
-            active.last_rotate = false;
-            active.path += 'l';
-            return true;
-        }
-        bool r(TetrisActive &active) const
-        {
-            active.x += 1;
-            if (active.x > map.width - mino.right_offset[active.r] - 4)
-            {
-                active.x -= 1;
-                return false;
-            }
-            if (active.y > map.roof)
-            {
-                active.path += 'r';
-                active.last_rotate = false;
-                return true;
-            }
-            if (!integrate(active.x, active.y, active.r))
-            {
-                active.x -= 1;
-                return false;
-            }
-            active.path += 'r';
-            active.last_rotate = false;
-            return true;
-        }
-        bool L(TetrisActive &active) const
-        {
-            if (active.x == mino.left_offset[active.r])
-                return false;
-            if (active.y > map.roof)
-            {
-                active.x = mino.left_offset[active.r];
-                active.last_rotate = false;
-                active.path += 'L';
-                return true;
-            }
-            int count = 0;
-            while (--active.x >= mino.left_offset[active.r] && integrate(active.x, active.y, active.r))
-            {
-                ++count;
-            }
-            if (count)
-            {
-                active.last_rotate = false;
-                active.path += 'L';
-            }
-            ++active.x;
-            return count;
-        }
-        bool R(TetrisActive &active) const
-        {
-            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
-            if (active.x == rightmost)
-                return false;
-            if (active.y > map.roof)
-            {
-                active.x = rightmost;
-                active.last_rotate = false;
-                active.path += 'R';
-                return true;
-            }
-            int count = 0;
-            while (++active.x <= rightmost && integrate(active.x, active.y, active.r))
-            {
-                ++count;
-            }
-            if (count)
-            {
-                active.last_rotate = false;
-                active.path += 'R';
-            }
-            --active.x;
-            return count;
-        }
-        bool d(TetrisActive &active) const
-        {
-            if (active.y > map.roof)
-            {
-                active.path.append(active.y - map.roof, 'd');
-                active.y = map.roof;
-                active.last_rotate = false;
-                return true;
-            }
-            active.y -= 1;
-            if (active.y < mino.down_offset[active.r] || !integrate(active.x, active.y, active.r))
-            {
-                active.y += 1;
-                return false;
-            }
-            active.last_rotate = false;
-            active.path += 'd';
-            return true;
-        }
-        bool D(TetrisActive &active) const
-        {
-            if (active.y == mino.down_offset[active.r])
-                return false;
-            int count = 0;
-            if (active.y > map.roof)
-            {
-                active.y = map.roof;
-                active.last_rotate = false;
-                ++count;
-            }
-            while (--active.y >= mino.down_offset[active.r] && integrate(active.x, active.y, active.r))
-            {
-                ++count;
-            }
-            if (count)
-            {
-                active.last_rotate = false;
-                active.path += 'D';
-            }
-            ++active.y;
-            return count;
-        }
-        bool D_PRESERVE_PATH(TetrisActive &active) const
-        {
-            if (active.y == mino.down_offset[active.r])
-                return false;
-            int count = 0;
-            if (active.y > map.roof)
-            {
-                active.y = map.roof;
-                active.last_rotate = false;
-                ++count;
-            }
-            while (--active.y >= mino.down_offset[active.r] && integrate(active.x, active.y, active.r))
-            {
-                ++count;
-            }
-            if (count)
-            {
-                active.last_rotate = false;
-            }
-            ++active.y;
-            return count;
-        }
-        void D_PRESERVE_LAST_ROTATE(TetrisActive &active) const
-        {
-            if (active.y == mino.down_offset[active.r])
-                return;
-            if (active.y > map.roof)
-            {
-                active.y = map.roof;
-            }
-            while (--active.y >= mino.down_offset[active.r] && integrate(active.x, active.y, active.r));
-            ++active.y;
-            return;
-        }
-        bool c(TetrisActive &active) const
-        {
-            active.r = (active.r + 1) & 3;
-            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
-            if (active.x >= mino.left_offset[active.r] && active.x <= rightmost && active.y >= mino.down_offset[active.r])
-            {
-                if (integrate(active.x, active.y, active.r))
-                {
-                    active.path += 'c';
-                    active.last_rotate = true;
-                    active.last_kick = -1;
-                    return true;
-                }
-            }
-            int8_t x = 0;
-            int8_t y = 0;
-            for (std::size_t i = 0, max = mino.rotate_right[active.r].size(); i < max; i++)
-            {
-                x = active.x + mino.rotate_right[active.r][i].first;
-                y = active.y + mino.rotate_right[active.r][i].second;
-                if (x < mino.left_offset[active.r] || x > rightmost || y < mino.down_offset[active.r])
-                    continue;
-                if (integrate(x, y, active.r))
-                {
-                    active.x = x;
-                    active.y = y;
-                    active.path += 'c';
-                    active.last_rotate = true;
-                    active.last_kick = i;
-                    return true;
-                }
-            }
-            active.r = (active.r - 1) & 3;
-            return false;
-        }
-        bool z(TetrisActive &active) const
-        {
-            active.r = (active.r - 1) & 3;
-            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
-            if (active.x >= mino.left_offset[active.r] && active.x <= rightmost && active.y >= mino.down_offset[active.r])
-            {
-                if (integrate(active.x, active.y, active.r))
-                {
-                    active.path += 'z';
-                    active.last_rotate = true;
-                    active.last_kick = -1;
-                    return true;
-                }
-            }
-            int8_t x = 0;
-            int8_t y = 0;
-            for (std::size_t i = 0, max = mino.rotate_left[active.r].size(); i < max; i++)
-            {
-                x = active.x + mino.rotate_left[active.r][i].first;
-                y = active.y + mino.rotate_left[active.r][i].second;
-                if (x < mino.left_offset[active.r] || x > rightmost || y < mino.down_offset[active.r])
-                    continue;
-                if (integrate(x, y, active.r))
-                {
-                    active.x = x;
-                    active.y = y;
-                    active.path += 'z';
-                    active.last_rotate = true;
-                    active.last_kick = i;
-                    return true;
-                }
-            }
-            active.r = (active.r + 1) & 3;
-            return false;
-        }
-        bool x(TetrisActive &active) const
-        {
-            active.r = (active.r + 2) & 3;
-            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
-            if (active.x >= mino.left_offset[active.r] && active.x <= rightmost && active.y >= mino.down_offset[active.r])
-            {
-                if (integrate(active.x, active.y, active.r))
-                {
-                    active.path += 'x';
-                    active.last_rotate = true;
-                    active.last_kick = -1;
-                    return true;
-                }
-            }
-            int8_t x = 0;
-            int8_t y = 0;
-            for (std::size_t i = 0, max = mino.rotate_180[active.r].size(); i < max; i++)
-            {
-                x = active.x + mino.rotate_180[active.r][i].first;
-                y = active.y + mino.rotate_180[active.r][i].second;
-                if (x < mino.left_offset[active.r] || x > rightmost || y < mino.down_offset[active.r])
-                    continue;
-                if (integrate(x, y, active.r))
-                {
-                    active.x = x;
-                    active.y = y;
-                    active.path += 'x';
-                    active.last_rotate = true;
-                    active.last_kick = i;
-                    return true;
-                }
-            }
-            active.r = (active.r - 2) & 3;
-            return false;
-        }
-        bool test_up(const TetrisActive &active) const
-        {
-            int8_t test_y = active.y + 1;
-            if (test_y > map.roof)
-                return true;
-            return integrate(active.x, test_y, active.r);
-        }
-        bool test_down(const TetrisActive &active) const
-        {
-            int8_t test_y = active.y - 1;
-            if (test_y < mino.down_offset[active.r])
-                return false;
-            return integrate(active.x, test_y, active.r);
-        }
-        bool test_left(const TetrisActive &active) const
-        {
-            int8_t test_x = active.x - 1;
-            if (test_x < mino.left_offset[active.r])
-                return false;
-            return integrate(test_x, active.y, active.r);
-        }
-        bool test_right(const TetrisActive &active) const
-        {
-            int8_t test_x = active.x + 1;
-            int8_t rightmost = map.width - mino.right_offset[active.r] - 4;
-            if (test_x > rightmost)
-                return false;
-            return integrate(test_x, active.y, active.r);
-        }
-        bool immobile(const TetrisActive &active) const
-        {
-            return !test_down(active) && !test_left(active) && !test_right(active) && !test_up(active);
-        }
-        void build_snapshot(TetrisActive &active) const
-        {
-            TetrisActive copy = active;
-            D_PRESERVE_LAST_ROTATE(copy);
-            memcpy(active.snapshot, map.board, sizeof(active.snapshot));
-            for (int i = std::max<int>(0, copy.y); i < copy.y + 4; i++)
-            {
-                active.snapshot[i] |= move_cache[copy.r][copy.x][i - copy.y];
-            }
-        }
-        void attach(TetrisMap &map_copy, const TetrisActive &active) const
-        {
-            memcpy(map_copy.board, active.snapshot, sizeof(map_copy.board));
-        }
-        void dropless_attach(TetrisMap &map_copy, const TetrisActive &active) const
-        {
-            for (int i = std::max<int>(0, active.y); i < active.y + 4; i++)
-            {
-                map_copy.board[i] |= move_cache[active.r][active.x][i - active.y];
-            }
-        }
-        bool check_death(const TetrisMap &map_ext, const TetrisActive &active) const
-        {
-            TetrisMinocacheMini &cache = TetrisMinoManager::move_cache[active.type];
-            TetrisMino &new_mino = TetrisMinoManager::mino_list[active.type];
-            for (int8_t i = -new_mino.down_offset[active.r], t = 4 + new_mino.up_offset[active.r]; i < t; ++i)
-            {
-                if (map_ext.board[active.y + i] & cache[active.r][active.x][i])
-                {
-                    return true;
-                }
-            }
-            return false;
         }
     };
     struct TetrisNode
@@ -1893,16 +1930,7 @@ namespace TetrisAI
                     instructor.attach(map_copy, current);
                     status_copy.clear = map_copy.flush();
                     map_copy.scan();
-                    if (!status_copy.clear)
-                    {
-                        status_copy.garbage.take_all_damage(map_copy, atk.messiness, 0);
-                    }
-                    if (!status_copy.dead)
-                    {
-                        TetrisActive next = TetrisActive(config.default_x, config.default_y, config.default_r, status.next.queue.front());
-                        status_copy.dead = instructor.check_death(map_copy, next);
-                    }
-                    double rating = test.begin_judgement(status, status_copy, map_copy, 1);
+                    double rating = test.begin_judgement(status, status_copy, map_copy, 1, instructor);
                     if (rating > best)
                     {
                         best = rating;
@@ -1944,17 +1972,7 @@ namespace TetrisAI
                     status_cache.spin_type = instructor.immobile(current) ? 3 : 0;
                     instructor.attach(map_cache, current);
                     status_cache.clear = map_cache.flush();
-                    if (!status_cache.clear && !status_cache.garbage.pending.empty())
-                    {
-                        status_cache.garbage.take_all_damage(map_cache, atk.messiness, node->version);
-                    }
-                    map_cache.scan();
-                    if (!status_cache.dead && next_manager.queue.size() > 0)
-                    {
-                        TetrisActive next = TetrisActive(config.default_x, config.default_y, config.default_r, next_manager.queue.front());
-                        status_cache.dead = instructor.check_death(map_cache, next);
-                    }
-                    double rating = test.begin_judgement(node->status, status_cache, map_cache, node->version + 1);
+                    double rating = test.begin_judgement(node->status, status_cache, map_cache, node->version + 1, instructor);
                     node->children.push_back(new TetrisNode(rating, node->version + 1, node, map_cache, status_cache));
                 }
             }
