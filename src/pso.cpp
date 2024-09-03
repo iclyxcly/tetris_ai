@@ -31,8 +31,8 @@ struct PSOConfig
     {
         w = 0.9;
         dest_w = 0.4;
-        c1 = 2.0;
-        c2 = 2.0;
+        c1 = 2;
+        c2 = 2;
         TetrisParam p;
         auto pso_config = [&](int index, double value, double offset, double velocity)
         {
@@ -79,8 +79,7 @@ struct PSOConfig
     }
 };
 constexpr int PSO_PARTICLE_COUNT = 32;
-constexpr int MAX_MATCHES = 32;
-constexpr double ELO_DEFAULT = 1500.0;
+constexpr int WIN_REQUIREMENT = 15;
 struct TetrisPlayer
 {
     TetrisConfig &config;
@@ -251,6 +250,11 @@ struct TetrisPlayer
             cur_atk += atk.combo_table[++combo];
             break;
         }
+        if (!map.roof)
+        {
+            attack = 10;
+            cur_atk = 10;
+        }
         ++count;
         pending.fight_lines(cur_atk);
         TetrisActive next_mino(config.default_x, config.default_y, config.default_r, next.queue.front());
@@ -268,26 +272,14 @@ enum PSOPositionType
 std::default_random_engine engine(std::random_device{}());
 std::uniform_real_distribution<double> dist(0.0, 1.0);
 std::uniform_real_distribution<double> zdist(-1.0, 1.0);
-void calc_elo(double &a, double &b, bool a_wins)
-{
-    double ea = 1.0 / (1.0 + std::pow(10.0, (b - a) / 400.0));
-    double eb = 1.0 / (1.0 + std::pow(10.0, (a - b) / 400.0));
-    double sa = a_wins ? 1.0 : 0.0;
-    double sb = a_wins ? 0.0 : 1.0;
-    const double K = 32.0;
-    a = a + K * (sa - ea);
-    b = b + K * (sb - eb);
-}
 struct PSOParticleData
 {
     int id;
     TetrisParam pos[4];
     PSOConfig cfg;
-    double best_score;
-    double score;
     int generation;
-    int matches;
-    int concurrent_matches;
+    double highscore;
+    bool ingame;
     void inform_global_best(const TetrisParam &global_best)
     {
         pos[PSO_BEST_GLOBAL] = global_best;
@@ -296,6 +288,17 @@ struct PSOParticleData
             pos[PSO_CURRENT] = global_best;
             pos[PSO_BEST_PERSONAL] = global_best;
         }
+    }
+    void push_new_standard(const TetrisParam &best)
+    {
+        if (id != 0)
+        {
+            return;
+        }
+        pos[PSO_BEST_PERSONAL] = best;
+        pos[PSO_CURRENT] = best;
+        ++generation;
+        calc_init();
     }
     void calc_init()
     {
@@ -318,34 +321,22 @@ struct PSOParticleData
             cfg.w -= 0.01;
         }
     }
-    void advance()
+    void inform_complete(const double &result)
     {
-        if (score > best_score)
+        ingame = false;
+        ++generation;
+        if (result >= highscore)
         {
-            best_score = score;
+            highscore = result;
             pos[PSO_BEST_PERSONAL] = pos[PSO_CURRENT];
         }
-        else 
-        {
-            best_score = best_score * 0.95 + score * 0.05;
+        else {
+            highscore *= 0.9;
         }
-        ++generation;
-        score = ELO_DEFAULT;
-        matches = 0;
-        concurrent_matches = 0;
         calc_init();
     }
-    void inform_complete()
-    {
-        --concurrent_matches;
-        ++matches;
-        if (matches >= MAX_MATCHES)
-        {
-            advance();
-        }
-    }
     PSOParticleData(int id)
-        : id(id), best_score(0), score(ELO_DEFAULT), generation(0), matches(0), concurrent_matches(0)
+        : id(id), generation(0), ingame(false)
     {
         if (id == 0)
         {
@@ -353,12 +344,11 @@ struct PSOParticleData
         }
         for (int i = 0; i < END_OF_PARAM; ++i)
         {
-            pos[PSO_CURRENT].weight[i] = std::uniform_real_distribution<double>(cfg.x_min.weight[i], cfg.x_max.weight[i])(engine);
-            pos[PSO_BEST_PERSONAL].weight[i] = pos[PSO_CURRENT].weight[i];
             pos[PSO_VELOCITY].weight[i] = std::uniform_real_distribution<double>(-cfg.v_max.weight[i], cfg.v_max.weight[i])(engine);
+            pos[PSO_CURRENT].weight[i] = pos[PSO_CURRENT].weight[i] + pos[PSO_VELOCITY].weight[i];
         }
     }
-    PSOParticleData() : id(0), best_score(0), score(ELO_DEFAULT), generation(0), matches(0), concurrent_matches(0)
+    PSOParticleData() : id(0), generation(0), ingame(false)
     {
     }
 };
@@ -366,13 +356,6 @@ struct PSOSwarmManager
 {
     std::vector<PSOParticleData *> swarm;
     TetrisParam global_best;
-    struct PSOSwarmSorter
-    {
-        bool operator()(const PSOParticleData *a, const PSOParticleData *b)
-        {
-            return a->score > b->score;
-        }
-    };
 
     void export_best(TetrisParam &param)
     {
@@ -426,7 +409,7 @@ struct PSOSwarmManager
         for (auto &particle : swarm)
         {
             PSOParticleData particle_data = *particle;
-            particle_data.concurrent_matches = 0;
+            particle_data.ingame = false;
             fwrite(&particle_data, sizeof(PSOParticleData), 1, file);
         }
         fclose(file);
@@ -457,31 +440,38 @@ struct PSOSwarmManager
             particle.calc_init();
             swarm.push_back(new PSOParticleData(particle));
         }
-        std::sort(swarm.begin(), swarm.end(), PSOSwarmSorter());
+        update_best();
     }
 
     bool matchcmp(PSOParticleData *a, PSOParticleData *b)
     {
-        int a_matches = a->matches + a->concurrent_matches + (a->generation * MAX_MATCHES);
-        int b_matches = b->matches + b->concurrent_matches + (b->generation * MAX_MATCHES);
-        return a_matches < b_matches;
+        return a->generation < b->generation;
     }
 
     std::pair<PSOParticleData *, PSOParticleData *> find_match_pair()
     {
-        PSOParticleData *a = swarm[0];
-        std::size_t index = 0;
+        PSOParticleData *a = nullptr;
+        PSOParticleData *b = nullptr;
+
         for (int i = swarm.size() - 1; i >= 0; --i)
         {
-            if (matchcmp(swarm[i], a))
+            if ((b == nullptr && swarm[i]->id != 0 && !swarm[i]->ingame) || (b != nullptr && swarm[i]->id != 0 && !swarm[i]->ingame && matchcmp(swarm[i], b)))
+            {
+                b = swarm[i];
+            }
+            if (swarm[i]->id == 0)
             {
                 a = swarm[i];
-                index = i;
             }
         }
-        PSOParticleData *b = index + 1 < swarm.size() ? swarm[index + 1] : swarm[index - 1];
-        ++a->concurrent_matches;
-        ++b->concurrent_matches;
+        if (a != nullptr)
+        {
+            a->ingame = true;
+        }
+        if (b != nullptr)
+        {
+            b->ingame = true;
+        }
         return std::make_pair(a, b);
     }
 
@@ -501,34 +491,15 @@ struct PSOSwarmManager
     PSOParticleData get_best()
     {
         PSOParticleData best;
-        best.best_score = std::numeric_limits<double>::min();
         for (auto &particle : swarm)
         {
-            if (particle->best_score > best.best_score)
+            if (particle->id == 0)
             {
                 best = *particle;
+                break;
             }
         }
         return best;
-    }
-
-    void insert_new(const TetrisParam &param)
-    {
-        PSOParticleData particle;
-        particle.id = generate_new_id();
-        particle.pos[PSO_BEST_PERSONAL] = param;
-        particle.pos[PSO_BEST_GLOBAL] = global_best;
-        particle.calc_init();
-        swarm.push_back(new PSOParticleData(particle));
-        std::sort(swarm.begin(), swarm.end(), PSOSwarmSorter());
-    }
-
-    void insert_copy()
-    {
-        auto best = get_best();
-        best.id = generate_new_id();
-        swarm.push_back(new PSOParticleData(best));
-        std::sort(swarm.begin(), swarm.end(), PSOSwarmSorter());
     }
 
     void update_best()
@@ -545,32 +516,22 @@ struct PSOSwarmManager
         }
     }
 
-    void inform_complete(PSOParticleData *a, PSOParticleData *b, const int &gen_1, const int &gen_2, bool a_win)
+    void inform_complete(PSOParticleData *a, PSOParticleData *b, const int &a_gen, bool b_win, double b_score)
     {
-        bool a_cancelled = a->generation != gen_1;
-        bool b_cancelled = b->generation != gen_2;
-
-        if (a_cancelled && b_cancelled)
+        bool a_cancelled = a->generation != a_gen;
+        if (!a_cancelled && !b_win)
         {
-            return;
+            b->inform_complete(b_score);
         }
-        else if (a_cancelled)
+        else if (!a_cancelled && b_win)
         {
-            b->inform_complete();
-            return;
-        }
-        else if (b_cancelled)
-        {
-            a->inform_complete();
-            return;
+            a->push_new_standard(b->pos[PSO_CURRENT]);
+            update_best();
+            b->inform_complete(b_score);
         }
         else {
-            a->inform_complete();
-            b->inform_complete();
+            b->ingame = false;
         }
-        calc_elo(a->score, b->score, a_win);
-        std::sort(swarm.begin(), swarm.end(), PSOSwarmSorter());
-        update_best();
     }
 };
 
@@ -616,9 +577,15 @@ int main(void)
             {
                 mtx.lock();
                 auto match_result = s_mgr.find_match_pair();
-                int generation_1 = match_result.first->generation;
-                int generation_2 = match_result.second->generation;
+                if (match_result.first == nullptr || match_result.second == nullptr)
+                {
+                    mtx.unlock();
+                    usleep(100000);
+                    continue;
+                }
+                int f_generation = match_result.first->generation;
                 mtx.unlock();
+                int win[2] = {0, 0};
                 auto view_func = [&](TetrisPlayer &player_1, TetrisPlayer &player_2)
                 {
                     if (view && view_index == 0)
@@ -650,10 +617,10 @@ int main(void)
                         ori_1.pop();
                         ori_2.pop();
                     }
-                    snprintf(out, sizeof out, "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d IDX = %d, THREAD = %ld\n"
-                                              "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d IDX = %d\n",
-                             mino_to_char[player_1.next.hold], mino_to_char[nexts_1[0]], mino_to_char[nexts_1[1]], mino_to_char[nexts_1[2]], mino_to_char[nexts_1[3]], mino_to_char[nexts_1[4]], mino_to_char[nexts_1[5]], player_1.combo, player_1.b2b, match_result.first->id, index,
-                             mino_to_char[player_2.next.hold], mino_to_char[nexts_2[0]], mino_to_char[nexts_2[1]], mino_to_char[nexts_2[2]], mino_to_char[nexts_2[3]], mino_to_char[nexts_2[4]], mino_to_char[nexts_2[5]], player_2.combo, player_2.b2b, match_result.second->id);
+                    snprintf(out, sizeof out, "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d IDX = %d, WIN = %d\n"
+                                              "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d IDX = %d, WIN = %d\n",
+                             mino_to_char[player_1.next.hold], mino_to_char[nexts_1[0]], mino_to_char[nexts_1[1]], mino_to_char[nexts_1[2]], mino_to_char[nexts_1[3]], mino_to_char[nexts_1[4]], mino_to_char[nexts_1[5]], player_1.combo, player_1.b2b, match_result.first->id, win[0],
+                             mino_to_char[player_2.next.hold], mino_to_char[nexts_2[0]], mino_to_char[nexts_2[1]], mino_to_char[nexts_2[2]], mino_to_char[nexts_2[3]], mino_to_char[nexts_2[4]], mino_to_char[nexts_2[5]], player_2.combo, player_2.b2b, match_result.second->id, win[1]);
                     TetrisMap map_copy1 = player_1.map;
                     TetrisMap map_copy2 = player_2.map;
                     {
@@ -684,8 +651,8 @@ int main(void)
                     //usleep(50000);
                 };
                 static int max_count = 1000;
-                int win[2] = {0, 0};
-                while (win[0] < 7 && win[1] < 7)
+                double b_stats = 0;
+                while (win[0] < WIN_REQUIREMENT && win[1] < WIN_REQUIREMENT && std::abs(win[0] - win[1]) < 5)
                 {
                     TetrisPlayer player_1(config, match_result.first->pos[PSO_CURRENT], dis, mess_dis, gen);
                     TetrisPlayer player_2(config, match_result.second->pos[PSO_CURRENT], dis, mess_dis, gen);
@@ -699,12 +666,16 @@ int main(void)
                         player_1.cur_atk = 0;
                         player_2.cur_atk = 0;
                         view_func(player_1, player_2);
-                        if (generation_1 != match_result.first->generation || generation_2 != match_result.second->generation)
+                        if (f_generation != match_result.first->generation)
                         {
                             break;
                         }
                     }
-                    if (generation_1 != match_result.first->generation || generation_2 != match_result.second->generation)
+                    b_stats += ((double)player_2.attack / (double)player_2.clear) +
+                                ((double)player_2.attack / (double)player_2.count) +
+                                ((double)player_2.clear / 10000.0) +
+                                ((double)player_2.count / 100000.0);
+                    if (f_generation != match_result.first->generation)
                     {
                         break;
                     }
@@ -736,7 +707,7 @@ int main(void)
                     }
                 }
                     mtx.lock();
-                    s_mgr.inform_complete(match_result.first, match_result.second, generation_1, generation_2, win[0] > win[1]);
+                    s_mgr.inform_complete(match_result.first, match_result.second, f_generation, win[1] > win[0], win[1] + b_stats);
                     mtx.unlock();
             } }));
     }
@@ -756,12 +727,12 @@ int main(void)
         {
             break;
         }
-        if (input[0] == 'r')
+        if (input[0] == 's')
         {
             mtx.lock();
             for (auto &particle : s_mgr.swarm)
             {
-                printf("ID = %4d SCORE = %7.2f, HIGH = %7.2f, GEN = %4d, MATCH = %4d, INGAME = %3d\n", particle->id, particle->score, particle->best_score, particle->generation, particle->matches, particle->concurrent_matches);
+                printf("ID = %4d, HIGH = %8.4f, GEN = %4d, INGAME = %d\n", particle->id, particle->highscore, particle->generation, particle->ingame);
             }
             mtx.unlock();
         }

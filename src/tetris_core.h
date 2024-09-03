@@ -708,10 +708,16 @@ namespace TetrisAI
     };
     struct TetrisInstructor
     {
-        const TetrisMap &map;
+        TetrisMap &map;
         TetrisMinocacheMini &move_cache;
         TetrisMino &mino;
-        TetrisInstructor(const TetrisMap &map, uint8_t type) : map(map), move_cache(TetrisMinoManager::move_cache[type]), mino(TetrisMinoManager::mino_list[type]) {}
+        TetrisInstructor(TetrisMap &map, uint8_t type) : map(map), move_cache(TetrisMinoManager::move_cache[type]), mino(TetrisMinoManager::mino_list[type]) {}
+        void reset(const TetrisMap &map, uint8_t type)
+        {
+            this->map = map;
+            this->move_cache = TetrisMinoManager::move_cache[type];
+            this->mino = TetrisMinoManager::mino_list[type];
+        }
         bool integrate(const int8_t &x, const int8_t &y, const int8_t &r) const
         {
             for (int8_t i = -mino.down_offset[r], t = 4 + mino.up_offset[r]; i < t; ++i)
@@ -890,7 +896,8 @@ namespace TetrisAI
             {
                 active.y = map.roof;
             }
-            while (--active.y >= mino.down_offset[active.r] && integrate(active.x, active.y, active.r));
+            while (--active.y >= mino.down_offset[active.r] && integrate(active.x, active.y, active.r))
+                ;
             ++active.y;
             return;
         }
@@ -1143,9 +1150,9 @@ namespace TetrisAI
                 uint8_t count2 = _mm_popcnt_u32(map.board[y + 2]);
                 for (int x = 0; x < map.width - 2; ++x)
                 {
-                    // double/single
                     if (~row1 & ref[x] && ~row1 & ref[x + 1] && ~row0 & ref[x + 1] && ~row0 & ref[x + 2])
                     {
+                        // double/single
                         if ((row0 & ref[x] || (y == 0 || rowm1 & ref[x])) && (row1 & ref[x + 2] || (row2 & ref[x] && (x + 3 == map.width || row0 & ref[x + 3]))))
                         {
                             ++val;
@@ -1543,6 +1550,382 @@ namespace TetrisAI
             }
             return prev != val;
         }
+        void find_every_spin(const TetrisMap &map, int32_t &val)
+        {
+            const uint32_t *ref = BINARY_TEMPLATE;
+            for (int y = map.roof; y >= std::max<int>(0, map.roof - 4); --y)
+            {
+                uint32_t rowm1 = map.board[y - 1];
+                uint32_t row0 = map.board[y];
+                uint32_t row1 = map.board[y + 1];
+                uint32_t row2 = map.board[y + 2];
+                uint32_t row3 = map.board[y + 3];
+                uint32_t row4 = map.board[y + 4];
+                uint8_t count0 = _mm_popcnt_u32(map.board[y]);
+                uint8_t count1 = _mm_popcnt_u32(map.board[y + 1]);
+                uint8_t count2 = _mm_popcnt_u32(map.board[y + 2]);
+                for (int x = 0; x < map.width; ++x)
+                {
+                    int xm1 = x - 1;
+                    int x1 = x + 1;
+                    int x2 = x + 2;
+                    int x3 = x + 3;
+                    int x4 = x + 4;
+                    if (x < map.width - 2)
+                    {
+                        // S spin
+                        if (~row0 & ref[x] && ~row0 & ref[x1] && ~row1 & ref[x1] && ~row1 & ref[x2])
+                        {
+                            // double/single
+                            if ((row0 & ref[x2] || (y == 0 || rowm1 & ref[x1])) && (row1 & ref[x] || (row2 & ref[x2] && (x == 0 || row0 & ref[xm1]))))
+                            {
+                                ++val;
+                                if (count0 == 8)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 8)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // S spin
+                        if (~row2 & ref[x] && ~row1 & ref[x] && ~row1 & ref[x1] && ~row0 & ref[x1])
+                        {
+                            // triple
+                            if (row0 & ref[x] && (row2 & ref[x1] || (row0 & ref[x2] && row3 & ref[x])))
+                            {
+                                ++val;
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 2)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // Z spin
+                        if (~row1 & ref[x] && ~row1 & ref[x1] && ~row0 & ref[x1] && ~row0 & ref[x2])
+                        {
+                            // double/single
+                            if ((row0 & ref[x] || (y == 0 || rowm1 & ref[x])) && (row1 & ref[x2] || (row2 & ref[x] && (x3 == map.width || row0 & ref[x3]))))
+                            {
+                                ++val;
+                                if (count0 == 8)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 8)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        if (~row2 & ref[x1] && ~row1 & ref[x1] && ~row1 & ref[x] && ~row0 & ref[x])
+                        {
+                            // triple
+                            if (row0 & ref[x1] && (row2 & ref[x] || ((x != 0 && row0 & ref[xm1]) && row3 & ref[x1])))
+                            {
+                                ++val;
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 2)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // L spin
+                        if (~row0 & ref[x] && ~row0 & ref[x1] && ~row0 & ref[x2] && ~row1 & ref[x2])
+                        {
+                            // double
+                            bool cond1 = row1 & ref[x1] && (x3 == map.width || row0 & ref[x3] || row1 & ref[x3]);
+                            bool cond2 = (x3 == map.width || row1 & ref[x3]) && row1 & ref[x];
+                            bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x1] || rowm1 & ref[x2];
+                            if (cond1 && cond2 && cond3)
+                            {
+                                ++val;
+                                if (count0 == 7)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // L spin
+                        if (~row0 & ref[x] && ~row1 & ref[x] && ~row1 & ref[x1] && ~row1 & ref[x2])
+                        {
+                            // double, 180 facing
+                            bool cond1 = (x == 0 || row1 & ref[xm1]) && row0 & ref[x1] && row2 & ref[x2];
+                            bool cond2 = x != 0 && row0 & ref[xm1] && row0 & ref[x1] && row2 & ref[x1];
+                            bool cond3 = (x == 0 || row1 & ref[xm1] || row0 & ref[xm1]) && row0 & ref[x1] && row2 & ref[x1];
+                            if (cond1 || cond2 || cond3)
+                            {
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 7)
+                                {
+                                    val += 2;
+                                }
+                            }
+                            if (cond1)
+                            {
+                                ++val;
+                            }
+                            if (cond2)
+                            {
+                                ++val;
+                            }
+                            if (cond3)
+                            {
+                                ++val;
+                            }
+                        }
+                        // L spin
+                        if (~row0 & ref[x] && ~row1 & ref[x] && ~row2 & ref[x] && ~row0 & ref[x1])
+                        {
+                            // triple
+                            bool cond1 = x == 0 || row0 & ref[xm1] || row1 & ref[xm1] || row2 & ref[xm1];
+                            bool cond2 = row1 & ref[x1] || (row3 & ref[x] && row0 * ref[x2]);
+                            bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x1];
+                            if (cond1 && cond2 && cond3)
+                            {
+                                ++val;
+                                if (count0 == 8)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // J spin
+                        if (~row0 & ref[x] && ~row0 & ref[x1] && ~row0 & ref[x2] && ~row1 & ref[x])
+                        {
+                            // double
+                            bool cond1 = row1 & ref[x1] && (x == 0 || row0 & ref[xm1] || row1 & ref[xm1]);
+                            bool cond2 = (x == 0 || row1 & ref[xm1]) && row1 & ref[x2];
+                            bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x1] || rowm1 & ref[x2];
+                            if (cond1 && cond2 && cond3)
+                            {
+                                ++val;
+                                if (count0 == 7)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // J spin
+                        if (~row1 & ref[x] && ~row1 & ref[x1] && ~row1 & ref[x2] && ~row0 & ref[x2])
+                        {
+                            // double, 180 facing
+                            bool cond1 = (x3 == map.width || row1 & ref[x3]) && row0 & ref[x1] && row2 & ref[x];
+                            bool cond2 = x3 != map.width && row0 & ref[x3] && row0 & ref[x1] && row2 & ref[x1];
+                            bool cond3 = (x3 == map.width || row1 & ref[x3] || row0 & ref[x3]) && row0 & ref[x1] && row2 & ref[x1];
+                            if (cond1 || cond2 || cond3)
+                            {
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 7)
+                                {
+                                    val += 2;
+                                }
+                            }
+                            if (cond1)
+                            {
+                                ++val;
+                            }
+                            if (cond2)
+                            {
+                                ++val;
+                            }
+                            if (cond3)
+                            {
+                                ++val;
+                            }
+                        }
+                        // J spin
+                        if (~row0 & ref[x] && ~row0 & ref[x1] && ~row1 & ref[x1] && ~row2 & ref[x1])
+                        {
+                            // triple
+                            bool cond1 = row0 & ref[x2] || row1 & ref[x2] || row2 & ref[x2];
+                            bool cond2 = row1 & ref[x];
+                            bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x1];
+                            if (cond1 && cond2 && cond3)
+                            {
+                                ++val;
+                                if (count0 == 8)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // T spin
+                        if (~row0 & ref[x1] && ~row1 & ref[x] && ~row1 & ref[x1] && ~row1 & ref[x2] && ~row2 & ref[x1])
+                        {
+                            // double
+                            if (row0 & ref[x] && row0 & ref[x2] && (row2 & ref[x] || row2 & ref[x2]))
+                            {
+                                ++val;
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 7)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                { // imperial cross?
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // T spin
+                        if (~row0 & ref[x1] && ~row1 & ref[x1] && ~row2 & ref[x1])
+                        {
+                            if ((~row1 & ref[x] && row1 & ref[x2]) || (row1 & ref[x] && ~row1 & ref[x2]))
+                            {
+                                // triple
+                                if (row0 & ref[x] && row0 & ref[x2] && row2 & ref[x] && row2 & ref[x2])
+                                {
+                                    ++val;
+                                    if (count0 == 9)
+                                    {
+                                        val += 2;
+                                    }
+                                    if (count1 == 8)
+                                    {
+                                        val += 2;
+                                    }
+                                    if (count2 == 9)
+                                    {
+                                        val += 2;
+                                    }
+                                }
+                            }
+                        }
+                        // T spin
+                        if (~row0 & ref[x] && ~row0 & ref[x1] && ~row0 & ref[x2] && ~row1 & ref[x1])
+                        {
+                            // single (mini)
+                            bool cond1 = row1 & ref[x] && (x3 == map.width || row0 & ref[x3]);
+                            bool cond2 = row1 & ref[x2] && (x == 0 || row0 & ref[xm1]);
+                            bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x1] || rowm1 & ref[x2];
+                            if ((cond1 || cond2) && cond3)
+                            {
+                                if (count0 == 7)
+                                {
+                                    val += 2;
+                                }
+                            }
+                            if (cond1)
+                            {
+                                ++val;
+                            }
+                            if (cond2)
+                            {
+                                ++val;
+                            }
+                        }
+                    }
+                    // I spin
+                    if (x < map.width - 3 && ~row0 & ref[x] && ~row0 & ref[x1] && ~row0 & ref[x2] && ~row0 & ref[x3])
+                    {
+                        // single
+                        bool up_cover = row1 & ref[x] || row1 & ref[x1] || row1 & ref[x2] || row1 & ref[x3];
+                        if ((x == 0 || row0 & ref[xm1]) && (x4 == map.width || row0 & ref[x4]) && up_cover)
+                        {
+                            ++val;
+                            if (count0 == 6)
+                            {
+                                val += 2;
+                            }
+                        }
+                    }
+                    if (~row0 & ref[x] && ~row1 & ref[x] && ~row2 & ref[x] && ~row3 & ref[x])
+                    {
+                        // triple
+                        bool left_cover = x == 0 || row0 & ref[xm1] || row1 & ref[xm1] || row2 & ref[xm1] || row3 & ref[xm1];
+                        bool right_cover = x1 == map.width || row0 & ref[x1] || row1 & ref[x1] || row2 & ref[x1] || row3 & ref[x1];
+                        if (row4 & ref[x] && left_cover && right_cover && (y == 0 || rowm1 & ref[x]))
+                        {
+                            ++val;
+                            if (count0 == 9)
+                            {
+                                val += 2;
+                            }
+                            if (count1 == 9)
+                            {
+                                val += 2;
+                            }
+                            if (count2 == 9)
+                            {
+                                val += 2;
+                            }
+                        }
+                    }
+                    // O spin
+                    if (~row0 & ref[x] && ~row0 & ref[x1] && ~row1 & ref[x] && ~row1 & ref[x1])
+                    {
+                        bool down_cover = y == 0 || rowm1 & ref[x] || rowm1 & ref[x1];
+                        bool left_cover = x == 0 || row0 & ref[xm1] || row1 & ref[xm1];
+                        bool right_cover = x1 == map.width || row0 & ref[x2] || row1 & ref[x2];
+                        bool up_cover = row2 & ref[x] || row2 & ref[x1];
+                        if (down_cover && left_cover && right_cover && up_cover)
+                        {
+                            ++val;
+                            if (count0 == 8)
+                            {
+                                val += 2;
+                            }
+                            if (count1 == 8)
+                            {
+                                val += 2;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         void find_allspin(const TetrisMap &map, int32_t &v, bool switch_box[])
         {
             switch_box[S] = find_s_spin(map, v);
@@ -1709,7 +2092,7 @@ namespace TetrisAI
                     eval.col_trans += _mm_popcnt_u32(map.board[i] ^ map.board[i - 1]);
                 }
             }
-            find_allspin(map, eval.spin_slot, eval.switch_box);
+            find_every_spin(map, eval.spin_slot);
             for (int i = 0; i < map.width; i++)
             {
                 eval.aggregate_height += eval.aggregate_height_arr[i];
@@ -1871,6 +2254,16 @@ namespace TetrisAI
                             { return instructor.c(a); });
             moves.push_back([this](TetrisActive &a)
                             { return instructor.z(a); });
+        }
+        void prepare(TetrisActive active, TetrisMap &map)
+        {
+            visited_db.clear();
+            result_db.clear();
+            result.clear();
+            search = std::queue<TetrisActive>();
+            visited_db[build_hash(active)] = true;
+            search.push(active);
+            instructor.reset(map, active.type);
         }
         void test_run()
         {

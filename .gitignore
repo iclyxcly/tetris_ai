@@ -47,3 +47,5 @@ src/movegentest
 src/pendingtest
 src/pso
 src/pso_data.bin
+src/pso_test
+src/pso_backup.bin
