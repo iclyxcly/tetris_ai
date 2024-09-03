@@ -229,16 +229,6 @@ namespace TetrisAI
             return x == other.x && y == other.y && r == other.r;
         }
     };
-    struct TetrisCoordHash
-    {
-        int operator()(const TetrisCoord &coord) const
-        {
-            int combined = coord.x * 31 + coord.y;
-            combined = combined * 31 + coord.r;
-
-            return combined;
-        }
-    };
 
     struct TetrisActive : public TetrisCoord
     {
@@ -1823,18 +1813,36 @@ namespace TetrisAI
     struct TetrisPathManager
     {
         std::queue<TetrisActive> search;
-        std::unordered_set<TetrisActive, TetrisCoordHash> visited;
+        std::unordered_map<int, bool> visited_db;
+        std::unordered_map<uint32_t, bool> result_db;
         std::vector<TetrisActive> result;
         std::vector<std::function<bool(TetrisActive &)>> moves;
         TetrisInstructor instructor;
         TetrisConfig &config;
+        int build_hash(TetrisCoord &coord)
+        {
+            int combined = coord.x * 31 + coord.y;
+            combined = combined * 31 + coord.r;
+
+            return combined;
+        }
+        uint32_t build_hash(uint32_t snapshot[BOARD_HEIGHT])
+        {
+            uint32_t hash = 5381;
+            for (int i = 0; i < BOARD_HEIGHT; ++i)
+            {
+                hash = ((hash << 5) + hash) + snapshot[i];
+            }
+            return hash;
+        }
         TetrisPathManager(TetrisActive active, TetrisConfig &config, TetrisMap &map) : instructor(map, active.type), config(config)
         {
             std::size_t size = map.width * map.height * 4;
-            visited.reserve(size);
+            visited_db.reserve(size);
+            visited_db[build_hash(active)] = true;
+            result_db.reserve(static_cast<std::size_t>(size / 2));
             result.reserve(static_cast<std::size_t>(size / 2));
             search.push(active);
-            visited.insert(active);
 
             if (config.allow_D)
                 moves.push_back([this](TetrisActive &a)
@@ -1864,64 +1872,64 @@ namespace TetrisAI
             moves.push_back([this](TetrisActive &a)
                             { return instructor.z(a); });
         }
-        void init_new(TetrisActive &active, TetrisMinocacheMini &move_cache, TetrisMino &mino)
-        {
-            visited.clear();
-            result.clear();
-            search.push(active);
-            visited.insert(active);
-            instructor.move_cache = move_cache;
-            instructor.mino = mino;
-        }
         void test_run()
         {
-            TetrisActive current, temp;
+            TetrisActive temp;
             while (!search.empty())
             {
-                current = search.front();
-                search.pop();
-
+                auto &current = search.front();
                 for (auto &move : moves)
                 {
                     temp = current;
-                    if (move(temp) && visited.find(temp) == visited.end())
+                    if (move(temp))
                     {
-                        search.push(temp);
-                        visited.insert(temp);
+                        int hash = build_hash(temp);
+                        if (!visited_db[hash])
+                        {
+                            visited_db[hash] = true;
+                            search.push(temp);
+                        }
                     }
                 }
 
                 instructor.build_snapshot(current);
-                if (std::find(result.rbegin(), result.rend(), current.snapshot) == result.rend())
+                uint32_t hash = build_hash(current.snapshot);
+                if (!result_db[hash])
                 {
+                    result_db[hash] = true;
                     result.push_back(current);
                 }
+                search.pop();
             }
         }
-        TetrisActive run_lite(TetrisMap map, TetrisStatus status, uint8_t mino, TetrisConfig config, TetrisParam &p)
+        TetrisActive run_lite(TetrisMap map, TetrisStatus status, TetrisParam &p)
         {
             double best = std::numeric_limits<double>::lowest();
             TetrisActive best_active;
-            TetrisActive current(config.default_x, config.default_y, 0, mino), temp;
+            TetrisActive temp;
             TetrisEvaluation test(p);
             while (!search.empty())
             {
-                current = search.front();
-                search.pop();
-
+                auto &current = search.front();
                 for (auto &move : moves)
                 {
                     temp = current;
-                    if (move(temp) && visited.find(temp) == visited.end())
+                    if (move(temp))
                     {
-                        search.push(temp);
-                        visited.insert(temp);
+                        int hash = build_hash(temp);
+                        if (!visited_db[hash])
+                        {
+                            visited_db[hash] = true;
+                            search.push(temp);
+                        }
                     }
                 }
 
                 instructor.build_snapshot(current);
-                if (std::find(result.rbegin(), result.rend(), current.snapshot) == result.rend())
+                uint32_t hash = build_hash(current.snapshot);
+                if (!result_db[hash])
                 {
+                    result_db[hash] = true;
                     result.push_back(current);
                     TetrisMap map_copy = map;
                     TetrisStatus status_copy = status;
@@ -1937,33 +1945,39 @@ namespace TetrisAI
                         best_active = current;
                     }
                 }
+                search.pop();
             }
             return best_active;
         }
         void run(TetrisNode *node, TetrisNextManager &next_manager, TetrisParam &p)
         {
-            TetrisActive current, temp;
+            TetrisActive temp;
             TetrisMap map_cache;
             TetrisStatus status_cache = node->status;
             TetrisEvaluation test(p);
             while (!search.empty())
             {
-                current = search.front();
-                search.pop();
+                auto &current = search.front();
 
                 for (auto &move : moves)
                 {
                     temp = current;
-                    if (move(temp) && visited.find(temp) == visited.end())
+                    if (move(temp))
                     {
-                        search.push(temp);
-                        visited.insert(temp);
+                        int hash = build_hash(temp);
+                        if (!visited_db[hash])
+                        {
+                            visited_db[hash] = true;
+                            search.push(temp);
+                        }
                     }
                 }
 
                 instructor.build_snapshot(current);
-                if (std::find(result.rbegin(), result.rend(), current.snapshot) == result.rend())
+                uint32_t hash = build_hash(current.snapshot);
+                if (!result_db[hash])
                 {
+                    result_db[hash] = true;
                     result.push_back(current);
                     map_cache = node->map;
                     status_cache = node->status;
@@ -1972,9 +1986,11 @@ namespace TetrisAI
                     status_cache.spin_type = instructor.immobile(current) ? 3 : 0;
                     instructor.attach(map_cache, current);
                     status_cache.clear = map_cache.flush();
+                    map_cache.scan();
                     double rating = test.begin_judgement(node->status, status_cache, map_cache, node->version + 1, instructor);
                     node->children.push_back(new TetrisNode(rating, node->version + 1, node, map_cache, status_cache));
                 }
+                search.pop();
             }
         }
     };

@@ -79,7 +79,7 @@ struct PSOConfig
     }
 };
 constexpr int PSO_PARTICLE_COUNT = 32;
-constexpr int MAX_MATCHES = 64;
+constexpr int MAX_MATCHES = 32;
 constexpr double ELO_DEFAULT = 1500.0;
 struct TetrisPlayer
 {
@@ -291,6 +291,11 @@ struct PSOParticleData
     void inform_global_best(const TetrisParam &global_best)
     {
         pos[PSO_BEST_GLOBAL] = global_best;
+        if (id == 0)
+        {
+            pos[PSO_CURRENT] = global_best;
+            pos[PSO_BEST_PERSONAL] = global_best;
+        }
     }
     void calc_init()
     {
@@ -304,7 +309,9 @@ struct PSOParticleData
         for (int i = 0; i < END_OF_PARAM; ++i)
         {
             pos[PSO_VELOCITY].weight[i] = (cfg.w * pos[PSO_VELOCITY].weight[i]) + (cfg.c1 * r1 * (pos[PSO_BEST_PERSONAL].weight[i] - pos[PSO_CURRENT].weight[i])) + (cfg.c2 * r2 * (pos[PSO_BEST_GLOBAL].weight[i] - pos[PSO_CURRENT].weight[i]));
+            pos[PSO_VELOCITY].weight[i] = std::max(std::min(pos[PSO_VELOCITY].weight[i], cfg.v_max.weight[i]), -cfg.v_max.weight[i]);
             pos[PSO_CURRENT].weight[i] += pos[PSO_VELOCITY].weight[i];
+            pos[PSO_CURRENT].weight[i] = std::max(std::min(pos[PSO_CURRENT].weight[i], cfg.x_max.weight[i]), cfg.x_min.weight[i]);
         }
         if (cfg.w > cfg.dest_w)
         {
@@ -325,11 +332,12 @@ struct PSOParticleData
         ++generation;
         score = ELO_DEFAULT;
         matches = 0;
-        concurrent_matches = 1;
+        concurrent_matches = 0;
         calc_init();
     }
     void inform_complete()
     {
+        --concurrent_matches;
         ++matches;
         if (matches >= MAX_MATCHES)
         {
@@ -537,10 +545,30 @@ struct PSOSwarmManager
         }
     }
 
-    void inform_complete(PSOParticleData *a, PSOParticleData *b)
+    void inform_complete(PSOParticleData *a, PSOParticleData *b, const int &gen_1, const int &gen_2, bool a_win)
     {
-        --a->concurrent_matches;
-        --b->concurrent_matches;
+        bool a_cancelled = a->generation != gen_1;
+        bool b_cancelled = b->generation != gen_2;
+
+        if (a_cancelled && b_cancelled)
+        {
+            return;
+        }
+        else if (a_cancelled)
+        {
+            b->inform_complete();
+            return;
+        }
+        else if (b_cancelled)
+        {
+            a->inform_complete();
+            return;
+        }
+        else {
+            a->inform_complete();
+            b->inform_complete();
+        }
+        calc_elo(a->score, b->score, a_win);
         std::sort(swarm.begin(), swarm.end(), PSOSwarmSorter());
         update_best();
     }
@@ -557,7 +585,7 @@ int main(void)
     {
         s_mgr.init_pso();
     }
-    const std::size_t thread_count = std::thread::hardware_concurrency() - 1;
+    const std::size_t thread_count = (std::size_t)(std::thread::hardware_concurrency() / 2);
     std::recursive_mutex mtx;
     std::vector<std::thread> threads;
     TetrisConfig config;
@@ -653,7 +681,7 @@ int main(void)
                         strcat(out, "|\r\n");
                     }
                     printf("%s", out);
-                    usleep(50000);
+                    //usleep(50000);
                 };
                 static int max_count = 1000;
                 int win[2] = {0, 0};
@@ -707,16 +735,9 @@ int main(void)
                         }
                     }
                 }
-                if (generation_1 != match_result.first->generation || generation_2 != match_result.second->generation || win[0] == win[1])
-                {
-                    continue;
-                }
-                mtx.lock();
-                calc_elo(match_result.first->score, match_result.second->score, win[0] > win[1]);
-                match_result.first->inform_complete();
-                match_result.second->inform_complete();
-                s_mgr.inform_complete(match_result.first, match_result.second);
-                mtx.unlock();
+                    mtx.lock();
+                    s_mgr.inform_complete(match_result.first, match_result.second, generation_1, generation_2, win[0] > win[1]);
+                    mtx.unlock();
             } }));
     }
     while (true)
