@@ -5,32 +5,18 @@
 
 using namespace TetrisAI;
 
-void read_config()
+void read_config(TetrisParam &param)
 {
-    std::ifstream file("param.json");
-    json data;
-    file >> data;
-    p.roof = data["roof"];
-    p.col_trans = data["col_trans"];
-    p.row_trans = data["row_trans"];
-    p.hole_count = data["hole_count"];
-    p.hole_line = data["hole_line"];
-    p.aggregate_height = data["aggregate_height"];
-    p.bumpiness = data["bumpiness"];
-    p.wide_2 = data["wide_2"];
-    p.wide_3 = data["wide_3"];
-    p.wide_4 = data["wide_4"];
-    p.attack = data["attack"];
-    p.b2b = data["b2b"];
-    p.combo = data["combo"];
-    p.clear_1 = data["clear_1"];
-    p.clear_2 = data["clear_2"];
-    p.clear_3 = data["clear_3"];
-    p.clear_4 = data["clear_4"];
-    p.aspin_1 = data["aspin_1"];
-    p.aspin_2 = data["aspin_2"];
-    p.aspin_3 = data["aspin_3"];
-    p.aspin_slot = data["aspin_slot"];
+    FILE *file = fopen("best_param.txt", "r");
+    if (file == NULL)
+    {
+        return;
+    }
+    for (int i = 0; i < END_OF_PARAM; ++i)
+    {
+        fscanf(file, "%lf\n", &param.weight[i]);
+    }
+    fclose(file);
 }
 
 std::queue<uint8_t> generate_bag()
@@ -47,14 +33,6 @@ std::queue<uint8_t> generate_bag()
         pool.erase(pool.begin() + index);
     }
     return bag;
-}
-
-void decay(std::deque<TetrisPendingLine> &pending)
-{
-    for (auto &line : pending)
-    {
-        line.at_depth--;
-    }
 }
 
 int main(void)
@@ -75,15 +53,12 @@ int main(void)
     TetrisMap map(10, 40);
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::mt19937 mess_gen(rd());
     std::uniform_int_distribution<> dis(0, map.width - 1);
     std::uniform_int_distribution<> mess_dis(0, 5);
     TetrisMinoManager mino_manager("botris_srs.json");
-    TetrisPendingLineManager pending(dis, mess_dis, gen, mess_gen);
+    TetrisPendingLineManager pending(dis, mess_dis, gen);
     std::uniform_int_distribution<> line_dis(2, 3);
     std::uniform_int_distribution<> piece_dis(2, 2);
-    std::mt19937 line_gen(rd());
-    std::mt19937 piece_gen(rd());
     int16_t b2b = 0, combo = 0;
     uint8_t clear = 0, spin_type = 0;
     int count = 0;
@@ -91,11 +66,11 @@ int main(void)
     int total = 0;
     int extra = 0;
     int total_recv = 0;
-    int piece_rand = piece_dis(piece_gen);
+    TetrisParam param;
     while (true)
     {
         int attack = 0;
-        read_config();
+        read_config(param);
         if (next.queue.size() < 7)
         {
             auto bag = generate_bag();
@@ -104,24 +79,24 @@ int main(void)
         next.next();
         map.scan();
         TetrisStatus status(b2b, combo, next, pending);
-        TetrisTree tree(map, config, status);
+        TetrisTree tree(map, status, param);
         auto result = tree.run();
-        decay(pending.pending);
-        result.front().path += "V";
-        if (result.front().path[0] == 'v')
+        pending.decay();
+        result += "V";
+        if (result[0] == 'v')
         {
             next.change_hold();
         }
-        if (count % piece_rand == 0)
+        if (count % piece_dis(gen) == 0)
         {
-            int recv = line_dis(line_gen);
+            int recv = line_dis(gen);
             total_recv += recv;
             pending.push_lines(recv, 1);
             pending.fight_lines(extra);
         }
         TetrisInstructor instructor(map, next.active.type);
         TetrisActive next_active(config.default_x, config.default_y, config.default_r, next.queue.front());
-        for (auto &path : result.front().path)
+        for (auto &path : result)
         {
             switch (path)
             {
@@ -167,7 +142,7 @@ int main(void)
         {
         case 0:
             combo = 0;
-            pending.take_all_damage(map, atk.messiness, 0);
+            pending.take_all_damage(map, atk.messiness);
             break;
         case 1:
             if (spin_type == 3)
@@ -254,7 +229,7 @@ int main(void)
         }
         printf("\n");
         printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f, opponent app: %.2f\n", b2b, combo, clear, spin_type, total_atk / (double)count, total_atk / (double)total, total_recv / (double)count);
-        printf("path: %s\n", result.front().path.c_str());
+        printf("path: %s\n", result.c_str());
     }
     return 0;
 }

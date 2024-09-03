@@ -2175,13 +2175,15 @@ namespace TetrisAI
             running = false;
             complete = false;
         }
-        double calc_rating(std::queue<TetrisActive> &path)
+        double calc_rating(std::string &path)
         {
             if (parent != nullptr)
             {
-                double acc_rating = parent->calc_rating(path);
-                path.push(status.next.active);
-                return acc_rating + rating;
+                if (version == 1)
+                {
+                    path = status.next.active.path;
+                }
+                return parent->calc_rating(path) + rating;
             }
             return rating;
         }
@@ -2387,7 +2389,7 @@ namespace TetrisAI
             }
         }
     };
-    using TetrisNodeResult = std::pair<double, std::queue<TetrisActive>>;
+    using TetrisNodeResult = std::pair<double, std::string>;
     struct TetrisTree
     {
         TetrisNode *root;
@@ -2399,14 +2401,14 @@ namespace TetrisAI
         TetrisMinoManager mino_manager;
         TetrisNextManager next_manager;
         std::size_t total_nodes;
-        TetrisTree(TetrisMap &map, TetrisConfig &config, TetrisStatus status, TetrisParam &param) : config(config), param(param), mino_manager("botris_srs.json"), next_manager(config), total_nodes(0)
+        double low;
+        TetrisTree(TetrisMap &map, TetrisStatus &status, TetrisParam &param) : config(status.next.config), param(param), mino_manager("botris_srs.json"), next_manager(status.next.config), total_nodes(0)
         {
             map.scan();
             stable_version = 0;
             root = new TetrisNode(stable_version, nullptr, map, status);
             tasks.push(root);
-            stable.first = std::numeric_limits<double>::lowest();
-            beta.first = std::numeric_limits<double>::lowest();
+            low = stable.first = beta.first = std::numeric_limits<double>::lowest();
         }
         void kill_node(TetrisNode *node)
         {
@@ -2423,18 +2425,16 @@ namespace TetrisAI
                 return;
             }
             std::sort(node->children.begin(), node->children.end(), TetrisNodeSorter());
-            double max_score = node->children[0]->rating;
-            double min_score = node->children[node->children.size() - 1]->rating;
-            double range = max_score - min_score;
-            double prune_threshold = 0.5 * range;
-            int i = node->children.size() - 1;
-            while (i >= 1 && max_score - node->children[i]->rating > prune_threshold)
+            double &min_rating = node->children.front()->rating;
+            double max_rating = node->children.back()->rating;
+            double prune_threshold = 0.5 * (max_rating - min_rating);
+            auto it = node->children.rbegin();
+            while (it != node->children.rend() && (max_rating - (*it)->rating > prune_threshold))
             {
-                kill_node(node->children[i]);
-                node->children.pop_back();
-                i--;
+                kill_node(*it);
+                it = decltype(it)(node->children.erase(std::next(it).base()));
             }
-            for (auto child : node->children)
+            for (const auto &child : node->children)
             {
                 tasks.push(child);
             }
@@ -2445,14 +2445,14 @@ namespace TetrisAI
             {
                 ++stable_version;
                 stable = beta;
-                beta.first = std::numeric_limits<double>::lowest();
+                beta.first = low;
             }
             TetrisNodeResult alpha;
             alpha.first = node->calc_rating(alpha.second);
             if (!node->children.empty())
             {
-                alpha.first += node->children[0]->rating;
-                alpha.second.push(node->children[0]->status.next.active);
+                const TetrisNode *first_child = node->children[0];
+                alpha.first += first_child->rating;
             }
             if (alpha.first > beta.first)
             {
@@ -2496,10 +2496,10 @@ namespace TetrisAI
             update_task(node);
             compare_and_update(node);
         }
-        std::queue<TetrisActive> run()
+        std::string run()
         {
             auto now = std::chrono::high_resolution_clock::now();
-            while ((stable.first == std::numeric_limits<double>::lowest() ||
+            while ((stable.first == low ||
                     std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - now).count() < config.target_time) &&
                    !tasks.empty())
             {

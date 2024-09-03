@@ -378,12 +378,13 @@ private:
 		{
 			pending.push_lines(total, last_delay);
 		}
-		utils::println(utils::INFO, " -> Last delay: " + std::to_string(last_delay));
+		//utils::println(utils::INFO, " -> Last delay: " + std::to_string(last_delay));
 		read_config();
 		TetrisStatus status(data["b2b"], data["combo"], next_manager, pending);
-		TetrisTree runner(map, config, status, param);
+		TetrisTree runner(map, status, param);
 		auto result = runner.run();
-		auto path = translate_command(result.front().path);
+		auto path = translate_command(result);
+		utils::println(utils::INFO, "Nodes: " + std::to_string(runner.total_nodes));
 		ws_make_move(path);
 	}
 	void handle_msg_player_action(json data) {}
@@ -473,7 +474,7 @@ public:
 		data["type"] = "action";
 		data["payload"] = {{"commands", commands}};
 
-		utils::println(utils::INFO, "<-  Making move: " + boost::algorithm::join(moves, ","));
+		//utils::println(utils::INFO, "<-  Making move: " + boost::algorithm::join(moves, ","));
 		web_socket.send(data.dump());
 	}
 };
