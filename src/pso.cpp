@@ -78,7 +78,6 @@ struct PSOConfig
         pso_config(HIGH_GROUND, x[HIGH_GROUND], 1, 0.1);
     }
 };
-constexpr int PSO_PARTICLE_COUNT = 32;
 constexpr int WIN_REQUIREMENT = 15;
 struct TetrisPlayer
 {
@@ -109,6 +108,10 @@ struct TetrisPlayer
 
     void push_damage(uint8_t lines)
     {
+        if (lines == 0)
+        {
+            return;
+        }
         pending.push_lines(lines, 1);
         pending.fight_lines(cur_atk);
         receive += lines;
@@ -131,21 +134,16 @@ struct TetrisPlayer
         }
         next.next();
         TetrisStatus status(b2b, combo, next, pending);
-        TetrisTree runner(map, config, status, param);
+        TetrisTree runner(map, status, param);
         auto result = runner.run();
-        if (result.empty())
-        {
-            dead = true;
-            return false;
-        }
-        if (result.front().path[0] == 'v')
+        if (result[0] == 'v')
         {
             next.change_hold();
         }
         TetrisInstructor instructor(map, next.active.type);
         int spin_type = 0;
         int current_clear = 0;
-        last_path = result.front().path;
+        last_path = result;
         last_path += "V";
         for (auto &path : last_path)
         {
@@ -208,7 +206,7 @@ struct TetrisPlayer
                 b2b = 0;
             }
             attack += atk.combo_table[++combo];
-            cur_atk += atk.combo_table[++combo];
+            cur_atk += atk.combo_table[combo];
             break;
         case 2:
             if (spin_type == 3)
@@ -224,7 +222,7 @@ struct TetrisPlayer
                 cur_atk += 1;
             }
             attack += atk.combo_table[++combo];
-            cur_atk += atk.combo_table[++combo];
+            cur_atk += atk.combo_table[combo];
             break;
         case 3:
             if (spin_type == 3)
@@ -240,19 +238,19 @@ struct TetrisPlayer
                 cur_atk += 2;
             }
             attack += atk.combo_table[++combo];
-            cur_atk += atk.combo_table[++combo];
+            cur_atk += atk.combo_table[combo];
             break;
         case 4:
             attack += 4 + b2b;
             cur_atk += 4 + b2b;
             b2b = 1;
             attack += atk.combo_table[++combo];
-            cur_atk += atk.combo_table[++combo];
+            cur_atk += atk.combo_table[combo];
             break;
         }
         if (!map.roof)
         {
-            attack = 10;
+            attack += 10;
             cur_atk = 10;
         }
         ++count;
@@ -318,7 +316,7 @@ struct PSOParticleData
         }
         if (cfg.w > cfg.dest_w)
         {
-            cfg.w -= 0.01;
+            cfg.w -= 0.005;
         }
     }
     void inform_complete(const double &result)
@@ -432,9 +430,9 @@ struct PSOSwarmManager
         return true;
     }
 
-    void init_pso()
+    void init_pso(int count)
     {
-        for (int i = 0; i < PSO_PARTICLE_COUNT; ++i)
+        for (int i = 0; i < count; ++i)
         {
             PSOParticleData particle(generate_new_id());
             particle.calc_init();
@@ -537,6 +535,7 @@ struct PSOSwarmManager
 
 int main(void)
 {
+    const std::size_t thread_count = (std::size_t)(std::thread::hardware_concurrency() - 1);
     {
         TetrisMinoManager mino("botris_srs.json");
     }
@@ -544,9 +543,8 @@ int main(void)
     PSOSwarmManager s_mgr;
     if (!s_mgr.import_data())
     {
-        s_mgr.init_pso();
+        s_mgr.init_pso(thread_count + 1);
     }
-    const std::size_t thread_count = (std::size_t)(std::thread::hardware_concurrency() / 2);
     std::recursive_mutex mtx;
     std::vector<std::thread> threads;
     TetrisConfig config;
@@ -559,7 +557,7 @@ int main(void)
     config.default_x = 3;
     config.default_y = 17;
     config.default_r = 0;
-    config.target_time = 20;
+    config.target_time = 100;
 
     std::atomic<std::size_t> view_index{0};
     std::atomic<bool> view{false};
@@ -617,10 +615,10 @@ int main(void)
                         ori_1.pop();
                         ori_2.pop();
                     }
-                    snprintf(out, sizeof out, "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d IDX = %d, WIN = %d\n"
-                                              "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d IDX = %d, WIN = %d\n",
-                             mino_to_char[player_1.next.hold], mino_to_char[nexts_1[0]], mino_to_char[nexts_1[1]], mino_to_char[nexts_1[2]], mino_to_char[nexts_1[3]], mino_to_char[nexts_1[4]], mino_to_char[nexts_1[5]], player_1.combo, player_1.b2b, match_result.first->id, win[0],
-                             mino_to_char[player_2.next.hold], mino_to_char[nexts_2[0]], mino_to_char[nexts_2[1]], mino_to_char[nexts_2[2]], mino_to_char[nexts_2[3]], mino_to_char[nexts_2[4]], mino_to_char[nexts_2[5]], player_2.combo, player_2.b2b, match_result.second->id, win[1]);
+                    snprintf(out, sizeof out, "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d\n"
+                                              "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d\n",
+                             mino_to_char[player_1.next.hold], mino_to_char[nexts_1[0]], mino_to_char[nexts_1[1]], mino_to_char[nexts_1[2]], mino_to_char[nexts_1[3]], mino_to_char[nexts_1[4]], mino_to_char[nexts_1[5]], player_1.combo, player_1.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0],
+                             mino_to_char[player_2.next.hold], mino_to_char[nexts_2[0]], mino_to_char[nexts_2[1]], mino_to_char[nexts_2[2]], mino_to_char[nexts_2[3]], mino_to_char[nexts_2[4]], mino_to_char[nexts_2[5]], player_2.combo, player_2.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1]);
                     TetrisMap map_copy1 = player_1.map;
                     TetrisMap map_copy2 = player_2.map;
                     {
@@ -652,7 +650,7 @@ int main(void)
                 };
                 static int max_count = 1000;
                 double b_stats = 0;
-                while (win[0] < WIN_REQUIREMENT && win[1] < WIN_REQUIREMENT && std::abs(win[0] - win[1]) < 5)
+                while (win[0] < WIN_REQUIREMENT && win[1] < WIN_REQUIREMENT && (std::abs(win[0] - win[1]) < 5 || win[1] > win[0]))
                 {
                     TetrisPlayer player_1(config, match_result.first->pos[PSO_CURRENT], dis, mess_dis, gen);
                     TetrisPlayer player_2(config, match_result.second->pos[PSO_CURRENT], dis, mess_dis, gen);

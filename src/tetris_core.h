@@ -625,7 +625,7 @@ namespace TetrisAI
         uint8_t pc = 10;
         uint8_t b2b = 1;
         double multiplier = 0;
-        uint8_t combo_table[32] = {0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+        uint8_t combo_table[32] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
     } atk;
     enum TetrisWeightEnum
     {
@@ -672,29 +672,29 @@ namespace TetrisAI
         TetrisParam()
         {
             memset(weight, 0, sizeof(weight));
-            // weight[ROOF] = 0;
-            // weight[COL_TRANS] = -2.1;
-            // weight[ROW_TRANS] = 40;
-            // weight[AGGREGATE_HEIGHT] = 2.5;
-            // weight[BUMPINESS] = 2;
-            // weight[HOLE_COUNT] = 60;
-            // weight[HOLE_LINE] = 30;
-            // weight[WIDE_2] = 2;
-            // weight[WIDE_3] = 4;
-            // weight[WIDE_4] = 12;
-            // weight[B2B] = 22;
-            // weight[ATTACK] = 100;
-            // weight[CLEAR_1] = -6;
-            // weight[CLEAR_2] = -10;
-            // weight[CLEAR_3] = -14;
-            // weight[CLEAR_4] = 32;
-            // weight[ALLSPIN_1] = 60;
-            // weight[ALLSPIN_2] = 48;
-            // weight[ALLSPIN_3] = 32;
-            // weight[ALLSPIN_SLOT] = 35;
-            // weight[COMBO] = 60;
-            // weight[MID_GROUND] = 0.8;
-            // weight[HIGH_GROUND] = 0.4;
+            weight[ROOF] = 0;
+            weight[COL_TRANS] = -2.1;
+            weight[ROW_TRANS] = 40;
+            weight[AGGREGATE_HEIGHT] = 2.5;
+            weight[BUMPINESS] = 2;
+            weight[HOLE_COUNT] = 60;
+            weight[HOLE_LINE] = 30;
+            weight[WIDE_2] = 2;
+            weight[WIDE_3] = 4;
+            weight[WIDE_4] = 12;
+            weight[B2B] = 22;
+            weight[ATTACK] = 100;
+            weight[CLEAR_1] = -6;
+            weight[CLEAR_2] = -10;
+            weight[CLEAR_3] = -14;
+            weight[CLEAR_4] = 32;
+            weight[ALLSPIN_1] = 60;
+            weight[ALLSPIN_2] = 48;
+            weight[ALLSPIN_3] = 32;
+            weight[ALLSPIN_SLOT] = 35;
+            weight[COMBO] = 60;
+            weight[MID_GROUND] = 0.8;
+            weight[HIGH_GROUND] = 0.4;
             // the rest depends on pso
         }
         bool operator==(const TetrisParam &other) const
