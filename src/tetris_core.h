@@ -672,29 +672,29 @@ namespace TetrisAI
         TetrisParam()
         {
             memset(weight, 0, sizeof(weight));
-            weight[ROOF] = 0;
-            weight[COL_TRANS] = -2.1;
-            weight[ROW_TRANS] = 40;
-            weight[AGGREGATE_HEIGHT] = 2.5;
-            weight[BUMPINESS] = 2;
-            weight[HOLE_COUNT] = 60;
-            weight[HOLE_LINE] = 30;
-            weight[WIDE_2] = 2;
-            weight[WIDE_3] = 4;
-            weight[WIDE_4] = 12;
-            weight[B2B] = 22;
-            weight[ATTACK] = 100;
-            weight[CLEAR_1] = -6;
-            weight[CLEAR_2] = -10;
-            weight[CLEAR_3] = -14;
-            weight[CLEAR_4] = 32;
-            weight[ALLSPIN_1] = 60;
-            weight[ALLSPIN_2] = 48;
-            weight[ALLSPIN_3] = 32;
-            weight[ALLSPIN_SLOT] = 35;
-            weight[COMBO] = 60;
-            weight[MID_GROUND] = 0.8;
-            weight[HIGH_GROUND] = 0.4;
+            // weight[ROOF] = 0;
+            // weight[COL_TRANS] = -2.1;
+            // weight[ROW_TRANS] = 40;
+            // weight[AGGREGATE_HEIGHT] = 2.5;
+            // weight[BUMPINESS] = 2;
+            // weight[HOLE_COUNT] = 60;
+            // weight[HOLE_LINE] = 30;
+            // weight[WIDE_2] = 2;
+            // weight[WIDE_3] = 4;
+            // weight[WIDE_4] = 12;
+            // weight[B2B] = 22;
+            // weight[ATTACK] = 100;
+            // weight[CLEAR_1] = -6;
+            // weight[CLEAR_2] = -10;
+            // weight[CLEAR_3] = -14;
+            // weight[CLEAR_4] = 32;
+            // weight[ALLSPIN_1] = 60;
+            // weight[ALLSPIN_2] = 48;
+            // weight[ALLSPIN_3] = 32;
+            // weight[ALLSPIN_SLOT] = 35;
+            // weight[COMBO] = 60;
+            // weight[MID_GROUND] = 0.8;
+            // weight[HIGH_GROUND] = 0.4;
             // the rest depends on pso
         }
         bool operator==(const TetrisParam &other) const
@@ -1947,6 +1947,21 @@ namespace TetrisAI
                 now.garbage.take_all_damage(map, atk.messiness);
                 now.combo = 0;
                 now.garbage.decay();
+                switch (now.next.active.type)
+                {
+                case S:
+                case Z:
+                case O:
+                    like -= p.weight[WASTE_SZO];
+                    break;
+                case L:
+                case J:
+                case T:
+                    like -= p.weight[WASTE_LJT];
+                case I:
+                    like -= p.weight[WASTE_I];
+                    break;
+                }
                 break;
             case 1:
                 if (now.spin_type == 3)
@@ -2453,6 +2468,10 @@ namespace TetrisAI
             {
                 const TetrisNode *first_child = node->children[0];
                 alpha.first += first_child->rating;
+                if (stable_version == 1)
+                {
+                    alpha.second = first_child->status.next.active.path;
+                }
             }
             if (alpha.first > beta.first)
             {

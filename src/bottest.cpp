@@ -47,7 +47,7 @@ int main(void)
         {J, 'J'},
         {EMPTY, ' '}};
     TetrisConfig config;
-    config.target_time = 100;
+    config.target_time = 1;
     config.can_hold = true;
     TetrisNextManager next(config);
     TetrisMap map(10, 40);
@@ -230,6 +230,7 @@ int main(void)
         printf("\n");
         printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f, opponent app: %.2f\n", b2b, combo, clear, spin_type, total_atk / (double)count, total_atk / (double)total, total_recv / (double)count);
         printf("path: %s\n", result.c_str());
+        usleep(100000);
     }
     return 0;
 }

@@ -328,7 +328,8 @@ struct PSOParticleData
             highscore = result;
             pos[PSO_BEST_PERSONAL] = pos[PSO_CURRENT];
         }
-        else {
+        else
+        {
             highscore *= 0.9;
         }
         calc_init();
@@ -511,6 +512,7 @@ struct PSOSwarmManager
                 particle->inform_global_best(global_best);
             }
             export_best(global_best);
+            export_data();
         }
     }
 
@@ -527,7 +529,8 @@ struct PSOSwarmManager
             update_best();
             b->inform_complete(b_score);
         }
-        else {
+        else
+        {
             b->ingame = false;
         }
     }
@@ -548,16 +551,16 @@ int main(void)
     std::recursive_mutex mtx;
     std::vector<std::thread> threads;
     TetrisConfig config;
-    config.allow_D = true;
+    config.allow_D = false;
     config.allow_d = true;
-    config.allow_LR = true;
+    config.allow_LR = false;
     config.allow_lr = true;
     config.allow_x = false;
     config.can_hold = true;
     config.default_x = 3;
     config.default_y = 17;
     config.default_r = 0;
-    config.target_time = 100;
+    config.target_time = 5;
 
     std::atomic<std::size_t> view_index{0};
     std::atomic<bool> view{false};
@@ -653,6 +656,8 @@ int main(void)
                 double b_stats = 0;
                 while (win[0] < WIN_REQUIREMENT && win[1] < WIN_REQUIREMENT && (std::abs(win[0] - win[1]) < 5 || win[1] > win[0]))
                 {
+                    TetrisConfig _config = config;
+                    _config.target_time = std::min(100, std::min(match_result.first->generation, match_result.second->generation) + 1);
                     TetrisPlayer player_1(config, match_result.first->pos[PSO_CURRENT], dis, mess_dis, gen);
                     TetrisPlayer player_2(config, match_result.second->pos[PSO_CURRENT], dis, mess_dis, gen);
                     while (player_1.run() && player_2.run() && player_1.count < max_count)
@@ -722,7 +727,7 @@ int main(void)
     while (true)
     {
         char input[256];
-        std::cin.getline(input, 256);
+        std::cin.getline(input, 255);
         if (input[0] == 'v')
         {
             view = !view;

@@ -314,6 +314,8 @@ private:
 		data_safeshift(data, "payload");
 		data_safeshift(data, "gameState");
 		config.allow_x = false;
+		config.allow_D = false;
+		config.allow_LR = false;
 		TetrisMap map(10, 40);
 		for (int i = 0; i < 24; ++i)
 		{
