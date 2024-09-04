@@ -142,7 +142,7 @@ namespace TetrisAI
         {
             memmove(board + amount, board, sizeof(board) - amount * sizeof(uint32_t));
             memset(board, 0, amount * sizeof(uint32_t));
-            uint32_t line = CLEAR_REQUIREMENT[width] ^ (1 << index);
+            const uint32_t line = CLEAR_REQUIREMENT[width] ^ (1 << index);
             for (uint8_t i = 0; i < amount; i++)
             {
                 board[i] = line;
@@ -199,10 +199,6 @@ namespace TetrisAI
         TetrisCoord() : x(0), y(0), r(0) {}
         TetrisCoord(const int8_t &x, const int8_t &y, const int8_t &r) : x(x), y(y), r(r) {}
         TetrisCoord(const TetrisConfig &config) : x(config.default_x), y(config.default_y), r(config.default_r) {}
-        bool operator==(const TetrisCoord &other) const
-        {
-            return x == other.x && y == other.y && r == other.r;
-        }
     };
 
     struct TetrisActive : public TetrisCoord
@@ -212,14 +208,6 @@ namespace TetrisAI
         int8_t last_kick;
         std::string path;
         uint32_t snapshot;
-        bool operator==(const uint32_t other) const
-        {
-            return snapshot == other;
-        }
-        bool operator==(const TetrisActive &other) const
-        {
-            return x == other.x && y == other.y && r == other.r;
-        }
         TetrisActive() : TetrisCoord(), type(EMPTY), last_rotate(false), last_kick(-1) {}
         TetrisActive(const int8_t &x, const int8_t &y, const int8_t &r, const uint8_t &type) : TetrisCoord(x, y, r), type(type), last_rotate(false), last_kick(-1) {}
         TetrisActive(const TetrisActive &other) : TetrisCoord(other.x, other.y, other.r), type(other.type), last_rotate(other.last_rotate), last_kick(other.last_kick), path(other.path), snapshot(other.snapshot) {}
@@ -794,6 +782,18 @@ namespace TetrisAI
                 active.last_rotate = false;
                 return true;
             }
+            active.y -= 1;
+            if (active.y < mino.down_offset[active.r] || !integrate(active.x, active.y, active.r))
+            {
+                active.y += 1;
+                return false;
+            }
+            active.last_rotate = false;
+            active.path += 'd';
+            return true;
+        }
+        bool consumer_d(TetrisActive &active) const
+        {
             active.y -= 1;
             if (active.y < mino.down_offset[active.r] || !integrate(active.x, active.y, active.r))
             {

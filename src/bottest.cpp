@@ -9,7 +9,7 @@ using namespace TetrisAI;
 void read_config(TetrisParam &param)
 {
     FILE *file = fopen("best_param.txt", "r");
-    if (file == NULL)
+    if (file == nullptr)
     {
         return;
     }
@@ -122,7 +122,7 @@ int main(void)
                 instructor.R(next.active);
                 break;
             case 'd':
-                instructor.d(next.active);
+                instructor.consumer_d(next.active);
                 break;
             case 'D':
                 instructor.D(next.active);
@@ -230,7 +230,6 @@ int main(void)
         printf("\n");
         printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f, opponent app: %.2f\n", b2b, combo, clear, spin_type, total_atk / (double)count, total_atk / (double)total, total_recv / (double)count);
         printf("path: %s\n", result.c_str());
-        std::cin.get();
     }
     return 0;
 }

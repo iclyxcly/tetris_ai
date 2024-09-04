@@ -132,20 +132,20 @@ struct TetrisPlayer
         {
             push_next();
         }
+        int spin_type = 0;
+        int current_clear = 0;
         next.next();
+        map.scan();
         TetrisStatus status(b2b, combo, next, pending);
-        TetrisTree runner(map, status, param);
-        auto result = runner.run();
+        TetrisTree tree(map, status, param);
+        auto result = tree.run();
+        result += "V";
         if (result[0] == 'v')
         {
             next.change_hold();
         }
         TetrisInstructor instructor(map, next.active.type);
-        int spin_type = 0;
-        int current_clear = 0;
-        last_path = result;
-        last_path += "V";
-        for (auto &path : last_path)
+        for (auto &path : result)
         {
             switch (path)
             {
@@ -170,7 +170,7 @@ struct TetrisPlayer
                 instructor.R(next.active);
                 break;
             case 'd':
-                instructor.d(next.active);
+                instructor.consumer_d(next.active);
                 break;
             case 'D':
                 instructor.D(next.active);
@@ -186,6 +186,7 @@ struct TetrisPlayer
                 break;
             }
         }
+        last_path = result;
         switch (current_clear)
         {
         case 0:
@@ -196,7 +197,6 @@ struct TetrisPlayer
         case 1:
             if (spin_type == 3)
             {
-                attack += atk.ass + b2b;
                 cur_atk += atk.ass + b2b;
                 b2b = 1;
             }
@@ -204,55 +204,46 @@ struct TetrisPlayer
             {
                 b2b = 0;
             }
-            attack += atk.combo_table[++combo];
-            cur_atk += atk.combo_table[combo];
+            cur_atk += atk.combo_table[++combo];
             break;
         case 2:
             if (spin_type == 3)
             {
-                attack += atk.asd + b2b;
                 cur_atk += atk.asd + b2b;
                 b2b = 1;
             }
             else
             {
                 b2b = 0;
-                attack += 1;
                 cur_atk += 1;
             }
-            attack += atk.combo_table[++combo];
-            cur_atk += atk.combo_table[combo];
+            cur_atk += atk.combo_table[++combo];
             break;
         case 3:
             if (spin_type == 3)
             {
-                attack += atk.ast + b2b;
                 cur_atk += atk.ast + b2b;
                 b2b = 1;
             }
             else
             {
                 b2b = 0;
-                attack += 2;
                 cur_atk += 2;
             }
-            attack += atk.combo_table[++combo];
-            cur_atk += atk.combo_table[combo];
+            cur_atk += atk.combo_table[++combo];
             break;
         case 4:
-            attack += 4 + b2b;
             cur_atk += 4 + b2b;
             b2b = 1;
-            attack += atk.combo_table[++combo];
-            cur_atk += atk.combo_table[combo];
+            cur_atk += atk.combo_table[++combo];
             break;
         }
         if (!map.roof)
         {
-            attack += 10;
             cur_atk = 10;
         }
         ++count;
+        attack += cur_atk;
         pending.fight_lines(cur_atk);
         TetrisActive next_mino(config.default_x, config.default_y, config.default_r, next.queue.front());
         dead = instructor.check_death(map, next_mino);
@@ -618,10 +609,10 @@ int main(void)
                         ori_1.pop();
                         ori_2.pop();
                     }
-                    snprintf(out, sizeof out, "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d\n"
-                                              "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d\n",
-                             mino_to_char[player_1.next.hold], mino_to_char[nexts_1[0]], mino_to_char[nexts_1[1]], mino_to_char[nexts_1[2]], mino_to_char[nexts_1[3]], mino_to_char[nexts_1[4]], mino_to_char[nexts_1[5]], player_1.combo, player_1.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0],
-                             mino_to_char[player_2.next.hold], mino_to_char[nexts_2[0]], mino_to_char[nexts_2[1]], mino_to_char[nexts_2[2]], mino_to_char[nexts_2[3]], mino_to_char[nexts_2[4]], mino_to_char[nexts_2[5]], player_2.combo, player_2.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1]);
+                    snprintf(out, sizeof out, "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n"
+                                              "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n",
+                             mino_to_char[player_1.next.hold], mino_to_char[nexts_1[0]], mino_to_char[nexts_1[1]], mino_to_char[nexts_1[2]], mino_to_char[nexts_1[3]], mino_to_char[nexts_1[4]], mino_to_char[nexts_1[5]], player_1.combo, player_1.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0], player_1.last_path.c_str(),
+                             mino_to_char[player_2.next.hold], mino_to_char[nexts_2[0]], mino_to_char[nexts_2[1]], mino_to_char[nexts_2[2]], mino_to_char[nexts_2[3]], mino_to_char[nexts_2[4]], mino_to_char[nexts_2[5]], player_2.combo, player_2.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1], player_2.last_path.c_str());
                     TetrisMap map_copy1 = player_1.map;
                     TetrisMap map_copy2 = player_2.map;
                     {
@@ -649,7 +640,7 @@ int main(void)
                         strcat(out, "|\r\n");
                     }
                     printf("%s", out);
-                    //usleep(50000);
+                    //usleep(1000000);
                 };
                 static int max_count = 1000;
                 double b_stats = 0;
