@@ -157,7 +157,7 @@ private:
 	void read_config()
 	{
 		FILE* file = fopen("best_param.txt", "r");
-		if (file == NULL) {
+		if (file == nullptr) {
 			utils::println(utils::ERR, " -> Failed to open best_param.txt");
 			return;
 		}

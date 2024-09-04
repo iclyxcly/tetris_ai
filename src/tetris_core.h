@@ -53,6 +53,7 @@ namespace TetrisAI
         {'J', J},
         {' ', EMPTY}};
     constexpr uint8_t BOARD_HEIGHT = 40;
+    constexpr uint8_t BOARD_WIDTH = 10;
     constexpr uint32_t BINARY_TEMPLATE[32] = {
         0b1,
         0b10,
@@ -125,20 +126,11 @@ namespace TetrisAI
         uint8_t height;
         uint8_t width;
         uint8_t roof;
-        uint32_t count;
-        TetrisMap(const uint8_t width, const uint8_t height) : height(height), width(width), roof(0), count(0)
+        TetrisMap(const uint8_t width, const uint8_t height) : height(height), width(width), roof(0)
         {
             memset(board, 0, sizeof(board));
         }
-        TetrisMap(const TetrisMap &other)
-        {
-            memcpy(board, other.board, sizeof(board));
-            height = other.height;
-            width = other.width;
-            roof = other.roof;
-            count = other.count;
-        }
-        TetrisMap() : height(40), width(10), roof(0), count(0)
+        TetrisMap() : height(BOARD_HEIGHT), width(BOARD_WIDTH), roof(0)
         {
             memset(board, 0, sizeof(board));
         }
@@ -150,52 +142,35 @@ namespace TetrisAI
         {
             memmove(board + amount, board, sizeof(board) - amount * sizeof(uint32_t));
             memset(board, 0, amount * sizeof(uint32_t));
-            uint32_t hole = 0;
+            uint32_t line = CLEAR_REQUIREMENT[width] ^ (1 << index);
             for (uint8_t i = 0; i < amount; i++)
             {
-                hole = 1 << index;
-                board[i] = CLEAR_REQUIREMENT[width] ^ hole;
+                board[i] = line;
             }
         }
-        bool full(const uint8_t &x, const uint8_t &y) const
+        constexpr bool full(const uint8_t &x, const uint8_t &y) const
         {
             return board[y] & BINARY_TEMPLATE[x];
         }
-        void operator=(const TetrisMap &other)
-        {
-            memcpy(board, other.board, sizeof(board));
-            height = other.height;
-            width = other.width;
-            roof = other.roof;
-        }
-        uint32_t operator[](const uint8_t &index) const
-        {
-            return board[index];
-        }
-        uint8_t scan()
+        void scan()
         {
             roof = height - 1;
-            count = 0;
             while (board[roof - 1] == 0 && roof > 0)
             {
                 roof--;
             };
-            for (uint8_t i = 0; i < roof; i++)
-            {
-                count += _mm_popcnt_u32(board[i]);
-            }
-            return roof;
         }
         uint8_t flush()
         {
             uint8_t clear = 0;
             const auto &req = CLEAR_REQUIREMENT[width - 1];
-            for (int8_t i = height - 1; i >= 0; i--)
+            const auto &height_m1 = height - 1;
+            for (int8_t i = height_m1; i >= 0; i--)
             {
                 if ((board[i] & req) == req)
                 {
                     std::memmove(&board[i], &board[i + 1], sizeof(uint32_t) * (height - i));
-                    board[height - 1] = 0;
+                    board[height_m1] = 0;
                     clear++;
                 }
             }
@@ -236,32 +211,18 @@ namespace TetrisAI
         bool last_rotate;
         int8_t last_kick;
         std::string path;
-        uint32_t snapshot[BOARD_HEIGHT];
-        bool operator==(const uint32_t other[4]) const
+        uint32_t snapshot;
+        bool operator==(const uint32_t other) const
         {
-            return std::memcmp(snapshot, other, sizeof(snapshot)) == 0;
+            return snapshot == other;
         }
         bool operator==(const TetrisActive &other) const
         {
             return x == other.x && y == other.y && r == other.r;
         }
-        void operator=(const TetrisActive &other)
-        {
-            x = other.x;
-            y = other.y;
-            r = other.r;
-            type = other.type;
-            last_rotate = other.last_rotate;
-            last_kick = other.last_kick;
-            path = other.path;
-            std::memcpy(snapshot, other.snapshot, sizeof(snapshot));
-        }
         TetrisActive() : TetrisCoord(), type(EMPTY), last_rotate(false), last_kick(-1) {}
         TetrisActive(const int8_t &x, const int8_t &y, const int8_t &r, const uint8_t &type) : TetrisCoord(x, y, r), type(type), last_rotate(false), last_kick(-1) {}
-        TetrisActive(const TetrisActive &other) : TetrisCoord(other.x, other.y, other.r), type(other.type), last_rotate(other.last_rotate), last_kick(other.last_kick), path(other.path)
-        {
-            std::memcpy(snapshot, other.snapshot, sizeof(snapshot));
-        }
+        TetrisActive(const TetrisActive &other) : TetrisCoord(other.x, other.y, other.r), type(other.type), last_rotate(other.last_rotate), last_kick(other.last_kick), path(other.path), snapshot(other.snapshot) {}
     };
     struct TetrisNextManager
     {
@@ -672,29 +633,29 @@ namespace TetrisAI
         TetrisParam()
         {
             memset(weight, 0, sizeof(weight));
-            // weight[ROOF] = 0;
-            // weight[COL_TRANS] = -2.1;
-            // weight[ROW_TRANS] = 40;
-            // weight[AGGREGATE_HEIGHT] = 2.5;
-            // weight[BUMPINESS] = 2;
-            // weight[HOLE_COUNT] = 60;
-            // weight[HOLE_LINE] = 30;
-            // weight[WIDE_2] = 2;
-            // weight[WIDE_3] = 4;
-            // weight[WIDE_4] = 12;
-            // weight[B2B] = 22;
-            // weight[ATTACK] = 100;
-            // weight[CLEAR_1] = -6;
-            // weight[CLEAR_2] = -10;
-            // weight[CLEAR_3] = -14;
-            // weight[CLEAR_4] = 32;
-            // weight[ALLSPIN_1] = 60;
-            // weight[ALLSPIN_2] = 48;
-            // weight[ALLSPIN_3] = 32;
-            // weight[ALLSPIN_SLOT] = 35;
-            // weight[COMBO] = 60;
-            // weight[MID_GROUND] = 0.8;
-            // weight[HIGH_GROUND] = 0.4;
+            weight[ROOF] = 0;
+            weight[COL_TRANS] = -2.1;
+            weight[ROW_TRANS] = 40;
+            weight[AGGREGATE_HEIGHT] = 2.5;
+            weight[BUMPINESS] = 2;
+            weight[HOLE_COUNT] = 60;
+            weight[HOLE_LINE] = 30;
+            weight[WIDE_2] = 2;
+            weight[WIDE_3] = 4;
+            weight[WIDE_4] = 12;
+            weight[B2B] = 22;
+            weight[ATTACK] = 100;
+            weight[CLEAR_1] = -6;
+            weight[CLEAR_2] = -10;
+            weight[CLEAR_3] = -14;
+            weight[CLEAR_4] = 32;
+            weight[ALLSPIN_1] = 60;
+            weight[ALLSPIN_2] = 48;
+            weight[ALLSPIN_3] = 32;
+            weight[ALLSPIN_SLOT] = 35;
+            weight[COMBO] = 60;
+            weight[MID_GROUND] = 0.8;
+            weight[HIGH_GROUND] = 0.4;
             // the rest depends on pso
         }
         bool operator==(const TetrisParam &other) const
@@ -1039,19 +1000,27 @@ namespace TetrisAI
         {
             return !test_down(active) && !test_left(active) && !test_right(active) && !test_up(active);
         }
-        void build_snapshot(TetrisActive &active) const
+        void build_snaphash(TetrisActive &active) const
         {
             TetrisActive copy = active;
             D_PRESERVE_LAST_ROTATE(copy);
-            memcpy(active.snapshot, map.board, sizeof(active.snapshot));
-            for (int i = std::max<int>(0, copy.y); i < copy.y + 4; i++)
+            copy.x -= mino.left_offset[copy.r];
+            copy.y -= mino.down_offset[copy.r];
+            active.snapshot = 5381;
+            for (int8_t i = -mino.down_offset[copy.r], j = 4 + mino.up_offset[copy.r]; i < j; i++)
             {
-                active.snapshot[i] |= move_cache[copy.r][copy.x][i - copy.y];
+                active.snapshot = ((active.snapshot << 5) + active.snapshot) + _mm_popcnt_u32(move_cache[active.r][active.x][i]);
             }
+            active.snapshot += copy.x * (31 + copy.y);
         }
         void attach(TetrisMap &map_copy, const TetrisActive &active) const
         {
-            memcpy(map_copy.board, active.snapshot, sizeof(map_copy.board));
+            TetrisActive copy = active;
+            D_PRESERVE_LAST_ROTATE(copy);
+            for (int i = std::max<int>(0, copy.y); i < copy.y + 4; i++)
+            {
+                map_copy.board[i] |= move_cache[copy.r][copy.x][i - copy.y];
+            }
         }
         void dropless_attach(TetrisMap &map_copy, const TetrisActive &active) const
         {
@@ -2226,15 +2195,6 @@ namespace TetrisAI
 
             return combined;
         }
-        uint32_t build_hash(uint32_t snapshot[BOARD_HEIGHT])
-        {
-            uint32_t hash = 5381;
-            for (int i = 0; i < BOARD_HEIGHT; ++i)
-            {
-                hash = ((hash << 5) + hash) + snapshot[i];
-            }
-            return hash;
-        }
         TetrisPathManager(TetrisActive active, TetrisConfig &config, TetrisMap &map) : instructor(map, active.type), config(config)
         {
             std::size_t size = map.width * map.height * 4;
@@ -2302,11 +2262,10 @@ namespace TetrisAI
                     }
                 }
 
-                instructor.build_snapshot(current);
-                uint32_t hash = build_hash(current.snapshot);
-                if (!result_db[hash])
+                instructor.build_snaphash(current);
+                if (!result_db[current.snapshot])
                 {
-                    result_db[hash] = true;
+                    result_db[current.snapshot] = true;
                     result.push_back(current);
                 }
                 search.pop();
@@ -2335,11 +2294,10 @@ namespace TetrisAI
                     }
                 }
 
-                instructor.build_snapshot(current);
-                uint32_t hash = build_hash(current.snapshot);
-                if (!result_db[hash])
+                instructor.build_snaphash(current);
+                if (!result_db[current.snapshot])
                 {
-                    result_db[hash] = true;
+                    result_db[current.snapshot] = true;
                     result.push_back(current);
                     TetrisMap map_copy = map;
                     TetrisStatus status_copy = status;
@@ -2383,11 +2341,10 @@ namespace TetrisAI
                     }
                 }
 
-                instructor.build_snapshot(current);
-                uint32_t hash = build_hash(current.snapshot);
-                if (!result_db[hash])
+                instructor.build_snaphash(current);
+                if (!result_db[current.snapshot])
                 {
-                    result_db[hash] = true;
+                    result_db[current.snapshot] = true;
                     result.push_back(current);
                     map_cache = node->map;
                     status_cache = node->status;
