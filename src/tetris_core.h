@@ -396,7 +396,7 @@ namespace TetrisAI
         {
             while (!pending.empty() && pending[0].at_depth <= 0)
             {
-                int8_t line = pending.front().lines;
+                int8_t line = pending[0].lines;
                 uint8_t index = dis(gen);
                 pending.pop_front();
                 for (int8_t i = 0; i < line; i++)

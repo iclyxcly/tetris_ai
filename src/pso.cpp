@@ -561,6 +561,7 @@ int main(void)
 
     std::atomic<std::size_t> view_index{0};
     std::atomic<bool> view{false};
+    std::atomic<bool> force_win{false};
 
     for (std::size_t i = 0; i < thread_count; ++i)
     {
@@ -668,6 +669,11 @@ int main(void)
                         {
                             break;
                         }
+                        if (view_index == index && force_win)
+                        {
+                            win[1] = WIN_REQUIREMENT;
+                            break;
+                        }
                     }
                     b_stats += ((double)player_2.attack / (double)player_2.clear) +
                                 ((double)player_2.attack / (double)player_2.count) +
@@ -704,9 +710,13 @@ int main(void)
                         }
                     }
                 }
-                    mtx.lock();
-                    s_mgr.inform_complete(match_result.first, match_result.second, f_generation, win[1] > win[0], win[1] + b_stats);
-                    mtx.unlock();
+                mtx.lock();
+                s_mgr.inform_complete(match_result.first, match_result.second, f_generation, win[1] > win[0], win[1] + b_stats);
+                mtx.unlock();
+                if (view_index == index && force_win)
+                {
+                    force_win = false;
+                }
             } }));
     }
     while (true)
@@ -745,6 +755,13 @@ int main(void)
             }
             s_mgr.export_id(id);
             mtx.unlock();
+        }
+        if (input[0] == '+')
+        {
+            if (view_index != 0)
+            {
+                force_win = true;
+            }
         }
     }
     s_mgr.export_data();
