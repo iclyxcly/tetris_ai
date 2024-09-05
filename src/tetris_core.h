@@ -43,7 +43,7 @@ namespace TetrisAI
         J = 6,
         EMPTY = 255
     };
-    std::unordered_map<char, TetrisMinoType> char_to_type = {
+    std::unordered_map<char, uint8_t> char_to_type = {
         {'S', S},
         {'L', L},
         {'Z', Z},
@@ -52,6 +52,15 @@ namespace TetrisAI
         {'O', O},
         {'J', J},
         {' ', EMPTY}};
+    std::unordered_map<uint8_t, char> type_to_char = {
+        {S, 'S'},
+        {L, 'L'},
+        {Z, 'Z'},
+        {I, 'I'},
+        {T, 'T'},
+        {O, 'O'},
+        {J, 'J'},
+        {EMPTY, ' '}};
     constexpr uint8_t BOARD_HEIGHT = 40;
     constexpr uint8_t BOARD_WIDTH = 10;
     constexpr uint32_t BINARY_TEMPLATE[32] = {
@@ -174,6 +183,7 @@ namespace TetrisAI
                     clear++;
                 }
             }
+            scan();
             return clear;
         }
     };
@@ -210,46 +220,46 @@ namespace TetrisAI
         uint32_t snapshot;
         TetrisActive() : TetrisCoord(), type(EMPTY), last_rotate(false), last_kick(-1) {}
         TetrisActive(const int8_t &x, const int8_t &y, const int8_t &r, const uint8_t &type) : TetrisCoord(x, y, r), type(type), last_rotate(false), last_kick(-1) {}
-        TetrisActive(const TetrisActive &other) : TetrisCoord(other.x, other.y, other.r), type(other.type), last_rotate(other.last_rotate), last_kick(other.last_kick), path(other.path), snapshot(other.snapshot) {}
     };
-    struct TetrisNextManager
+    struct TetrisNext
     {
-        TetrisConfig &config;
         TetrisActive active;
         std::queue<uint8_t> queue;
         uint8_t hold;
         bool changed_hold;
-        TetrisNextManager(TetrisConfig &config) : config(config), active(config.default_x, config.default_y, config.default_r, 0), hold(EMPTY), changed_hold(false) {}
-        TetrisNextManager(TetrisNextManager &other) : config(other.config), active(other.active), hold(other.hold), changed_hold(other.changed_hold)
+        TetrisNext() : active(), hold(EMPTY), changed_hold(false) {}
+    };
+    struct TetrisNextManager : public TetrisNext
+    {
+        TetrisConfig config;
+        TetrisNextManager(TetrisConfig &config) : TetrisNext(), config(config) {}
+        void operator= (TetrisNext &next)
         {
-            queue = other.queue;
-        }
-        void operator=(const TetrisNextManager &other)
-        {
-            config = other.config;
-            active = other.active;
-            hold = other.hold;
-            changed_hold = other.changed_hold;
-            queue = other.queue;
+            active = next.active;
+            queue = next.queue;
+            hold = next.hold;
+            changed_hold = next.changed_hold;
         }
         bool change_hold()
         {
             if (!config.can_hold || changed_hold)
                 return false;
 
-            if (hold == EMPTY)
+            if (hold != EMPTY)
+            {
+                if (hold == active.type)
+                    return false;
+                uint8_t temp = hold;
+                hold = active.type;
+                active = TetrisActive(config.default_x, config.default_y, config.default_r, temp);
+            }
+            else
             {
                 if (queue.empty())
                     return false;
                 hold = active.type;
                 active = TetrisActive(config.default_x, config.default_y, config.default_r, queue.front());
                 queue.pop();
-            }
-            else
-            {
-                uint8_t temp = hold;
-                hold = active.type;
-                active = TetrisActive(config.default_x, config.default_y, config.default_r, temp);
             }
             active.path += 'v';
             changed_hold = true;
@@ -288,19 +298,27 @@ namespace TetrisAI
         {
             return queue.size();
         }
+        std::string to_string()
+        {
+            std::string result;
+            std::queue<uint8_t> temp = queue;
+            while (!temp.empty())
+            {
+                result += type_to_char[temp.front()];
+                temp.pop();
+            }
+            return result;
+        }
     };
     struct TetrisPendingLine
     {
-        int8_t lines;
-        int8_t at_depth;
-        TetrisPendingLine(int8_t lines, int8_t at_depth) : lines(lines), at_depth(at_depth) {}
+        uint8_t lines;
+        uint8_t at_depth;
+        TetrisPendingLine(uint8_t lines, uint8_t at_depth) : lines(lines), at_depth(at_depth) {}
     };
     struct TetrisPendingLineManager
     {
-        std::uniform_int_distribution<> &dis;
-        std::uniform_int_distribution<> &mess_dis;
         std::mt19937 gen;
-        std::mt19937 mess_gen;
         std::deque<TetrisPendingLine> pending;
         void fight_lines(int &attack)
         {
@@ -325,9 +343,9 @@ namespace TetrisAI
                 line.at_depth--;
             }
         }
-        int8_t estimate_damage()
+        uint16_t estimate_damage()
         {
-            int8_t damage = 0;
+            uint16_t damage = 0;
             for (auto &line : pending)
             {
                 if (line.at_depth <= 0)
@@ -341,16 +359,22 @@ namespace TetrisAI
             }
             return damage;
         }
+        uint16_t total_damage()
+        {
+            return std::accumulate(pending.begin(), pending.end(), 0, [](uint8_t sum, TetrisPendingLine &line) { return sum + line.lines; });
+        }
         void take_all_damage(TetrisMap &map, const double &messiness)
         {
+            static std::uniform_int_distribution<int> dis(0, map.width - 1);
+            static std::uniform_int_distribution<int> mess_dis(0, 99);
             while (!pending.empty() && pending[0].at_depth <= 0)
             {
-                int8_t line = pending[0].lines;
+                uint8_t line = pending[0].lines;
                 uint8_t index = dis(gen);
                 pending.pop_front();
                 for (int8_t i = 0; i < line; i++)
                 {
-                    if (mess_dis(mess_gen) < messiness * 100)
+                    if (mess_dis(gen) < messiness * 100)
                     {
                         index = dis(gen);
                     }
@@ -359,52 +383,25 @@ namespace TetrisAI
             }
             map.scan();
         }
-        void push_lines(int8_t line, int8_t at_depth)
+        void push_lines(uint8_t line, uint8_t at_depth)
         {
             pending.emplace_back(TetrisPendingLine(line, at_depth));
         }
-        void operator=(const TetrisPendingLineManager &other)
-        {
-            dis = other.dis;
-            mess_dis = other.mess_dis;
-            gen = other.gen;
-            mess_gen = other.mess_gen;
-            pending = other.pending;
-        }
-        TetrisPendingLineManager(std::deque<TetrisPendingLine> &pending, std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(gen), pending(pending) {}
-        TetrisPendingLineManager(TetrisPendingLineManager &other) : dis(other.dis), mess_dis(other.mess_dis), gen(other.gen), mess_gen(other.mess_gen), pending(other.pending) {}
-        TetrisPendingLineManager(std::uniform_int_distribution<> &dis, std::uniform_int_distribution<> &mess_dis, std::mt19937 &gen) : dis(dis), mess_dis(mess_dis), gen(gen), mess_gen(gen) {}
+        TetrisPendingLineManager() {}
+        TetrisPendingLineManager(std::mt19937 &gen) : gen(gen) {}
+        TetrisPendingLineManager(int16_t seed) : gen(seed) {}
     };
     struct TetrisStatus
     {
-        int16_t b2b;
-        int16_t combo;
-        int8_t clear;
-        int8_t spin_type;
+        uint16_t b2b;
+        uint16_t combo;
+        uint8_t clear;
+        uint8_t spin_type;
         bool dead;
-        TetrisNextManager next;
+        TetrisNext next;
         TetrisPendingLineManager garbage;
-        TetrisStatus(int16_t b2b, int16_t combo, TetrisNextManager &next, TetrisPendingLineManager &garbage) : b2b(b2b), combo(combo), clear(0), spin_type(0), dead(false), next(next), garbage(garbage) {}
-    };
-    struct TetrisAttackConfig
-    {
-        double messiness = 0.0;
-        int16_t b2b = 1;
-        int16_t single = 0;
-        int16_t double_ = 1;
-        int16_t triple = 2;
-        int16_t quad = 4;
-        int16_t allspin_1 = 2;
-        int16_t allspin_2 = 4;
-        int16_t allspin_3 = 6;
-        int16_t perfect_clear = 10;
-        int16_t comboTable[13] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, -1};
-        int16_t get_combo_table(int16_t combo)
-        {
-            if (combo > 12)
-                return comboTable[12];
-            return comboTable[combo];
-        }
+        TetrisStatus() {}
+        TetrisStatus(uint16_t b2b, uint16_t combo, TetrisNext &next, TetrisPendingLineManager &garbage) : b2b(b2b), combo(combo), clear(0), spin_type(0), dead(false), next(next), garbage(garbage) {}
     };
     using TetrisWallkick = std::vector<std::vector<std::pair<int8_t, int8_t>>>;
     struct TetrisMino
@@ -661,12 +658,6 @@ namespace TetrisAI
         TetrisMinocacheMini &move_cache;
         TetrisMino &mino;
         TetrisInstructor(TetrisMap &map, uint8_t type) : map(map), move_cache(TetrisMinoManager::move_cache[type]), mino(TetrisMinoManager::mino_list[type]) {}
-        void reset(const TetrisMap &map, uint8_t type)
-        {
-            this->map = map;
-            this->move_cache = TetrisMinoManager::move_cache[type];
-            this->mino = TetrisMinoManager::mino_list[type];
-        }
         bool integrate(const int8_t &x, const int8_t &y, const int8_t &r) const
         {
             for (int8_t i = -mino.down_offset[r], t = 4 + mino.up_offset[r]; i < t; ++i)
@@ -998,7 +989,7 @@ namespace TetrisAI
         }
         bool immobile(const TetrisActive &active) const
         {
-            return !test_down(active) && !test_left(active) && !test_right(active) && !test_up(active);
+            return active.last_rotate && !test_down(active) && !test_left(active) && !test_right(active) && !test_up(active);
         }
         void build_snaphash(TetrisActive &active) const
         {
@@ -1518,7 +1509,7 @@ namespace TetrisAI
             }
             return prev != val;
         }
-        void find_every_spin(const TetrisMap &map, int32_t &val)
+        void find_every_spin(const TetrisMap &map, int32_t &val) const
         {
             const uint32_t *ref = BINARY_TEMPLATE;
             for (int y = map.roof; y >= std::max<int>(0, map.roof - 4); --y)
@@ -1904,7 +1895,7 @@ namespace TetrisAI
             switch_box[I] = find_i_spin(map, v);
             switch_box[O] = find_o_spin(map, v);
         }
-        double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map, const int8_t &depth, TetrisInstructor &ins)
+        double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map, const int8_t &depth, TetrisInstructor &ins, const TetrisConfig &config)
         {
             double like = 0;
             int attack = 0;
@@ -2013,8 +2004,7 @@ namespace TetrisAI
             }
             if (!now.next.queue.empty())
             {
-                auto &c = now.next.config;
-                TetrisActive next_active(c.default_x, c.default_y, c.default_r, now.next.queue.front());
+                TetrisActive next_active(config.default_x, config.default_y, config.default_r, now.next.queue.front());
                 if (ins.check_death(map, next_active))
                 {
                     now.dead = true;
@@ -2183,11 +2173,10 @@ namespace TetrisAI
         std::queue<TetrisActive> search;
         std::unordered_map<int, bool> visited_db;
         std::unordered_map<uint32_t, bool> result_db;
-        std::vector<TetrisActive> result;
         std::vector<std::function<bool(TetrisActive &)>> moves;
         TetrisInstructor instructor;
         TetrisConfig &config;
-        int build_hash(TetrisCoord &coord)
+        int build_hash(const TetrisCoord &coord) const
         {
             return (coord.x + 2) + 34 * ((coord.y + 2) + 32 * coord.r);
         }
@@ -2197,7 +2186,6 @@ namespace TetrisAI
             visited_db.reserve(size);
             visited_db[build_hash(active)] = true;
             result_db.reserve(static_cast<std::size_t>(size / 2));
-            result.reserve(static_cast<std::size_t>(size / 2));
             search.push(active);
 
             if (config.allow_D)
@@ -2228,19 +2216,12 @@ namespace TetrisAI
             moves.push_back([this](TetrisActive &a)
                             { return instructor.z(a); });
         }
-        void prepare(TetrisActive active, TetrisMap &map)
-        {
-            visited_db.clear();
-            result_db.clear();
-            result.clear();
-            search = std::queue<TetrisActive>();
-            visited_db[build_hash(active)] = true;
-            search.push(active);
-            instructor.reset(map, active.type);
-        }
-        void test_run()
+        
+        std::vector<TetrisActive> test_run()
         {
             TetrisActive temp;
+            std::vector<TetrisActive> result;
+            result.reserve(1000);
             while (!search.empty())
             {
                 auto &current = search.front();
@@ -2266,6 +2247,7 @@ namespace TetrisAI
                 }
                 search.pop();
             }
+            return result;
         }
         TetrisActive run_lite(TetrisMap map, TetrisStatus status, TetrisParam &p)
         {
@@ -2294,15 +2276,13 @@ namespace TetrisAI
                 if (!result_db[current.snapshot])
                 {
                     result_db[current.snapshot] = true;
-                    result.push_back(current);
                     TetrisMap map_copy = map;
                     TetrisStatus status_copy = status;
                     status_copy.next.active = current;
                     status_copy.spin_type = instructor.immobile(current) ? 3 : 0;
                     instructor.attach(map_copy, current);
                     status_copy.clear = map_copy.flush();
-                    map_copy.scan();
-                    double rating = test.begin_judgement(status, status_copy, map_copy, 1, instructor);
+                    double rating = test.begin_judgement(status, status_copy, map_copy, 1, instructor, config);
                     if (rating > best)
                     {
                         best = rating;
@@ -2317,7 +2297,7 @@ namespace TetrisAI
         {
             TetrisActive temp;
             TetrisMap map_cache;
-            TetrisStatus status_cache = node->status;
+            TetrisStatus status_cache;
             TetrisEvaluation test(p);
             while (!search.empty())
             {
@@ -2341,7 +2321,6 @@ namespace TetrisAI
                 if (!result_db[current.snapshot])
                 {
                     result_db[current.snapshot] = true;
-                    result.push_back(current);
                     map_cache = node->map;
                     status_cache = node->status;
                     status_cache.next = next_manager;
@@ -2349,8 +2328,7 @@ namespace TetrisAI
                     status_cache.spin_type = instructor.immobile(current) ? 3 : 0;
                     instructor.attach(map_cache, current);
                     status_cache.clear = map_cache.flush();
-                    map_cache.scan();
-                    double rating = test.begin_judgement(node->status, status_cache, map_cache, node->version + 1, instructor);
+                    double rating = test.begin_judgement(node->status, status_cache, map_cache, node->version + 1, instructor, config);
                     node->children.push_back(new TetrisNode(rating, node->version + 1, node, map_cache, status_cache));
                 }
                 search.pop();
@@ -2370,9 +2348,8 @@ namespace TetrisAI
         TetrisNextManager next_manager;
         std::size_t total_nodes;
         double low;
-        TetrisTree(TetrisMap &map, TetrisStatus &status, TetrisParam &param) : config(status.next.config), param(param), mino_manager("botris_srs.json"), next_manager(status.next.config), total_nodes(0)
+        TetrisTree(TetrisMap &map, TetrisStatus &status, TetrisConfig &config, TetrisParam &param) : config(config), param(param), mino_manager("botris_srs.json"), next_manager(config), total_nodes(0)
         {
-            map.scan();
             stable_version = 0;
             root = new TetrisNode(stable_version, nullptr, map, status);
             tasks.push(root);

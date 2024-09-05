@@ -38,15 +38,6 @@ std::queue<uint8_t> generate_bag()
 
 int main(void)
 {
-    std::map<uint8_t, char> type_to_char = {
-        {S, 'S'},
-        {L, 'L'},
-        {Z, 'Z'},
-        {I, 'I'},
-        {T, 'T'},
-        {O, 'O'},
-        {J, 'J'},
-        {EMPTY, ' '}};
     TetrisConfig config;
     config.target_time = 100;
     config.can_hold = true;
@@ -57,7 +48,7 @@ int main(void)
     std::uniform_int_distribution<> dis(0, map.width - 1);
     std::uniform_int_distribution<> mess_dis(0, 5);
     TetrisMinoManager mino_manager("botris_srs.json");
-    TetrisPendingLineManager pending(dis, mess_dis, gen);
+    TetrisPendingLineManager pending(gen);
     std::uniform_int_distribution<> line_dis(2, 3);
     std::uniform_int_distribution<> piece_dis(2, 2);
     int16_t b2b = 0, combo = 0;
@@ -78,9 +69,8 @@ int main(void)
             next.insert(bag);
         }
         next.next();
-        map.scan();
         TetrisStatus status(b2b, combo, next, pending);
-        TetrisTree tree(map, status, param);
+        TetrisTree tree(map, status, config, param);
         auto result = tree.run();
         pending.decay();
         result += "V";
@@ -90,9 +80,9 @@ int main(void)
         }
         if (count % piece_dis(gen) == 0)
         {
-            int recv = line_dis(gen);
+            uint8_t recv = line_dis(gen);
             total_recv += recv;
-            pending.push_lines(recv, 1);
+            pending.push_lines(recv, (uint8_t)1);
             pending.fight_lines(extra);
         }
         TetrisInstructor instructor(map, next.active.type);

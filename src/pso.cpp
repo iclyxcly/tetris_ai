@@ -117,8 +117,8 @@ struct TetrisPlayer
         receive += lines;
     }
 
-    TetrisPlayer(TetrisConfig &config, TetrisParam &param, std::uniform_int_distribution<int> &dis, std::uniform_int_distribution<int> &mess_dis, std::mt19937 &gen)
-        : config(config), next(config), param(param), pending(dis, mess_dis, gen), map(10, 40), b2b(0), combo(0), count(0), clear(0), cur_atk(0), attack(0), receive(0), dead(false)
+    TetrisPlayer(TetrisConfig &config, TetrisParam &param, std::mt19937 &gen)
+        : config(config), next(config), param(param), pending(gen), map(10, 40), b2b(0), combo(0), count(0), clear(0), cur_atk(0), attack(0), receive(0), dead(false)
     {
     }
 
@@ -135,9 +135,8 @@ struct TetrisPlayer
         int spin_type = 0;
         int current_clear = 0;
         next.next();
-        map.scan();
         TetrisStatus status(b2b, combo, next, pending);
-        TetrisTree tree(map, status, param);
+        TetrisTree tree(map, status, config, param);
         auto result = tree.run();
         result += "V";
         if (result[0] == 'v')
@@ -599,20 +598,16 @@ int main(void)
                     char box_1[3] = "[]";
 
                     out[0] = '\0';
-                    std::deque<uint8_t> nexts_1, nexts_2;
-                    std::queue<uint8_t> ori_1 = player_1.next.queue;
-                    std::queue<uint8_t> ori_2 = player_2.next.queue;
-                    for (int i = 0; i < 6; ++i)
-                    {
-                        nexts_1.push_back(ori_1.front());
-                        nexts_2.push_back(ori_2.front());
-                        ori_1.pop();
-                        ori_2.pop();
-                    }
-                    snprintf(out, sizeof out, "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n"
-                                              "HOLD = %c NEXT = %c%c%c%c%c%c COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n",
-                             mino_to_char[player_1.next.hold], mino_to_char[nexts_1[0]], mino_to_char[nexts_1[1]], mino_to_char[nexts_1[2]], mino_to_char[nexts_1[3]], mino_to_char[nexts_1[4]], mino_to_char[nexts_1[5]], player_1.combo, player_1.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0], player_1.last_path.c_str(),
-                             mino_to_char[player_2.next.hold], mino_to_char[nexts_2[0]], mino_to_char[nexts_2[1]], mino_to_char[nexts_2[2]], mino_to_char[nexts_2[3]], mino_to_char[nexts_2[4]], mino_to_char[nexts_2[5]], player_2.combo, player_2.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1], player_2.last_path.c_str());
+                    std::string nexts_1 = player_1.next.to_string();
+                    std::string nexts_2 = player_2.next.to_string();
+                    nexts_1.resize(6);
+                    nexts_2.resize(6);
+                    uint16_t up_1 = player_1.pending.total_damage();
+                    uint16_t up_2 = player_2.pending.total_damage();
+                    snprintf(out, sizeof out, "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n"
+                                              "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n",
+                             mino_to_char[player_1.next.hold], nexts_1.c_str(), up_1, player_1.combo, player_1.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0], player_1.last_path.c_str(),
+                             mino_to_char[player_2.next.hold], nexts_2.c_str(), up_2, player_2.combo, player_2.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1], player_2.last_path.c_str());
                     TetrisMap map_copy1 = player_1.map;
                     TetrisMap map_copy2 = player_2.map;
                     {
@@ -646,8 +641,8 @@ int main(void)
                 double b_stats = 0;
                 while (win[0] < WIN_REQUIREMENT && win[1] < WIN_REQUIREMENT && (std::abs(win[0] - win[1]) < 5 || win[1] > win[0]))
                 {
-                    TetrisPlayer player_1(config, match_result.first->pos[PSO_CURRENT], dis, mess_dis, gen);
-                    TetrisPlayer player_2(config, match_result.second->pos[PSO_CURRENT], dis, mess_dis, gen);
+                    TetrisPlayer player_1(config, match_result.first->pos[PSO_CURRENT], gen);
+                    TetrisPlayer player_2(config, match_result.second->pos[PSO_CURRENT], gen);
                     while (player_1.run() && player_2.run() && player_1.count < max_count)
                     {
                         int lines = std::min(player_1.cur_atk, player_2.cur_atk);

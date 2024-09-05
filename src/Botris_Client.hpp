@@ -353,12 +353,8 @@ private:
 		next_manager.queue = queue;
 		config.can_hold = data["canHold"];
 		int last_delay = -1;
-		int16_t total = 0;
-		std::random_device rd;
-		std::uniform_int_distribution<> dis(0, map.width - 1);
-		std::uniform_int_distribution<> mess_dis(0, 99);
-		std::mt19937 gen(rd());
-		TetrisPendingLineManager pending(dis, mess_dis, gen);
+		uint8_t total = 0;
+		TetrisPendingLineManager pending(rand() % INT32_MAX);
 		for (auto &i : data["garbageQueued"])
 		{
 			if (last_delay == -1)
@@ -383,7 +379,7 @@ private:
 		//utils::println(utils::INFO, " -> Last delay: " + std::to_string(last_delay));
 		read_config();
 		TetrisStatus status(data["b2b"], data["combo"], next_manager, pending);
-		TetrisTree runner(map, status, param);
+		TetrisTree runner(map, status, config, param);
 		auto result = runner.run();
 		auto path = translate_command(result);
 		utils::println(utils::INFO, "Nodes: " + std::to_string(runner.total_nodes));
