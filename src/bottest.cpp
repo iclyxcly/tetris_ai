@@ -40,28 +40,22 @@ int main(void)
 {
     TetrisConfig config;
     config.target_time = 100;
-    config.can_hold = true;
     TetrisNextManager next(config);
-    TetrisMap map(10, 40);
+    TetrisMap map(10, 25);
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, map.width - 1);
-    std::uniform_int_distribution<> mess_dis(0, 5);
     TetrisMinoManager mino_manager("botris_srs.json");
-    TetrisPendingLineManager pending(gen);
     std::uniform_int_distribution<> line_dis(2, 3);
-    std::uniform_int_distribution<> piece_dis(2, 2);
-    int16_t b2b = 0, combo = 0;
-    uint8_t clear = 0, spin_type = 0;
+    std::uniform_int_distribution<> piece_dis(2, 5);
     int count = 0;
     int total_atk = 0;
     int total = 0;
-    int extra = 0;
+    uint8_t extra = 0;
     int total_recv = 0;
     TetrisParam param;
+    TetrisStatus status;
     while (true)
     {
-        int attack = 0;
         read_config(param);
         if (next.queue.size() < 7)
         {
@@ -69,133 +63,32 @@ int main(void)
             next.insert(bag);
         }
         next.next();
-        TetrisStatus status(b2b, combo, next, pending);
+        status.next = next;
         TetrisTree tree(map, status, config, param);
         auto result = tree.run();
-        pending.decay();
-        result += "V";
-        if (result[0] == 'v')
-        {
-            next.change_hold();
-        }
+        TetrisGameEmulation emu;
+        emu.run(map, next, status, result);
+        
         if (count % piece_dis(gen) == 0)
         {
             uint8_t recv = line_dis(gen);
             total_recv += recv;
-            pending.push_lines(recv, (uint8_t)1);
-            pending.fight_lines(extra);
-        }
-        TetrisInstructor instructor(map, next.active.type);
-        TetrisActive next_active(config.default_x, config.default_y, config.default_r, next.queue.front());
-        for (auto &path : result)
-        {
-            switch (path)
-            {
-            case 'v':
-                break;
-            case 'V':
-                spin_type = instructor.immobile(next.active) ? 3 : 0;
-                instructor.attach(map, next.active);
-                clear = map.flush();
-                map.scan();
-                break;
-            case 'l':
-                instructor.l(next.active);
-                break;
-            case 'r':
-                instructor.r(next.active);
-                break;
-            case 'L':
-                instructor.L(next.active);
-                break;
-            case 'R':
-                instructor.R(next.active);
-                break;
-            case 'd':
-                instructor.consumer_d(next.active);
-                break;
-            case 'D':
-                instructor.D(next.active);
-                break;
-            case 'x':
-                instructor.x(next.active);
-                break;
-            case 'c':
-                instructor.c(next.active);
-                break;
-            case 'z':
-                instructor.z(next.active);
-                break;
-            }
-        }
-        switch (clear)
-        {
-        case 0:
-            combo = 0;
-            pending.take_all_damage(map, atk.messiness);
-            break;
-        case 1:
-            if (spin_type == 3)
-            {
-                attack += atk.ass + b2b;
-                b2b = 1;
-            }
-            else
-            {
-                b2b = 0;
-            }
-            attack += atk.combo_table[++combo];
-            break;
-        case 2:
-            if (spin_type == 3)
-            {
-                attack += atk.asd + b2b;
-                b2b = 1;
-            }
-            else
-            {
-                b2b = 0;
-                attack += 1;
-            }
-            attack += atk.combo_table[++combo];
-            break;
-        case 3:
-            if (spin_type == 3)
-            {
-                attack += atk.ast + b2b;
-                b2b = 1;
-            }
-            else
-            {
-                b2b = 0;
-                attack += 2;
-            }
-            attack += atk.combo_table[++combo];
-            break;
-        case 4:
-            attack += 4 + b2b;
-            b2b = 1;
-            attack += atk.combo_table[++combo];
-            break;
+            status.garbage.push_lines(recv, (uint8_t)1);
+            status.garbage.fight_lines(extra);
         }
         ++count;
-        total += clear;
-        total_atk += attack;
-        extra += attack;
-        pending.fight_lines(extra);
-        if (instructor.check_death(map, next_active))
+        total += status.clear;
+        total_atk += status.attack;
+        extra += status.send_attack;
+        if (status.dead)
         {
             map = TetrisMap(10, 40);
             next.hold = EMPTY;
             next.queue = std::queue<uint8_t>();
-            clear = 0;
-            b2b = 0;
-            combo = 0;
-            spin_type = 0;
+            status.init();
             total_atk = 0;
             total = 0;
             count = 0;
-            pending.pending = std::deque<TetrisPendingLine>();
             extra = 0;
             total_recv = 0;
         }
@@ -218,7 +111,8 @@ int main(void)
             queue.pop();
         }
         printf("\n");
-        printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f, opponent app: %.2f\n", b2b, combo, clear, spin_type, total_atk / (double)count, total_atk / (double)total, total_recv / (double)count);
+        printf("b2b: %d, combo: %d, clear: %d, spin_type: %d, app: %.2f, apl: %.2f, opponent app: %.2f\n", status.b2b, status.combo, status.clear, status.allspin, total_atk / (double)count, total_atk / (double)total, total_recv / (double)count);
+        printf("cur_atk: %d, send_atk: %d\n", status.attack, status.send_attack);
         printf("path: %s\n", result.c_str());
     }
     return 0;

@@ -32,7 +32,7 @@ struct PSOConfig
         w = 0.9;
         dest_w = 0.4;
         c1 = 2;
-        c2 = 2;
+        c2 = 1;
         TetrisParam p;
         auto pso_config = [&](int index, double value, double offset, double velocity)
         {
@@ -45,37 +45,37 @@ struct PSOConfig
         pso_config(ALLSPIN_2, x[ALLSPIN_2], 100, 5);
         pso_config(ALLSPIN_3, x[ALLSPIN_3], 100, 5);
         pso_config(ALLSPIN_SLOT, x[ALLSPIN_SLOT], 100, 5);
-        pso_config(UPSTACK, x[UPSTACK], 100, 2.5);
-        pso_config(COMBO, x[COMBO], 1000, 5);
-        pso_config(ATTACK, x[ATTACK], 1000, 5);
-        pso_config(CLEAR_1, x[CLEAR_1], 100, 2.5);
-        pso_config(CLEAR_2, x[CLEAR_2], 100, 2.5);
-        pso_config(CLEAR_3, x[CLEAR_3], 100, 2.5);
-        pso_config(CLEAR_4, x[CLEAR_4], 100, 2.5);
-        pso_config(B2B, x[B2B], 1000, 2.5);
-        pso_config(ROOF, x[ROOF], 1000, 5);
-        pso_config(COL_TRANS, x[COL_TRANS], 1000, 5);
-        pso_config(ROW_TRANS, x[ROW_TRANS], 1000, 5);
-        pso_config(HOLE_COUNT, x[HOLE_COUNT], 1000, 5);
-        pso_config(HOLE_LINE, x[HOLE_LINE], 1000, 5);
-        pso_config(WIDE_2, x[WIDE_2], 100, 2.5);
-        pso_config(WIDE_3, x[WIDE_3], 100, 2.5);
-        pso_config(WIDE_4, x[WIDE_4], 100, 2.5);
-        pso_config(HIGH_WIDING, x[HIGH_WIDING], 100, 2.5);
-        pso_config(AGGREGATE_HEIGHT, x[AGGREGATE_HEIGHT], 100, 2.5);
-        pso_config(BUMPINESS, x[BUMPINESS], 100, 2.5);
-        pso_config(HOLD_I, x[HOLD_I], 10, 1);
-        pso_config(HOLD_SZO, x[HOLD_SZO], 10, 1);
-        pso_config(HOLD_LJT, x[HOLD_LJT], 10, 1);
-        pso_config(WASTE_I, x[WASTE_I], 10, 1);
-        pso_config(WASTE_SZO, x[WASTE_SZO], 10, 1);
-        pso_config(WASTE_LJT, x[WASTE_LJT], 10, 1);
-        pso_config(ATTACK_FORECAST, x[ATTACK_FORECAST], 10, 1);
-        pso_config(ALLSPIN_FORECAST, x[ALLSPIN_FORECAST], 10, 1);
-        pso_config(ALLSPIN_CHAIN, x[ALLSPIN_CHAIN], 100, 5);
-        pso_config(TANK, x[TANK], 100, 2.5);
-        pso_config(MID_GROUND, x[MID_GROUND], 1, 0.1);
-        pso_config(HIGH_GROUND, x[HIGH_GROUND], 1, 0.1);
+        pso_config(COMBO, x[COMBO], 1000, 10);
+        pso_config(ATTACK, x[ATTACK], 1000, 10);
+        pso_config(CLEAR_1, x[CLEAR_1], 100, 5);
+        pso_config(CLEAR_2, x[CLEAR_2], 100, 5);
+        pso_config(CLEAR_3, x[CLEAR_3], 100, 5);
+        pso_config(CLEAR_4, x[CLEAR_4], 100, 5);
+        pso_config(B2B, x[B2B], 100, 5);
+        pso_config(ROOF, x[ROOF], 1000, 10);
+        pso_config(COL_TRANS, x[COL_TRANS], 1000, 10);
+        pso_config(ROW_TRANS, x[ROW_TRANS], 1000, 10);
+        pso_config(HOLE_COUNT, x[HOLE_COUNT], 1000, 10);
+        pso_config(HOLE_LINE, x[HOLE_LINE], 1000, 10);
+        pso_config(WIDE_2, x[WIDE_2], 100, 2);
+        pso_config(WIDE_3, x[WIDE_3], 100, 2);
+        pso_config(WIDE_4, x[WIDE_4], 100, 2);
+        pso_config(HIGH_WIDING, x[HIGH_WIDING], 100, 2);
+        pso_config(AGGREGATE_HEIGHT, x[AGGREGATE_HEIGHT], 100, 2);
+        pso_config(BUMPINESS, x[BUMPINESS], 100, 2);
+        pso_config(HOLD_I, x[HOLD_I], 10, 0.5);
+        pso_config(HOLD_SZO, x[HOLD_SZO], 10, 0.5);
+        pso_config(HOLD_LJT, x[HOLD_LJT], 10, 0.5);
+        pso_config(WASTE_I, x[WASTE_I], 10, 0.5);
+        pso_config(WASTE_SZO, x[WASTE_SZO], 10, 0.5);
+        pso_config(WASTE_LJT, x[WASTE_LJT], 10, 0.5);
+        pso_config(TANK, x[TANK], 100, 5);
+        pso_config(MID_GROUND, x[MID_GROUND], 1, 0.2);
+        pso_config(HIGH_GROUND, x[HIGH_GROUND], 1, 0.2);
+        pso_config(SEND, x[SEND], 1000, 10);
+        pso_config(CANCEL, x[CANCEL], 100, 5);
+        pso_config(SKIM, x[SKIM], 100, 5);
+        pso_config(APL, x[APL], 100, 5);
     }
 };
 constexpr int WIN_REQUIREMENT = 15;
@@ -84,17 +84,13 @@ struct TetrisPlayer
     TetrisConfig &config;
     TetrisNextManager next;
     TetrisParam param;
-    TetrisPendingLineManager pending;
+    TetrisStatus status;
     TetrisMap map;
     std::string last_path;
-    int b2b;
-    int combo;
     int count;
     int clear;
-    int cur_atk;
     int attack;
     int receive;
-    bool dead;
 
     void push_next()
     {
@@ -112,141 +108,33 @@ struct TetrisPlayer
         {
             return;
         }
-        pending.push_lines(lines, 1);
-        pending.fight_lines(cur_atk);
+        status.garbage.push_lines(lines, 1);
         receive += lines;
     }
 
     TetrisPlayer(TetrisConfig &config, TetrisParam &param, std::mt19937 &gen)
-        : config(config), next(config), param(param), pending(gen), map(10, 40), b2b(0), combo(0), count(0), clear(0), cur_atk(0), attack(0), receive(0), dead(false)
+        : config(config), next(config), param(param), map(10, 40), count(0), clear(0), attack(0), receive(0)
     {
+        status.init();
+        status.garbage = TetrisPendingLineManager(gen);
     }
 
     bool run()
     {
-        if (dead)
-        {
-            return false;
-        }
         if (next.size() < 14)
         {
             push_next();
         }
-        int spin_type = 0;
-        int current_clear = 0;
         next.next();
-        TetrisStatus status(b2b, combo, next, pending);
+        status.next = next;
         TetrisTree tree(map, status, config, param);
-        auto result = tree.run();
-        result += "V";
-        if (result[0] == 'v')
-        {
-            next.change_hold();
-        }
-        TetrisInstructor instructor(map, next.active.type);
-        for (auto &path : result)
-        {
-            switch (path)
-            {
-            case 'v':
-                break;
-            case 'V':
-                spin_type = instructor.immobile(next.active) ? 3 : 0;
-                instructor.attach(map, next.active);
-                clear += current_clear = map.flush();
-                map.scan();
-                break;
-            case 'l':
-                instructor.l(next.active);
-                break;
-            case 'r':
-                instructor.r(next.active);
-                break;
-            case 'L':
-                instructor.L(next.active);
-                break;
-            case 'R':
-                instructor.R(next.active);
-                break;
-            case 'd':
-                instructor.consumer_d(next.active);
-                break;
-            case 'D':
-                instructor.D(next.active);
-                break;
-            case 'x':
-                instructor.x(next.active);
-                break;
-            case 'c':
-                instructor.c(next.active);
-                break;
-            case 'z':
-                instructor.z(next.active);
-                break;
-            }
-        }
-        last_path = result;
-        switch (current_clear)
-        {
-        case 0:
-            combo = 0;
-            pending.take_all_damage(map, atk.messiness);
-            pending.decay();
-            break;
-        case 1:
-            if (spin_type == 3)
-            {
-                cur_atk += atk.ass + b2b;
-                b2b = 1;
-            }
-            else
-            {
-                b2b = 0;
-            }
-            cur_atk += atk.combo_table[++combo];
-            break;
-        case 2:
-            if (spin_type == 3)
-            {
-                cur_atk += atk.asd + b2b;
-                b2b = 1;
-            }
-            else
-            {
-                b2b = 0;
-                cur_atk += 1;
-            }
-            cur_atk += atk.combo_table[++combo];
-            break;
-        case 3:
-            if (spin_type == 3)
-            {
-                cur_atk += atk.ast + b2b;
-                b2b = 1;
-            }
-            else
-            {
-                b2b = 0;
-                cur_atk += 2;
-            }
-            cur_atk += atk.combo_table[++combo];
-            break;
-        case 4:
-            cur_atk += 4 + b2b;
-            b2b = 1;
-            cur_atk += atk.combo_table[++combo];
-            break;
-        }
-        if (!map.roof)
-        {
-            cur_atk = 10;
-        }
+        last_path = tree.run();
+        TetrisGameEmulation emu;
+        emu.run(map, next, status, last_path);
         ++count;
-        attack += cur_atk;
-        pending.fight_lines(cur_atk);
-        TetrisActive next_mino(config.default_x, config.default_y, config.default_r, next.queue.front());
-        dead = instructor.check_death(map, next_mino);
-        return !dead;
+        attack += status.attack;
+        clear += status.clear;
+        return !status.dead;
     }
 };
 enum PSOPositionType
@@ -602,12 +490,12 @@ int main(void)
                     std::string nexts_2 = player_2.next.to_string();
                     nexts_1.resize(6);
                     nexts_2.resize(6);
-                    uint16_t up_1 = player_1.pending.total_damage();
-                    uint16_t up_2 = player_2.pending.total_damage();
+                    uint16_t up_1 = player_1.status.garbage.total_damage();
+                    uint16_t up_2 = player_2.status.garbage.total_damage();
                     snprintf(out, sizeof out, "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n"
                                               "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n",
-                             mino_to_char[player_1.next.hold], nexts_1.c_str(), up_1, player_1.combo, player_1.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0], player_1.last_path.c_str(),
-                             mino_to_char[player_2.next.hold], nexts_2.c_str(), up_2, player_2.combo, player_2.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1], player_2.last_path.c_str());
+                             mino_to_char[player_1.next.hold], nexts_1.c_str(), up_1, player_1.status.combo, player_1.status.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0], player_1.last_path.c_str(),
+                             mino_to_char[player_2.next.hold], nexts_2.c_str(), up_2, player_2.status.combo, player_2.status.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1], player_2.last_path.c_str());
                     TetrisMap map_copy1 = player_1.map;
                     TetrisMap map_copy2 = player_2.map;
                     {
@@ -645,13 +533,14 @@ int main(void)
                     TetrisPlayer player_2(config, match_result.second->pos[PSO_CURRENT], gen);
                     while (player_1.run() && player_2.run() && player_1.count < max_count)
                     {
-                        int lines = std::min(player_1.cur_atk, player_2.cur_atk);
-                        player_1.cur_atk -= lines;
-                        player_2.cur_atk -= lines;
-                        player_1.push_damage(player_2.cur_atk);
-                        player_2.push_damage(player_1.cur_atk);
-                        player_1.cur_atk = 0;
-                        player_2.cur_atk = 0;
+                        if (player_1.status.send_attack > player_2.status.send_attack)
+                        {
+                            player_2.push_damage(player_1.status.send_attack - player_2.status.send_attack);
+                        }
+                        else if (player_2.status.send_attack > player_1.status.send_attack)
+                        {
+                            player_1.push_damage(player_2.status.send_attack - player_1.status.send_attack);
+                        }
                         view_func(player_1, player_2);
                         if (f_generation != match_result.first->generation)
                         {
@@ -671,11 +560,11 @@ int main(void)
                     {
                         break;
                     }
-                    if (player_1.dead)
+                    if (player_1.status.dead)
                     {
                         ++win[1];
                     }
-                    else if (player_2.dead)
+                    else if (player_2.status.dead)
                     {
                         ++win[0];
                     }

@@ -62,7 +62,6 @@ namespace TetrisAI
         {J, 'J'},
         {EMPTY, ' '}};
     constexpr uint8_t BOARD_HEIGHT = 40;
-    constexpr uint8_t BOARD_WIDTH = 10;
     constexpr uint32_t BINARY_TEMPLATE[32] = {
         0b1,
         0b10,
@@ -135,11 +134,8 @@ namespace TetrisAI
         uint8_t height;
         uint8_t width;
         uint8_t roof;
+        TetrisMap() {}
         TetrisMap(const uint8_t width, const uint8_t height) : height(height), width(width), roof(0)
-        {
-            memset(board, 0, sizeof(board));
-        }
-        TetrisMap() : height(BOARD_HEIGHT), width(BOARD_WIDTH), roof(0)
         {
             memset(board, 0, sizeof(board));
         }
@@ -206,7 +202,7 @@ namespace TetrisAI
         int8_t x;
         int8_t y;
         int8_t r;
-        TetrisCoord() : x(0), y(0), r(0) {}
+        TetrisCoord() {}
         TetrisCoord(const int8_t &x, const int8_t &y, const int8_t &r) : x(x), y(y), r(r) {}
         TetrisCoord(const TetrisConfig &config) : x(config.default_x), y(config.default_y), r(config.default_r) {}
     };
@@ -218,7 +214,7 @@ namespace TetrisAI
         int8_t last_kick;
         std::string path;
         uint32_t snapshot;
-        TetrisActive() : TetrisCoord(), type(EMPTY), last_rotate(false), last_kick(-1) {}
+        TetrisActive() {}
         TetrisActive(const int8_t &x, const int8_t &y, const int8_t &r, const uint8_t &type) : TetrisCoord(x, y, r), type(type), last_rotate(false), last_kick(-1) {}
     };
     struct TetrisNext
@@ -227,13 +223,20 @@ namespace TetrisAI
         std::queue<uint8_t> queue;
         uint8_t hold;
         bool changed_hold;
-        TetrisNext() : active(), hold(EMPTY), changed_hold(false) {}
+        std::size_t size() const
+        {
+            return queue.size();
+        }
+        void push(uint8_t &type)
+        {
+            queue.push(type);
+        }
     };
     struct TetrisNextManager : public TetrisNext
     {
         TetrisConfig config;
         TetrisNextManager(TetrisConfig &config) : TetrisNext(), config(config) {}
-        void operator= (TetrisNext &next)
+        void operator=(TetrisNext &next)
         {
             active = next.active;
             queue = next.queue;
@@ -274,7 +277,7 @@ namespace TetrisAI
             changed_hold = false;
             return true;
         }
-        void push(uint8_t &type)
+        void push(uint8_t type)
         {
             queue.push(type);
         }
@@ -320,7 +323,7 @@ namespace TetrisAI
     {
         std::mt19937 gen;
         std::deque<TetrisPendingLine> pending;
-        void fight_lines(int &attack)
+        void fight_lines(uint8_t &attack)
         {
             while (!pending.empty() && attack > 0)
             {
@@ -343,7 +346,7 @@ namespace TetrisAI
                 line.at_depth--;
             }
         }
-        uint16_t estimate_damage()
+        uint16_t estimate_damage() const
         {
             uint16_t damage = 0;
             for (auto &line : pending)
@@ -359,9 +362,10 @@ namespace TetrisAI
             }
             return damage;
         }
-        uint16_t total_damage()
+        uint16_t total_damage() const
         {
-            return std::accumulate(pending.begin(), pending.end(), 0, [](uint8_t sum, TetrisPendingLine &line) { return sum + line.lines; });
+            return std::accumulate(pending.begin(), pending.end(), 0, [](uint8_t sum, const TetrisPendingLine &line)
+                                   { return sum + line.lines; });
         }
         void take_all_damage(TetrisMap &map, const double &messiness)
         {
@@ -396,12 +400,28 @@ namespace TetrisAI
         uint16_t b2b;
         uint16_t combo;
         uint8_t clear;
-        uint8_t spin_type;
+        uint8_t attack;
+        uint8_t send_attack;
+        uint32_t allspin_value;
+        bool allspin;
         bool dead;
         TetrisNext next;
         TetrisPendingLineManager garbage;
         TetrisStatus() {}
-        TetrisStatus(uint16_t b2b, uint16_t combo, TetrisNext &next, TetrisPendingLineManager &garbage) : b2b(b2b), combo(combo), clear(0), spin_type(0), dead(false), next(next), garbage(garbage) {}
+        TetrisStatus(uint16_t b2b, uint16_t combo, TetrisNext &next, TetrisPendingLineManager &garbage) : b2b(b2b), combo(combo), clear(0), attack(0), send_attack(0), allspin_value(0), allspin(false), dead(false), next(next), garbage(garbage) {}
+        void init()
+        {
+            b2b = 0;
+            combo = 0;
+            clear = 0;
+            attack = 0;
+            send_attack = 0;
+            allspin_value = 0;
+            allspin = false;
+            dead = false;
+            next = TetrisNext();
+            garbage = TetrisPendingLineManager(rand() % INT32_MAX);
+        }
     };
     using TetrisWallkick = std::vector<std::vector<std::pair<int8_t, int8_t>>>;
     struct TetrisMino
@@ -579,7 +599,6 @@ namespace TetrisAI
         ALLSPIN_2,
         ALLSPIN_3,
         ALLSPIN_SLOT,
-        UPSTACK,
         COMBO,
         ATTACK,
         CLEAR_1,
@@ -604,12 +623,13 @@ namespace TetrisAI
         WASTE_I,
         WASTE_SZO,
         WASTE_LJT,
-        ATTACK_FORECAST,
-        ALLSPIN_FORECAST,
-        ALLSPIN_CHAIN,
         TANK,
         MID_GROUND,
         HIGH_GROUND,
+        SEND,
+        CANCEL,
+        SKIM,
+        APL,
         END_OF_PARAM
     };
     struct TetrisParam
@@ -618,29 +638,41 @@ namespace TetrisAI
         TetrisParam()
         {
             memset(weight, 0, sizeof(weight));
-            weight[ROOF] = 0;
-            weight[COL_TRANS] = -2.1;
-            weight[ROW_TRANS] = 40;
-            weight[AGGREGATE_HEIGHT] = 2.5;
-            weight[BUMPINESS] = 2;
-            weight[HOLE_COUNT] = 60;
-            weight[HOLE_LINE] = 30;
-            weight[WIDE_2] = 2;
-            weight[WIDE_3] = 4;
-            weight[WIDE_4] = 12;
-            weight[B2B] = 22;
-            weight[ATTACK] = 100;
-            weight[CLEAR_1] = -6;
-            weight[CLEAR_2] = -10;
-            weight[CLEAR_3] = -14;
-            weight[CLEAR_4] = 32;
             weight[ALLSPIN_1] = 60;
             weight[ALLSPIN_2] = 48;
             weight[ALLSPIN_3] = 32;
             weight[ALLSPIN_SLOT] = 35;
             weight[COMBO] = 60;
-            weight[MID_GROUND] = 0.8;
-            weight[HIGH_GROUND] = 0.4;
+            weight[ATTACK] = 60;
+            weight[CLEAR_1] = 0;
+            weight[CLEAR_2] = 0;
+            weight[CLEAR_3] = 0;
+            weight[CLEAR_4] = 32;
+            weight[B2B] = 12;
+            weight[ROOF] = 0;
+            weight[COL_TRANS] = -1.1;
+            weight[ROW_TRANS] = 60;
+            weight[HOLE_COUNT] = 60;
+            weight[HOLE_LINE] = 30;
+            weight[WIDE_2] = 4;
+            weight[WIDE_3] = 8;
+            weight[WIDE_4] = 12;
+            weight[HIGH_WIDING] = 1;
+            weight[AGGREGATE_HEIGHT] = 2.5;
+            weight[BUMPINESS] = 1;
+            weight[HOLD_I] = 0.8;
+            weight[HOLD_SZO] = 0.4;
+            weight[HOLD_LJT] = 0.2;
+            weight[WASTE_I] = 0.2;
+            weight[WASTE_SZO] = 0.4;
+            weight[WASTE_LJT] = 0.8;
+            weight[TANK] = 40;
+            weight[MID_GROUND] = 0.7;
+            weight[HIGH_GROUND] = 0.3;
+            weight[SEND] = 20;
+            weight[CANCEL] = 40;
+            weight[SKIM] = 10;
+            weight[APL] = 40;
             // the rest depends on pso
         }
         bool operator==(const TetrisParam &other) const
@@ -657,7 +689,7 @@ namespace TetrisAI
         TetrisMap &map;
         TetrisMinocacheMini &move_cache;
         TetrisMino &mino;
-        TetrisInstructor(TetrisMap &map, uint8_t type) : map(map), move_cache(TetrisMinoManager::move_cache[type]), mino(TetrisMinoManager::mino_list[type]) {}
+        TetrisInstructor(TetrisMap &map, uint8_t &type) : map(map), move_cache(TetrisMinoManager::move_cache[type]), mino(TetrisMinoManager::mino_list[type]) {}
         bool integrate(const int8_t &x, const int8_t &y, const int8_t &r) const
         {
             for (int8_t i = -mino.down_offset[r], t = 4 + mino.up_offset[r]; i < t; ++i)
@@ -1038,479 +1070,7 @@ namespace TetrisAI
     {
         TetrisParam &p;
         TetrisEvaluation(TetrisParam &p) : p(p) {}
-        bool find_s_spin(const TetrisMap &map, int32_t &val)
-        { // no problem
-            const uint32_t *ref = BINARY_TEMPLATE;
-            int32_t prev = val;
-            for (int y = map.roof; y >= std::max<int>(0, map.roof - 3); --y)
-            {
-                uint32_t rowm1 = map.board[y - 1];
-                uint32_t row0 = map.board[y];
-                uint32_t row1 = map.board[y + 1];
-                uint32_t row2 = map.board[y + 2];
-                uint32_t row3 = map.board[y + 3];
-                uint8_t count0 = _mm_popcnt_u32(map.board[y]);
-                uint8_t count1 = _mm_popcnt_u32(map.board[y + 1]);
-                uint8_t count2 = _mm_popcnt_u32(map.board[y + 2]);
-                for (int x = 0; x < map.width - 2; ++x)
-                {
-                    if (~row0 & ref[x] && ~row0 & ref[x + 1] && ~row1 & ref[x + 1] && ~row1 & ref[x + 2])
-                    {
-                        // double/single
-                        if ((row0 & ref[x + 2] || (y == 0 || rowm1 & ref[x + 1])) && (row1 & ref[x] || (row2 & ref[x + 2] && (x == 0 || row0 & ref[x - 1]))))
-                        {
-                            ++val;
-                            if (count0 == 8)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 8)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                    if (~row2 & ref[x] && ~row1 & ref[x] && ~row1 & ref[x + 1] && ~row0 & ref[x + 1])
-                    {
-                        // triple
-                        if (row0 & ref[x] && (row2 & ref[x + 1] || (row0 & ref[x + 2] && row3 & ref[x])))
-                        {
-                            ++val;
-                            if (count0 == 9)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 2)
-                            {
-                                val += 2;
-                            }
-                            if (count2 == 9)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                }
-            }
-            return prev != val;
-        }
-        bool find_z_spin(const TetrisMap &map, int32_t &val)
-        { // no problem
-            const uint32_t *ref = BINARY_TEMPLATE;
-            int32_t prev = val;
-            for (int y = map.roof; y >= std::max<int>(0, map.roof - 3); --y)
-            {
-                uint32_t rowm1 = map.board[y - 1];
-                uint32_t row0 = map.board[y];
-                uint32_t row1 = map.board[y + 1];
-                uint32_t row2 = map.board[y + 2];
-                uint32_t row3 = map.board[y + 3];
-                uint8_t count0 = _mm_popcnt_u32(map.board[y]);
-                uint8_t count1 = _mm_popcnt_u32(map.board[y + 1]);
-                uint8_t count2 = _mm_popcnt_u32(map.board[y + 2]);
-                for (int x = 0; x < map.width - 2; ++x)
-                {
-                    if (~row1 & ref[x] && ~row1 & ref[x + 1] && ~row0 & ref[x + 1] && ~row0 & ref[x + 2])
-                    {
-                        // double/single
-                        if ((row0 & ref[x] || (y == 0 || rowm1 & ref[x])) && (row1 & ref[x + 2] || (row2 & ref[x] && (x + 3 == map.width || row0 & ref[x + 3]))))
-                        {
-                            ++val;
-                            if (count0 == 8)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 8)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                    if (~row2 & ref[x + 1] && ~row1 & ref[x + 1] && ~row1 & ref[x] && ~row0 & ref[x])
-                    {
-                        // triple
-                        if (row0 & ref[x + 1] && (row2 & ref[x] || ((x != 0 && row0 & ref[x - 1]) && row3 & ref[x + 1])))
-                        {
-                            ++val;
-                            if (count0 == 9)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 2)
-                            {
-                                val += 2;
-                            }
-                            if (count2 == 9)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                }
-            }
-            return prev != val;
-        }
-        bool find_l_spin(const TetrisMap &map, int32_t &val)
-        { // no problem
-            const uint32_t *ref = BINARY_TEMPLATE;
-            int32_t prev = val;
-            for (int y = map.roof; y >= std::max<int>(0, map.roof - 4); --y)
-            {
-                uint32_t rowm1 = map.board[y - 1];
-                uint32_t row0 = map.board[y];
-                uint32_t row1 = map.board[y + 1];
-                uint32_t row2 = map.board[y + 2];
-                uint32_t row3 = map.board[y + 3];
-                uint8_t count0 = _mm_popcnt_u32(map.board[y]);
-                uint8_t count1 = _mm_popcnt_u32(map.board[y + 1]);
-                uint8_t count2 = _mm_popcnt_u32(map.board[y + 2]);
-                for (int x = 0; x < map.width - 2; ++x)
-                {
-                    if (~row0 & ref[x] && ~row0 & ref[x + 1] && ~row0 & ref[x + 2] && ~row1 & ref[x + 2])
-                    {
-                        // double
-                        bool cond1 = row1 & ref[x + 1] && (x + 3 == map.width || row0 & ref[x + 3] || row1 & ref[x + 3]);
-                        bool cond2 = (x + 3 == map.width || row1 & ref[x + 3]) && row1 & ref[x];
-                        bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x + 1] || rowm1 & ref[x + 2];
-                        if (cond1 && cond2 && cond3)
-                        {
-                            ++val;
-                            if (count0 == 7)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 9)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                    if (~row0 & ref[x] && ~row1 & ref[x] && ~row1 & ref[x + 1] && ~row1 & ref[x + 2])
-                    {
-                        // double, rotate 2x
-                        bool cond1 = (x == 0 || row1 & ref[x - 1]) && row0 & ref[x + 1] && row2 & ref[x + 2];
-                        bool cond2 = x != 0 && row0 & ref[x - 1] && row0 & ref[x + 1] && row2 & ref[x + 1];
-                        bool cond3 = (x == 0 || row1 & ref[x - 1] || row0 & ref[x - 1]) && row0 & ref[x + 1] && row2 & ref[x + 1];
-                        if (cond1 || cond2 || cond3)
-                        {
-                            if (count0 == 9)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 7)
-                            {
-                                val += 2;
-                            }
-                        }
-                        if (cond1)
-                        {
-                            ++val;
-                        }
-                        if (cond2)
-                        {
-                            ++val;
-                        }
-                        if (cond3)
-                        {
-                            ++val;
-                        }
-                    }
-                    if (~row0 & ref[x] && ~row1 & ref[x] && ~row2 & ref[x] && ~row0 & ref[x + 1])
-                    {
-                        // triple
-                        bool cond1 = x == 0 || row0 & ref[x - 1] || row1 & ref[x - 1] || row2 & ref[x - 1];
-                        bool cond2 = row1 & ref[x + 1] || (row3 & ref[x] && row0 * ref[x + 2]);
-                        bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x + 1];
-                        if (cond1 && cond2 && cond3)
-                        {
-                            ++val;
-                            if (count0 == 8)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 9)
-                            {
-                                val += 2;
-                            }
-                            if (count2 == 9)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                }
-            }
-            return prev != val;
-        }
-        bool find_j_spin(const TetrisMap &map, int32_t &val)
-        { // no problem
-            const uint32_t *ref = BINARY_TEMPLATE;
-            int32_t prev = val;
-            for (int y = map.roof; y >= std::max<int>(0, map.roof - 4); --y)
-            {
-                uint32_t rowm1 = map.board[y - 1];
-                uint32_t row0 = map.board[y];
-                uint32_t row1 = map.board[y + 1];
-                uint32_t row2 = map.board[y + 2];
-                uint8_t count0 = _mm_popcnt_u32(map.board[y]);
-                uint8_t count1 = _mm_popcnt_u32(map.board[y + 1]);
-                uint8_t count2 = _mm_popcnt_u32(map.board[y + 2]);
-                for (int x = 0; x < map.width - 2; ++x)
-                {
-                    if (~row0 & ref[x] && ~row0 & ref[x + 1] && ~row0 & ref[x + 2] && ~row1 & ref[x])
-                    {
-                        // double
-                        bool cond1 = row1 & ref[x + 1] && (x == 0 || row0 & ref[x - 1] || row1 & ref[x - 1]);
-                        bool cond2 = (x == 0 || row1 & ref[x - 1]) && row1 & ref[x + 2];
-                        bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x + 1] || rowm1 & ref[x + 2];
-                        if (cond1 && cond2 && cond3)
-                        {
-                            ++val;
-                            if (count0 == 7)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 9)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                    if (~row1 & ref[x] && ~row1 & ref[x + 1] && ~row1 & ref[x + 2] && ~row0 & ref[x + 2])
-                    {
-                        // double, rotate 2x
-                        bool cond1 = (x + 3 == map.width || row1 & ref[x + 3]) && row0 & ref[x + 1] && row2 & ref[x];
-                        bool cond2 = x + 3 != map.width && row0 & ref[x + 3] && row0 & ref[x + 1] && row2 & ref[x + 1];
-                        bool cond3 = (x + 3 == map.width || row1 & ref[x + 3] || row0 & ref[x + 3]) && row0 & ref[x + 1] && row2 & ref[x + 1];
-                        if (cond1 || cond2 || cond3)
-                        {
-                            if (count0 == 9)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 7)
-                            {
-                                val += 2;
-                            }
-                        }
-                        if (cond1)
-                        {
-                            ++val;
-                        }
-                        if (cond2)
-                        {
-                            ++val;
-                        }
-                        if (cond3)
-                        {
-                            ++val;
-                        }
-                    }
-                    if (~row0 & ref[x] && ~row0 & ref[x + 1] && ~row1 & ref[x + 1] && ~row2 & ref[x + 1])
-                    {
-                        // triple
-                        bool cond1 = row0 & ref[x + 2] || row1 & ref[x + 2] || row2 & ref[x + 2];
-                        bool cond2 = row1 & ref[x];
-                        bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x + 1];
-                        if (cond1 && cond2 && cond3)
-                        {
-                            ++val;
-                            if (count0 == 8)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 9)
-                            {
-                                val += 2;
-                            }
-                            if (count2 == 9)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                }
-            }
-            return prev != val;
-        }
-        bool find_t_spin(const TetrisMap &map, int32_t &val)
-        { // no problem
-            const uint32_t *ref = BINARY_TEMPLATE;
-            int32_t prev = val;
-            for (int y = map.roof; y >= std::max<int>(0, map.roof - 4); --y)
-            {
-                uint32_t rowm1 = map.board[y - 1];
-                uint32_t row0 = map.board[y];
-                uint32_t row1 = map.board[y + 1];
-                uint32_t row2 = map.board[y + 2];
-                uint8_t count0 = _mm_popcnt_u32(map.board[y]);
-                uint8_t count1 = _mm_popcnt_u32(map.board[y + 1]);
-                uint8_t count2 = _mm_popcnt_u32(map.board[y + 2]);
-                for (int x = 0; x < map.width - 2; ++x)
-                {
-                    if (~row0 & ref[x + 1] && ~row1 & ref[x] && ~row1 & ref[x + 1] && ~row1 & ref[x + 2] && ~row2 & ref[x + 1])
-                    {
-                        // double
-                        if (row0 & ref[x] && row0 & ref[x + 2] && (row2 & ref[x] || row2 & ref[x + 2]))
-                        {
-                            ++val;
-                            if (count0 == 9)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 7)
-                            {
-                                val += 2;
-                            }
-                            if (count2 == 9)
-                            { // imperial cross?
-                                val += 2;
-                            }
-                        }
-                    }
-                    if (~row0 & ref[x + 1] && ~row1 & ref[x + 1] && ~row2 & ref[x + 1])
-                    {
-                        if ((~row1 & ref[x] && row1 & ref[x + 2]) || (row1 & ref[x] && ~row1 & ref[x + 2]))
-                        {
-                            // triple
-                            if (row0 & ref[x] && row0 & ref[x + 2] && row2 & ref[x] && row2 & ref[x + 2])
-                            {
-                                ++val;
-                                if (count0 == 9)
-                                {
-                                    val += 2;
-                                }
-                                if (count1 == 8)
-                                {
-                                    val += 2;
-                                }
-                                if (count2 == 9)
-                                {
-                                    val += 2;
-                                }
-                            }
-                        }
-                    }
-                    if (~row0 & ref[x] && ~row0 & ref[x + 1] && ~row0 & ref[x + 2] && ~row1 & ref[x + 1])
-                    {
-                        // single (mini)
-                        bool cond1 = row1 & ref[x] && (x + 3 == map.width || row0 & ref[x + 3]);
-                        bool cond2 = row1 & ref[x + 2] && (x == 0 || row0 & ref[x - 1]);
-                        bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x + 1] || rowm1 & ref[x + 2];
-                        if ((cond1 || cond2) && cond3)
-                        {
-                            if (count0 == 7)
-                            {
-                                val += 2;
-                            }
-                        }
-                        if (cond1)
-                        {
-                            ++val;
-                        }
-                        if (cond2)
-                        {
-                            ++val;
-                        }
-                    }
-                }
-            }
-            return prev != val;
-        }
-        bool find_i_spin(const TetrisMap &map, int32_t &val)
-        { // no problem
-            const uint32_t *ref = BINARY_TEMPLATE;
-            int32_t prev = val;
-            for (int y = map.roof; y >= std::max<int>(0, map.roof - 4); --y)
-            {
-                uint32_t rowm1 = map.board[y - 1];
-                uint32_t row0 = map.board[y];
-                uint32_t row1 = map.board[y + 1];
-                uint32_t row2 = map.board[y + 2];
-                uint32_t row3 = map.board[y + 3];
-                uint32_t row4 = map.board[y + 4];
-                uint8_t count0 = _mm_popcnt_u32(map.board[y]);
-                uint8_t count1 = _mm_popcnt_u32(map.board[y + 1]);
-                uint8_t count2 = _mm_popcnt_u32(map.board[y + 2]);
-                for (int x = 0; x < map.width; ++x)
-                {
-                    if (x < map.width - 3 && ~row0 & ref[x] && ~row0 & ref[x + 1] && ~row0 & ref[x + 2] && ~row0 & ref[x + 3])
-                    {
-                        // single
-                        bool up_cover = row1 & ref[x] || row1 & ref[x + 1] || row1 & ref[x + 2] || row1 & ref[x + 3];
-                        if ((x == 0 || row0 & ref[x - 1]) && (x + 4 == map.width || row0 & ref[x + 4]) && up_cover)
-                        {
-                            ++val;
-                            if (count0 == 6)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                    if (~row0 & ref[x] && ~row1 & ref[x] && ~row2 & ref[x] && ~row3 & ref[x])
-                    {
-                        // triple
-                        bool left_cover = x == 0 || row0 & ref[x - 1] || row1 & ref[x - 1] || row2 & ref[x - 1] || row3 & ref[x - 1];
-                        bool right_cover = x + 1 == map.width || row0 & ref[x + 1] || row1 & ref[x + 1] || row2 & ref[x + 1] || row3 & ref[x + 1];
-                        if (row4 & ref[x] && left_cover && right_cover && (y == 0 || rowm1 & ref[x]))
-                        {
-                            ++val;
-                            if (count0 == 9)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 9)
-                            {
-                                val += 2;
-                            }
-                            if (count2 == 9)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                }
-            }
-            return prev != val;
-        }
-        bool find_o_spin(const TetrisMap &map, int32_t &val)
-        {
-            const uint32_t *ref = BINARY_TEMPLATE;
-            int32_t prev = val;
-            for (int y = map.roof; y >= std::max<int>(0, map.roof - 4); --y)
-            {
-                uint32_t rowm1 = map.board[y - 1];
-                uint32_t row0 = map.board[y];
-                uint32_t row1 = map.board[y + 1];
-                uint32_t row2 = map.board[y + 2];
-                uint8_t count0 = _mm_popcnt_u32(map.board[y]);
-                uint8_t count1 = _mm_popcnt_u32(map.board[y + 1]);
-                for (int x = 0; x < map.width; ++x)
-                {
-                    if (~row0 & ref[x] && ~row0 & ref[x + 1] && ~row1 & ref[x] && ~row1 & ref[x + 1])
-                    {
-                        bool down_cover = y == 0 || rowm1 & ref[x] || rowm1 & ref[x + 1];
-                        bool left_cover = x == 0 || row0 & ref[x - 1] || row1 & ref[x - 1];
-                        bool right_cover = x + 1 == map.width || row0 & ref[x + 2] || row1 & ref[x + 2];
-                        bool up_cover = row2 & ref[x] || row2 & ref[x + 1];
-                        if (down_cover && left_cover && right_cover && up_cover)
-                        {
-                            ++val;
-                            if (count0 == 8)
-                            {
-                                val += 2;
-                            }
-                            if (count1 == 8)
-                            {
-                                val += 2;
-                            }
-                        }
-                    }
-                }
-            }
-            return prev != val;
-        }
-        void find_every_spin(const TetrisMap &map, int32_t &val) const
+        static void find_every_spin(const TetrisMap &map, uint32_t &val)
         {
             const uint32_t *ref = BINARY_TEMPLATE;
             for (int y = map.roof; y >= std::max<int>(0, map.roof - 4); --y)
@@ -1886,24 +1446,13 @@ namespace TetrisAI
                 }
             }
         }
-        void find_allspin(const TetrisMap &map, int32_t &v, bool switch_box[])
-        {
-            switch_box[S] = find_s_spin(map, v);
-            switch_box[Z] = find_z_spin(map, v);
-            switch_box[L] = find_l_spin(map, v);
-            switch_box[J] = find_j_spin(map, v);
-            switch_box[T] = find_t_spin(map, v);
-            switch_box[I] = find_i_spin(map, v);
-            switch_box[O] = find_o_spin(map, v);
-        }
         double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map, const int8_t &depth, TetrisInstructor &ins, const TetrisConfig &config)
         {
             double like = 0;
-            int attack = 0;
+            now.attack = 0;
             switch (now.clear)
             {
             case 0:
-                like += (22.0 - map.roof) * p.weight[UPSTACK];
                 now.garbage.take_all_damage(map, atk.messiness);
                 now.combo = 0;
                 now.garbage.decay();
@@ -1924,16 +1473,16 @@ namespace TetrisAI
                 }
                 break;
             case 1:
-                if (now.spin_type == 3)
+                if (now.allspin)
                 {
-                    attack += atk.ass + now.b2b;
+                    now.attack += atk.ass + now.b2b;
                     like += p.weight[ALLSPIN_1];
-                    now.b2b = 1;
+                    now.b2b = atk.b2b;
                 }
                 else
                 {
                     like += p.weight[CLEAR_1];
-                    attack += atk.single;
+                    now.attack += atk.single;
                     now.b2b = 0;
                     switch (now.next.active.type)
                     {
@@ -1951,19 +1500,19 @@ namespace TetrisAI
                         break;
                     }
                 }
-                attack += atk.combo_table[++now.combo];
+                now.attack += atk.combo_table[++now.combo];
                 break;
             case 2:
-                if (now.spin_type == 3)
+                if (now.allspin)
                 {
-                    attack += atk.asd + now.b2b;
+                    now.attack += atk.asd + now.b2b;
                     like += p.weight[ALLSPIN_2];
-                    now.b2b = 1;
+                    now.b2b = atk.b2b;
                 }
                 else
                 {
                     like += p.weight[CLEAR_2];
-                    attack += atk.double_;
+                    now.attack += atk.double_;
                     now.b2b = 0;
                     switch (now.next.active.type)
                     {
@@ -1976,19 +1525,19 @@ namespace TetrisAI
                         break;
                     }
                 }
-                attack += atk.combo_table[++now.combo];
+                now.attack += atk.combo_table[++now.combo];
                 break;
             case 3:
-                if (now.spin_type == 3)
+                if (now.allspin)
                 {
-                    attack += atk.ast + now.b2b;
+                    now.attack += atk.ast + now.b2b;
                     like += p.weight[ALLSPIN_3];
-                    now.b2b = 1;
+                    now.b2b = atk.b2b;
                 }
                 else
                 {
                     like += p.weight[CLEAR_3];
-                    attack += atk.triple;
+                    now.attack += atk.triple;
                     now.b2b = 0;
                     switch (now.next.active.type)
                     {
@@ -1997,11 +1546,12 @@ namespace TetrisAI
                         break;
                     }
                 }
-                attack += atk.combo_table[++now.combo];
+                now.attack += atk.combo_table[++now.combo];
                 break;
             case 4:
                 like += p.weight[CLEAR_4];
-                attack += atk.quad + now.b2b + atk.combo_table[++now.combo];
+                now.attack += atk.quad + now.b2b + atk.combo_table[++now.combo];
+                now.b2b = atk.b2b;
             }
             if (!now.next.queue.empty())
             {
@@ -2011,7 +1561,10 @@ namespace TetrisAI
                     now.dead = true;
                 }
             }
-            like -= p.weight[TANK] * now.garbage.estimate_damage() * depth;
+            if (now.clear != 0)
+            {
+                like -= p.weight[TANK] * now.garbage.estimate_damage() * depth;
+            }
             struct TetrisEvalTemplate
             {
                 int32_t col_trans;
@@ -2021,7 +1574,6 @@ namespace TetrisAI
                 int16_t bumpiness;
                 int16_t hole_count;
                 int8_t hole_line;
-                int32_t spin_slot;
                 int8_t wide[32];
                 bool switch_box[7];
             } eval;
@@ -2066,7 +1618,8 @@ namespace TetrisAI
                     eval.col_trans += _mm_popcnt_u32(map.board[i] ^ map.board[i - 1]);
                 }
             }
-            find_every_spin(map, eval.spin_slot);
+            now.allspin_value = 0;
+            find_every_spin(map, now.allspin_value);
             for (int i = 0; i < map.width; i++)
             {
                 eval.aggregate_height += eval.aggregate_height_arr[i];
@@ -2077,13 +1630,18 @@ namespace TetrisAI
             }
             if (!map.roof)
             {
-                attack = atk.pc;
+                now.attack = atk.pc;
                 like += 999999;
             }
-            now.garbage.fight_lines(attack);
-            if ((last.spin_type == 3 || last.clear == 4) && (now.spin_type == 3 || now.clear == 4) && last.clear && now.clear)
+            now.send_attack = now.attack;
+            now.garbage.fight_lines(now.send_attack);
+            if (!now.allspin && last.allspin_value > now.allspin_value)
             {
-                like += depth * now.combo * p.weight[ALLSPIN_CHAIN];
+                like += ((double)now.allspin_value - last.allspin_value) * p.weight[SKIM];
+            }
+            if (now.clear && last.garbage.total_damage() != now.garbage.total_damage())
+            {
+                like += ((double)last.garbage.total_damage() - now.garbage.total_damage()) * p.weight[CANCEL];
             }
             double rating = -map.roof * p.weight[ROOF];
             for (int i = map.width - 1; i >= 0; --i)
@@ -2115,11 +1673,13 @@ namespace TetrisAI
             rating += eval.wide[3] * p.weight[WIDE_3];
             rating += eval.wide[4] * p.weight[WIDE_4];
             double status_rating = 0;
-            status_rating += eval.spin_slot * p.weight[ALLSPIN_SLOT] * (1. + depth * p.weight[ALLSPIN_FORECAST]);
+            status_rating += now.allspin_value * p.weight[ALLSPIN_SLOT];
             status_rating += like * 10;
-            status_rating += attack * p.weight[ATTACK] * (1. + depth * p.weight[ATTACK_FORECAST]);
+            status_rating += now.attack * p.weight[ATTACK];
+            status_rating += now.send_attack * p.weight[SEND];
             status_rating += (now.b2b - last.b2b) * p.weight[B2B];
-            status_rating += atk.combo_table[now.combo] * p.weight[COMBO];
+            status_rating += (now.attack / std::max<int>(1, now.clear)) * p.weight[APL];
+            status_rating += now.attack * now.combo * p.weight[COMBO];
             status_rating *= map.roof > 7 ? map.roof > 14 ? p.weight[HIGH_GROUND] : p.weight[MID_GROUND] : 1;
             if (now.dead)
             {
@@ -2132,22 +1692,15 @@ namespace TetrisAI
     {
         double rating;
         std::size_t version;
-        bool running;
-        bool complete;
         TetrisNode *parent;
         TetrisMap map;
         TetrisStatus status;
         std::vector<TetrisNode *> children;
-        TetrisNode(std::size_t version, TetrisNode *parent, TetrisMap &map, TetrisStatus &status) : version(version), parent(parent), map(map), status(status)
+        TetrisNode(std::size_t version, TetrisNode *parent, TetrisMap &map, TetrisStatus &status) : rating(0), version(version), parent(parent), map(map), status(status)
         {
-            running = false;
-            complete = false;
-            rating = 0;
         }
-        TetrisNode(double rating, std::size_t version, TetrisNode *parent, TetrisMap &map, TetrisStatus &status) : rating(rating), version(version), parent(parent), map(map), status(status)
+        TetrisNode(double &rating, std::size_t &version, TetrisNode *parent, TetrisMap &map, TetrisStatus &status) : rating(rating), version(version), parent(parent), map(map), status(status)
         {
-            running = false;
-            complete = false;
         }
         double calc_rating(std::string &path)
         {
@@ -2181,7 +1734,7 @@ namespace TetrisAI
         {
             return coord.x + coord.y * 100 + coord.r * 10000;
         }
-        TetrisPathManager(TetrisActive active, TetrisConfig &config, TetrisMap &map) : instructor(map, active.type), config(config)
+        TetrisPathManager(TetrisActive &active, TetrisConfig &config, TetrisMap &map) : instructor(map, active.type), config(config)
         {
             std::size_t size = map.width * map.height * 4;
             visited_db.reserve(size);
@@ -2217,7 +1770,7 @@ namespace TetrisAI
             moves.push_back([this](TetrisActive &a)
                             { return instructor.z(a); });
         }
-        
+
         std::vector<TetrisActive> test_run()
         {
             TetrisActive temp;
@@ -2280,7 +1833,7 @@ namespace TetrisAI
                     TetrisMap map_copy = map;
                     TetrisStatus status_copy = status;
                     status_copy.next.active = current;
-                    status_copy.spin_type = instructor.immobile(current) ? 3 : 0;
+                    status_copy.allspin = instructor.immobile(current);
                     instructor.attach(map_copy, current);
                     status_copy.clear = map_copy.flush();
                     double rating = test.begin_judgement(status, status_copy, map_copy, 1, instructor, config);
@@ -2300,6 +1853,8 @@ namespace TetrisAI
             TetrisMap map_cache;
             TetrisStatus status_cache;
             TetrisEvaluation test(p);
+            double rating_ = 0;
+            std::size_t new_version = node->version + 1;
             while (!search.empty())
             {
                 auto &current = search.front();
@@ -2326,11 +1881,11 @@ namespace TetrisAI
                     status_cache = node->status;
                     status_cache.next = next_manager;
                     status_cache.next.active = current;
-                    status_cache.spin_type = instructor.immobile(current) ? 3 : 0;
+                    status_cache.allspin = instructor.immobile(current);
                     instructor.attach(map_cache, current);
                     status_cache.clear = map_cache.flush();
-                    double rating = test.begin_judgement(node->status, status_cache, map_cache, node->version + 1, instructor, config);
-                    node->children.push_back(new TetrisNode(rating, node->version + 1, node, map_cache, status_cache));
+                    rating_ = test.begin_judgement(node->status, status_cache, map_cache, new_version, instructor, config);
+                    node->children.emplace_back(new TetrisNode(rating_, new_version, node, map_cache, status_cache));
                 }
                 search.pop();
             }
@@ -2344,12 +1899,11 @@ namespace TetrisAI
         TetrisConfig &config;
         TetrisParam &param;
         std::size_t stable_version;
-        TetrisNodeResult stable, beta;
-        TetrisMinoManager mino_manager;
+        TetrisNodeResult stable, beta, alpha;
         TetrisNextManager next_manager;
         std::size_t total_nodes;
         double low;
-        TetrisTree(TetrisMap &map, TetrisStatus &status, TetrisConfig &config, TetrisParam &param) : config(config), param(param), mino_manager("botris_srs.json"), next_manager(config), total_nodes(0)
+        TetrisTree(TetrisMap &map, TetrisStatus &status, TetrisConfig &config, TetrisParam &param) : config(config), param(param), next_manager(config), total_nodes(0)
         {
             stable_version = 0;
             root = new TetrisNode(stable_version, nullptr, map, status);
@@ -2375,9 +1929,9 @@ namespace TetrisAI
             double max_rating = node->children.back()->rating;
             double prune_threshold = 0.5 * (max_rating - min_rating);
             auto it = node->children.rbegin();
-            while (it != node->children.rend() && (max_rating - (*it)->rating > prune_threshold))
+            while (node->children.size() > 5 && it != node->children.rend() && (max_rating - (*it)->rating > prune_threshold))
             {
-                kill_node(*it);
+                delete *it;
                 it = decltype(it)(node->children.erase(std::next(it).base()));
             }
             for (const auto &child : node->children)
@@ -2393,7 +1947,6 @@ namespace TetrisAI
                 stable = beta;
                 beta.first = low;
             }
-            TetrisNodeResult alpha;
             alpha.first = node->calc_rating(alpha.second);
             if (!node->children.empty())
             {
@@ -2408,16 +1961,9 @@ namespace TetrisAI
             {
                 beta = alpha;
             }
-            node->complete = true;
-            node->running = false;
         }
         void expand(TetrisNode *node)
         {
-            if (node->running || node->complete)
-            {
-                return;
-            }
-            node->running = true;
             next_manager = node->status.next;
             if (node->parent != nullptr)
             {
@@ -2458,6 +2004,117 @@ namespace TetrisAI
             }
             kill_node(root);
             return stable.second;
+        }
+    };
+    struct TetrisGameEmulation
+    {
+        void run(TetrisMap &map, TetrisNextManager &next, TetrisStatus &status, std::string &path)
+        {
+            if (path.front() == 'v')
+            {
+                next.change_hold();
+            }
+            status.next = next;
+            TetrisInstructor move(map, status.next.active.type);
+            for (auto &c : path)
+            {
+                switch (c)
+                {
+                case 'D':
+                    move.D(status.next.active);
+                    break;
+                case 'd':
+                    move.consumer_d(status.next.active);
+                    break;
+                case 'L':
+                    move.L(status.next.active);
+                    break;
+                case 'l':
+                    move.l(status.next.active);
+                    break;
+                case 'R':
+                    move.R(status.next.active);
+                    break;
+                case 'r':
+                    move.r(status.next.active);
+                    break;
+                case 'x':
+                    move.x(status.next.active);
+                    break;
+                case 'c':
+                    move.c(status.next.active);
+                    break;
+                case 'z':
+                    move.z(status.next.active);
+                    break;
+                }
+            }
+            status.allspin = move.immobile(status.next.active);
+            move.attach(map, status.next.active);
+            status.clear = map.flush();
+            status.attack = 0;
+            switch (status.clear)
+            {
+            case 0:
+                status.combo = 0;
+                if (status.garbage.estimate_damage() > 0)
+                status.garbage.take_all_damage(map, atk.messiness);
+                status.garbage.decay();
+                break;
+            case 1:
+                if (status.allspin)
+                {
+                    status.attack += atk.ass + status.b2b;
+                    status.b2b = atk.b2b;
+                }
+                else
+                {
+                    status.b2b = 0;
+                    status.attack += atk.single;
+                }
+                status.attack += atk.combo_table[++status.combo];
+                break;
+            case 2:
+                if (status.allspin)
+                {
+                    status.attack += atk.asd + status.b2b;
+                    status.b2b = atk.b2b;
+                }
+                else
+                {
+                    status.b2b = 0;
+                    status.attack += atk.double_;
+                }
+                status.attack += atk.combo_table[++status.combo];
+                break;
+            case 3:
+                if (status.allspin)
+                {
+                    status.attack += atk.ast + status.b2b;
+                    status.b2b = atk.b2b;
+                }
+                else
+                {
+                    status.b2b = 0;
+                    status.attack += atk.triple;
+                }
+                status.attack += atk.combo_table[++status.combo];
+                break;
+            case 4:
+                status.attack += atk.quad + status.b2b + atk.combo_table[++status.combo];
+                status.b2b = atk.b2b;
+                break;
+            }
+            if (!map.roof)
+            {
+                status.attack = atk.pc;
+            }
+            status.send_attack = status.attack;
+            status.garbage.fight_lines(status.send_attack);
+            TetrisActive next_mino(next.config.default_x, next.config.default_y, next.config.default_r, status.next.queue.front());
+            status.dead = move.check_death(map, next_mino);
+            status.allspin_value = 0;
+            TetrisEvaluation::find_every_spin(map, status.allspin_value);
         }
     };
 }
