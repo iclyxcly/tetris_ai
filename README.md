@@ -1,17 +1,8 @@
 # tetris_ai
  
 todo
-
-eval #done maybe
-multithread #later
-
-trainer
+multithread
 pc search (?)
-improve snapshot&attach
-stalling when dead
 
-
-
-eval:
-safe (attack height scale)
-tank % cancel
+tofix
+allspin_value on left/right border issue

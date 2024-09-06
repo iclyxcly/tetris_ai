@@ -83,15 +83,16 @@ namespace Payload
 class Botris_Client
 {
 	using pfunc = void (Botris_Client::*)(json);
-	TetrisConfig config;
-	TetrisParam param;
-	Payload::SessionId session_id;
-	Payload::RoomData room_data;
 
 private:
 	std::string API_TOKEN;
 	std::string ROOM_KEY;
 	ix::WebSocket web_socket;
+	TetrisConfig config;
+	TetrisParam param;
+	TetrisStatus status;
+	Payload::SessionId session_id;
+	Payload::RoomData room_data;
 
 	uint8_t translate_mino(std::string mino)
 	{
@@ -308,6 +309,7 @@ private:
 		int startsAt;
 		int_safeassign(data, startsAt, "startsAt");
 		utils::println(utils::INFO, " -> Round starts at: " + std::to_string(startsAt));
+		status.init();
 	}
 	void handle_msg_request_move(json data)
 	{
@@ -316,7 +318,7 @@ private:
 		config.allow_x = false;
 		config.allow_D = false;
 		config.allow_LR = false;
-		TetrisMap map(10, 40);
+		TetrisMap map(10, 25);
 		for (int i = 0; i < 24; ++i)
 		{
 			for (int j = 0; j < 10; ++j)
@@ -336,10 +338,9 @@ private:
 		// }
 		map.scan();
 		TetrisNextManager next_manager(config);
-		std::queue<uint8_t> queue;
 		for (auto &i : data["queue"])
 		{
-			queue.push(translate_mino(i));
+			next_manager.push(translate_mino(i));
 		}
 		next_manager.active = TetrisActive(config.default_x, config.default_y, config.default_r, translate_mino(data["current"]["piece"]));
 		if (data["held"].is_null())
@@ -350,20 +351,21 @@ private:
 		{
 			next_manager.hold = translate_mino(data["held"]);
 		}
-		next_manager.queue = queue;
 		config.can_hold = data["canHold"];
+		status.next = next_manager;
 		int last_delay = -1;
 		uint8_t total = 0;
-		TetrisPendingLineManager pending(rand() % INT32_MAX);
+		status.garbage.pending.clear();
 		for (auto &i : data["garbageQueued"])
 		{
 			if (last_delay == -1)
 			{
 				last_delay = i["delay"];
+				total = 1;
 			}
 			else if (i["delay"] != last_delay)
 			{
-				pending.push_lines(total, last_delay);
+				status.garbage.push_lines(total, last_delay);
 				last_delay = i["delay"];
 				total = 1;
 			}
@@ -374,15 +376,20 @@ private:
 		}
 		if (total != 0)
 		{
-			pending.push_lines(total, last_delay);
+			status.garbage.push_lines(total, last_delay);
 		}
-		//utils::println(utils::INFO, " -> Last delay: " + std::to_string(last_delay));
 		read_config();
-		TetrisStatus status(data["b2b"], data["combo"], next_manager, pending);
+		status.b2b = data["b2b"];
+		status.combo = data["combo"];
 		TetrisTree runner(map, status, config, param);
 		auto result = runner.run();
+		TetrisGameEmulation emu;
+		emu.run(map, next_manager, status, result);
+		if (status.dead)
+		{
+			return;
+		}
 		auto path = translate_command(result);
-		utils::println(utils::INFO, "Nodes: " + std::to_string(runner.total_nodes));
 		ws_make_move(path);
 	}
 	void handle_msg_player_action(json data) {}
@@ -454,6 +461,7 @@ public:
 	void run()
 	{
 		get_secrets();
+		status.init();
 		ws_start();
 	}
 
