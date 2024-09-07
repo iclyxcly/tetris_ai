@@ -1,8 +1,6 @@
 #pragma once
 #include <cstdint>
 #include <random>
-#include <map>
-#include <unordered_set>
 #include <fstream>
 #include <string>
 #include <queue>
@@ -13,6 +11,7 @@
 #include <chrono>
 #include "json.hpp"
 #include <nmmintrin.h>
+#include <boost/unordered/unordered_map.hpp>
 #if !_MSC_VER
 #define _mm_popcnt_u32 __builtin_popcount
 #endif
@@ -43,7 +42,7 @@ namespace TetrisAI
         J = 6,
         EMPTY = 255
     };
-    std::unordered_map<char, uint8_t> char_to_type = {
+    boost::unordered_map<char, uint8_t> char_to_type = {
         {'S', S},
         {'L', L},
         {'Z', Z},
@@ -52,7 +51,7 @@ namespace TetrisAI
         {'O', O},
         {'J', J},
         {' ', EMPTY}};
-    std::unordered_map<uint8_t, char> type_to_char = {
+    boost::unordered_map<uint8_t, char> type_to_char = {
         {S, 'S'},
         {L, 'L'},
         {Z, 'Z'},
@@ -435,9 +434,9 @@ namespace TetrisAI
         int8_t left_offset[4];
         int8_t right_offset[4];
     };
-    using TetrisMinotypes = std::unordered_map<uint8_t, TetrisMino>;
-    using TetrisMinocache = std::unordered_map<uint8_t, std::vector<std::unordered_map<int8_t, uint32_t[4]>>>;
-    using TetrisMinocacheMini = std::vector<std::unordered_map<int8_t, uint32_t[4]>>;
+    using TetrisMinotypes = boost::unordered_map<uint8_t, TetrisMino>;
+    using TetrisMinocache = boost::unordered_map<uint8_t, std::vector<boost::unordered_map<int8_t, uint32_t[4]>>>;
+    using TetrisMinocacheMini = std::vector<boost::unordered_map<int8_t, uint32_t[4]>>;
     struct TetrisMinoManager
     {
         static TetrisMinotypes mino_list;
@@ -548,7 +547,7 @@ namespace TetrisAI
                     mino_list.insert(std::make_pair(char_to_type[type], mino));
                     for (int8_t i = 0; i < 4; ++i)
                     {
-                        std::unordered_map<int8_t, uint32_t[4]> moves;
+                        boost::unordered_map<int8_t, uint32_t[4]> moves;
                         int8_t offset_right = 28 - mino.right_offset[i];
                         for (int8_t j = mino.left_offset[i]; j <= offset_right; ++j)
                         {
@@ -638,41 +637,41 @@ namespace TetrisAI
         TetrisParam()
         {
             memset(weight, 0, sizeof(weight));
-            weight[ALLSPIN_1] = 60;
-            weight[ALLSPIN_2] = 48;
-            weight[ALLSPIN_3] = 32;
-            weight[ALLSPIN_SLOT] = 35;
-            weight[COMBO] = 60;
-            weight[ATTACK] = 60;
-            weight[CLEAR_1] = 0;
-            weight[CLEAR_2] = 0;
-            weight[CLEAR_3] = 0;
-            weight[CLEAR_4] = 32;
-            weight[B2B] = 12;
-            weight[ROOF] = 0;
-            weight[COL_TRANS] = -1.1;
-            weight[ROW_TRANS] = 60;
-            weight[HOLE_COUNT] = 60;
-            weight[HOLE_LINE] = 30;
-            weight[WIDE_2] = 4;
-            weight[WIDE_3] = 8;
-            weight[WIDE_4] = 12;
-            weight[HIGH_WIDING] = 1;
-            weight[AGGREGATE_HEIGHT] = 2.5;
-            weight[BUMPINESS] = 1;
-            weight[HOLD_I] = 0.8;
-            weight[HOLD_SZO] = 0.4;
-            weight[HOLD_LJT] = 0.2;
-            weight[WASTE_I] = 0.2;
-            weight[WASTE_SZO] = 0.4;
-            weight[WASTE_LJT] = 0.8;
-            weight[TANK] = 40;
-            weight[MID_GROUND] = 0.7;
-            weight[HIGH_GROUND] = 0.3;
-            weight[SEND] = 20;
-            weight[CANCEL] = 40;
-            weight[SKIM] = 10;
-            weight[APL] = 40;
+            // weight[ALLSPIN_1] = 60;
+            // weight[ALLSPIN_2] = 48;
+            // weight[ALLSPIN_3] = 32;
+            // weight[ALLSPIN_SLOT] = 35;
+            // weight[COMBO] = 60;
+            // weight[ATTACK] = 60;
+            // weight[CLEAR_1] = 0;
+            // weight[CLEAR_2] = 0;
+            // weight[CLEAR_3] = 0;
+            // weight[CLEAR_4] = 32;
+            // weight[B2B] = 12;
+            // weight[ROOF] = 0;
+            // weight[COL_TRANS] = -1.1;
+            // weight[ROW_TRANS] = 60;
+            // weight[HOLE_COUNT] = 60;
+            // weight[HOLE_LINE] = 30;
+            // weight[WIDE_2] = 4;
+            // weight[WIDE_3] = 8;
+            // weight[WIDE_4] = 12;
+            // weight[HIGH_WIDING] = 1;
+            // weight[AGGREGATE_HEIGHT] = 2.5;
+            // weight[BUMPINESS] = 1;
+            // weight[HOLD_I] = 0.8;
+            // weight[HOLD_SZO] = 0.4;
+            // weight[HOLD_LJT] = 0.2;
+            // weight[WASTE_I] = 0.2;
+            // weight[WASTE_SZO] = 0.4;
+            // weight[WASTE_LJT] = 0.8;
+            // weight[TANK] = 40;
+            // weight[MID_GROUND] = 0.7;
+            // weight[HIGH_GROUND] = 0.3;
+            // weight[SEND] = 20;
+            // weight[CANCEL] = 40;
+            // weight[SKIM] = 10;
+            // weight[APL] = 40;
             // the rest depends on pso
         }
         bool operator==(const TetrisParam &other) const
@@ -1223,8 +1222,8 @@ namespace TetrisAI
                         if (~row0 & ref[x] && ~row1 & ref[x] && ~row2 & ref[x] && ~row0 & ref[x1])
                         {
                             // triple
-                            bool cond1 = x == 0 || row0 & ref[xm1] || row1 & ref[xm1] || row2 & ref[xm1];
-                            bool cond2 = row1 & ref[x1] || (row3 & ref[x] && row0 * ref[x2]);
+                            bool cond1 = x != 0 || row0 & ref[xm1] || row1 & ref[xm1] || row2 & ref[xm1];
+                            bool cond2 = row1 & ref[x1] || (row3 & ref[x] && row0 & ref[x2]);
                             bool cond3 = y == 0 || rowm1 & ref[x] || rowm1 & ref[x1];
                             if (cond1 && cond2 && cond3)
                             {
@@ -1428,7 +1427,7 @@ namespace TetrisAI
                     {
                         bool down_cover = y == 0 || rowm1 & ref[x] || rowm1 & ref[x1];
                         bool left_cover = x == 0 || row0 & ref[xm1] || row1 & ref[xm1];
-                        bool right_cover = x1 == map.width || row0 & ref[x2] || row1 & ref[x2];
+                        bool right_cover = x2 == map.width || (x2 < map.width && (row0 & ref[x2] || row1 & ref[x2]));
                         bool up_cover = row2 & ref[x] || row2 & ref[x1];
                         if (down_cover && left_cover && right_cover && up_cover)
                         {
@@ -1673,14 +1672,17 @@ namespace TetrisAI
             rating += eval.wide[3] * p.weight[WIDE_3];
             rating += eval.wide[4] * p.weight[WIDE_4];
             double status_rating = 0;
+            if (now.clear)
+            {
+                status_rating += (((double)now.attack / now.clear) - 1.5) * p.weight[APL];
+            }
             status_rating += now.allspin_value * p.weight[ALLSPIN_SLOT];
             status_rating += like * 10;
             status_rating += now.attack * p.weight[ATTACK];
             status_rating += now.send_attack * p.weight[SEND];
             status_rating += (now.b2b - last.b2b) * p.weight[B2B];
-            status_rating += (now.attack / std::max<int>(1, now.clear)) * p.weight[APL];
-            status_rating += now.attack * now.combo * p.weight[COMBO];
             status_rating *= map.roof > 7 ? map.roof > 14 ? p.weight[HIGH_GROUND] : p.weight[MID_GROUND] : 1;
+            status_rating += now.attack * now.combo * p.weight[COMBO];
             if (now.dead)
             {
                 rating -= 999999999;
@@ -1725,8 +1727,8 @@ namespace TetrisAI
     struct TetrisPathManager
     {
         std::queue<TetrisActive> search;
-        std::unordered_map<int, bool> visited_db;
-        std::unordered_map<uint32_t, bool> result_db;
+        boost::unordered_map<int, bool> visited_db;
+        boost::unordered_map<uint32_t, bool> result_db;
         std::vector<std::function<bool(TetrisActive &)>> moves;
         TetrisInstructor instructor;
         TetrisConfig &config;
@@ -1774,6 +1776,7 @@ namespace TetrisAI
         std::vector<TetrisActive> test_run()
         {
             TetrisActive temp;
+            int hash = 0;
             std::vector<TetrisActive> result;
             result.reserve(1000);
             while (!search.empty())
@@ -1784,7 +1787,7 @@ namespace TetrisAI
                     temp = current;
                     if (move(temp))
                     {
-                        int hash = build_hash(temp);
+                        hash = build_hash(temp);
                         if (!visited_db[hash])
                         {
                             visited_db[hash] = true;
@@ -1809,6 +1812,7 @@ namespace TetrisAI
             TetrisActive best_active;
             TetrisActive temp;
             TetrisEvaluation test(p);
+            int hash = 0;
             while (!search.empty())
             {
                 auto &current = search.front();
@@ -1817,7 +1821,7 @@ namespace TetrisAI
                     temp = current;
                     if (move(temp))
                     {
-                        int hash = build_hash(temp);
+                        hash = build_hash(temp);
                         if (!visited_db[hash])
                         {
                             visited_db[hash] = true;
@@ -1855,6 +1859,7 @@ namespace TetrisAI
             TetrisEvaluation test(p);
             double rating_ = 0;
             std::size_t new_version = node->version + 1;
+            int hash = 0;
             while (!search.empty())
             {
                 auto &current = search.front();
@@ -1864,7 +1869,7 @@ namespace TetrisAI
                     temp = current;
                     if (move(temp))
                     {
-                        int hash = build_hash(temp);
+                        hash = build_hash(temp);
                         if (!visited_db[hash])
                         {
                             visited_db[hash] = true;
