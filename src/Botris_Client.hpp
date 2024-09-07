@@ -383,6 +383,7 @@ private:
 		status.combo = data["combo"];
 		TetrisTree runner(map, status, config, param);
 		auto result = runner.run();
+		utils::println(utils::INFO, " -> Total nodes: " + std::to_string(runner.total_nodes));
 		TetrisGameEmulation emu;
 		emu.run(map, next_manager, status, result);
 		if (status.dead)
