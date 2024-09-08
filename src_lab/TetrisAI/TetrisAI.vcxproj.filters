@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="board.cpp" />
+    <ClCompile Include="pending.h" />
+    <ClCompile Include="pending.cpp" />
+    <ClCompile Include="next.cpp" />
+    <ClCompile Include="mino.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="board.h" />
+    <ClInclude Include="const.h" />
+    <ClInclude Include="next.h" />
+    <ClInclude Include="mino.h" />
+    <ClInclude Include="utils.h" />
+    <ClInclude Include="json.hpp" />
+  </ItemGroup>
+</Project>

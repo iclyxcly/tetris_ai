@@ -11,7 +11,7 @@
 #include <chrono>
 #include "json.hpp"
 #include <nmmintrin.h>
-#include <boost/unordered/unordered_map.hpp>
+#include <unordered_map>
 #if !_MSC_VER
 #define _mm_popcnt_u32 __builtin_popcount
 #endif
@@ -42,7 +42,7 @@ namespace TetrisAI
         J = 6,
         EMPTY = 255
     };
-    boost::unordered_map<char, uint8_t> char_to_type = {
+    std::map<char, uint8_t> char_to_type = {
         {'S', S},
         {'L', L},
         {'Z', Z},
@@ -51,7 +51,7 @@ namespace TetrisAI
         {'O', O},
         {'J', J},
         {' ', EMPTY}};
-    boost::unordered_map<uint8_t, char> type_to_char = {
+    std::map<uint8_t, char> type_to_char = {
         {S, 'S'},
         {L, 'L'},
         {Z, 'Z'},
@@ -434,9 +434,9 @@ namespace TetrisAI
         int8_t left_offset[4];
         int8_t right_offset[4];
     };
-    using TetrisMinotypes = boost::unordered_map<uint8_t, TetrisMino>;
-    using TetrisMinocache = boost::unordered_map<uint8_t, std::vector<boost::unordered_map<int8_t, uint32_t[4]>>>;
-    using TetrisMinocacheMini = std::vector<boost::unordered_map<int8_t, uint32_t[4]>>;
+    using TetrisMinotypes = std::map<uint8_t, TetrisMino>;
+    using TetrisMinocache = std::map<uint8_t, std::vector<std::map<int8_t, uint32_t[4]>>>;
+    using TetrisMinocacheMini = std::vector<std::map<int8_t, uint32_t[4]>>;
     struct TetrisMinoManager
     {
         static TetrisMinotypes mino_list;
@@ -547,7 +547,7 @@ namespace TetrisAI
                     mino_list.insert(std::make_pair(char_to_type[type], mino));
                     for (int8_t i = 0; i < 4; ++i)
                     {
-                        boost::unordered_map<int8_t, uint32_t[4]> moves;
+                        std::map<int8_t, uint32_t[4]> moves;
                         int8_t offset_right = 28 - mino.right_offset[i];
                         for (int8_t j = mino.left_offset[i]; j <= offset_right; ++j)
                         {
@@ -900,7 +900,7 @@ namespace TetrisAI
             }
             int8_t x = 0;
             int8_t y = 0;
-            for (std::size_t i = 0, max = mino.rotate_right[active.r].size(); i < max; i++)
+            for (int8_t i = 0, max = mino.rotate_right[active.r].size(); i < max; i++)
             {
                 x = active.x + mino.rotate_right[active.r][i].first;
                 y = active.y + mino.rotate_right[active.r][i].second;
@@ -935,7 +935,7 @@ namespace TetrisAI
             }
             int8_t x = 0;
             int8_t y = 0;
-            for (std::size_t i = 0, max = mino.rotate_left[active.r].size(); i < max; i++)
+            for (int8_t i = 0, max = mino.rotate_left[active.r].size(); i < max; i++)
             {
                 x = active.x + mino.rotate_left[active.r][i].first;
                 y = active.y + mino.rotate_left[active.r][i].second;
@@ -970,7 +970,7 @@ namespace TetrisAI
             }
             int8_t x = 0;
             int8_t y = 0;
-            for (std::size_t i = 0, max = mino.rotate_180[active.r].size(); i < max; i++)
+            for (int8_t i = 0, max = mino.rotate_180[active.r].size(); i < max; i++)
             {
                 x = active.x + mino.rotate_180[active.r][i].first;
                 y = active.y + mino.rotate_180[active.r][i].second;
@@ -1445,7 +1445,7 @@ namespace TetrisAI
                 }
             }
         }
-        double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map, const int8_t &depth, TetrisInstructor &ins, const TetrisConfig &config)
+        double begin_judgement(const TetrisStatus &last, TetrisStatus &now, TetrisMap &map, const std::size_t &depth, TetrisInstructor &ins, const TetrisConfig &config)
         {
             double like = 0;
             now.attack = 0;
@@ -1727,8 +1727,8 @@ namespace TetrisAI
     struct TetrisPathManager
     {
         std::queue<TetrisActive> search;
-        boost::unordered_map<int, bool> visited_db;
-        boost::unordered_map<uint32_t, bool> result_db;
+        std::unordered_map<int, bool> visited_db;
+        std::unordered_map<uint32_t, bool> result_db;
         std::vector<std::function<bool(TetrisActive &)>> moves;
         TetrisInstructor instructor;
         TetrisConfig &config;
@@ -2015,7 +2015,7 @@ namespace TetrisAI
     {
         void run(TetrisMap &map, TetrisNextManager &next, TetrisStatus &status, std::string &path)
         {
-            if (path.front() == 'v')
+            if (!path.empty() && path.front() == 'v')
             {
                 next.change_hold();
             }
