@@ -6,7 +6,6 @@
 #include <mutex>
 #include <iostream>
 #include <atomic>
-#include <unistd.h>
 
 using namespace TetrisAI;
 
@@ -91,6 +90,7 @@ struct TetrisPlayer
     int clear;
     int attack;
     int receive;
+    std::size_t last_nodes;
 
     void push_next()
     {
@@ -134,6 +134,7 @@ struct TetrisPlayer
         ++count;
         attack += status.attack;
         clear += status.clear;
+        last_nodes = tree.total_nodes;
         return !status.dead;
     }
 };
@@ -428,9 +429,9 @@ int main(void)
     std::recursive_mutex mtx;
     std::vector<std::thread> threads;
     TetrisConfig config;
-    config.allow_D = false;
+    config.allow_D = true;
     config.allow_d = true;
-    config.allow_LR = false;
+    config.allow_LR = true;
     config.allow_lr = true;
     config.allow_x = false;
     config.can_hold = true;
@@ -459,7 +460,6 @@ int main(void)
                 if (match_result.first == nullptr || match_result.second == nullptr)
                 {
                     mtx.unlock();
-                    usleep(100000);
                     continue;
                 }
                 int f_generation = match_result.first->generation;
@@ -492,10 +492,10 @@ int main(void)
                     nexts_2.resize(6);
                     uint16_t up_1 = player_1.status.garbage.total_damage();
                     uint16_t up_2 = player_2.status.garbage.total_damage();
-                    snprintf(out, sizeof out, "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n"
-                                              "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, IDX = %d, WIN = %d, PATH = %s\n",
-                             mino_to_char[player_1.next.hold], nexts_1.c_str(), up_1, player_1.status.combo, player_1.status.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0], player_1.last_path.c_str(),
-                             mino_to_char[player_2.next.hold], nexts_2.c_str(), up_2, player_2.status.combo, player_2.status.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1], player_2.last_path.c_str());
+                    snprintf(out, sizeof out, "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, ID = %d, WIN = %d, NODE = %d, PATH = %s\n"
+                                              "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, ID = %d, WIN = %d, NODE = %d, PATH = %s\n",
+                             mino_to_char[player_1.next.hold], nexts_1.c_str(), up_1, player_1.status.combo, player_1.status.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0], player_1.last_nodes, player_1.last_path.c_str(),
+                             mino_to_char[player_2.next.hold], nexts_2.c_str(), up_2, player_2.status.combo, player_2.status.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1], player_2.last_nodes, player_2.last_path.c_str());
                     TetrisMap map_copy1 = player_1.map;
                     TetrisMap map_copy2 = player_2.map;
                     {

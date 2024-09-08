@@ -13,6 +13,7 @@
 #pragma comment(lib, "Crypt32.lib")
 #pragma comment(lib, "Secur32.lib")
 #pragma comment(lib, "Ws2_32.lib")
+#pragma warning(disable : 4996)
 
 using namespace TetrisAI;
 using json = nlohmann::json;

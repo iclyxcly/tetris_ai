@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <queue>
 #include <iostream>
-
+#pragma warning(disable : 4996)
 using namespace TetrisAI;
 
 void read_config(TetrisParam &param)
@@ -54,6 +54,7 @@ int main(void)
     int total_recv = 0;
     TetrisParam param;
     TetrisStatus status;
+    status.init();
     while (true)
     {
         read_config(param);
