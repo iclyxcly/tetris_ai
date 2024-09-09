@@ -13,7 +13,7 @@
     <ClInclude Include="const.h" />
     <ClInclude Include="next.h" />
     <ClInclude Include="mino.h" />
-    <ClInclude Include="utils.h" />
     <ClInclude Include="json.hpp" />
+    <ClInclude Include="output.h" />
   </ItemGroup>
 </Project>

@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <random>
-#include "utils.h"
+#include <string>
 namespace moenew
 {
 	using rng_range = std::uniform_int_distribution<>;
@@ -23,6 +23,116 @@ namespace moenew
 		J,
 		X
 	};
+	inline constexpr Piece char_to_type(const char& c)
+	{
+		switch (c)
+		{
+		case 'S':
+			return S;
+		case 'L':
+			return L;
+		case 'Z':
+			return Z;
+		case 'I':
+			return I;
+		case 'T':
+			return T;
+		case 'O':
+			return O;
+		case 'J':
+			return J;
+		default:
+			return X;
+		}
+	}
+	inline constexpr char type_to_char(const Piece& p)
+	{
+		switch (p)
+		{
+		case S:
+			return 'S';
+		case L:
+			return 'L';
+		case Z:
+			return 'Z';
+		case I:
+			return 'I';
+		case T:
+			return 'T';
+		case O:
+			return 'O';
+		case J:
+			return 'J';
+		default:
+			return 'X';
+		}
+	}
+	inline constexpr char type_to_char(const int& p)
+	{
+		switch (p)
+		{
+		case S:
+			return 'S';
+		case L:
+			return 'L';
+		case Z:
+			return 'Z';
+		case I:
+			return 'I';
+		case T:
+			return 'T';
+		case O:
+			return 'O';
+		case J:
+			return 'J';
+		default:
+			return 'X';
+		}
+	}
+	inline constexpr char type_to_char(const size_t& p)
+	{
+		switch (p)
+		{
+		case S:
+			return 'S';
+		case L:
+			return 'L';
+		case Z:
+			return 'Z';
+		case I:
+			return 'I';
+		case T:
+			return 'T';
+		case O:
+			return 'O';
+		case J:
+			return 'J';
+		default:
+			return 'X';
+		}
+	}
+	inline constexpr Piece string_to_type(const std::string &s)
+	{
+		switch (s[0])
+		{
+		case 'S':
+			return S;
+		case 'L':
+			return L;
+		case 'Z':
+			return Z;
+		case 'I':
+			return I;
+		case 'T':
+			return T;
+		case 'O':
+			return O;
+		case 'J':
+			return J;
+		default:
+			return X;
+		}
+	}
 	inline constexpr uint64_t X_INDEX[64] = {
 		0b1,
 		0b10,

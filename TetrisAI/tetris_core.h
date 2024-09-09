@@ -566,7 +566,7 @@ namespace TetrisAI
                         move_cache[char_to_type[type]].push_back(moves);
                     }
                 }
-                loaded = true;
+                loaded = s;
             }
             catch (std::exception &e)
             {

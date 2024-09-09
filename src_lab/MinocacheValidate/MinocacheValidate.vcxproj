@@ -21,10 +21,9 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{d25c1fa4-9066-46d0-8d05-746a312f2a09}</ProjectGuid>
-    <RootNamespace>Json2Header</RootNamespace>
+    <ProjectGuid>{68c9c3ee-d585-4ee5-8591-3d28c8f1dc77}</ProjectGuid>
+    <RootNamespace>MinocacheValidate</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>Json2Header</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -105,8 +104,6 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
-      <LanguageStandard_C>stdclatest</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -130,20 +127,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="board.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="mino.cpp" />
-    <ClCompile Include="next.cpp" />
-    <ClCompile Include="pending.cpp" />
-    <ClCompile Include="pending.h" />
+    <ClCompile Include="..\TetrisAI\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="board.h" />
-    <ClInclude Include="const.h" />
-    <ClInclude Include="json.hpp" />
-    <ClInclude Include="next.h" />
-    <ClInclude Include="mino.h" />
-    <ClInclude Include="output.h" />
+    <ClInclude Include="..\TetrisAI\output.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
