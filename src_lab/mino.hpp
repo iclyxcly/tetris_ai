@@ -227,7 +227,6 @@ namespace moenew
 		uint32_t data[4][32][4] = {};
 		int left[4] = {};
 		int right[4] = {};
-
 	public:
 		constexpr Minocache(const int Left[4], const int Right[4], const uint8_t Data[4][4])
 		{
@@ -243,7 +242,6 @@ namespace moenew
 						data[i][j][k] = 0;
 					}
 				}
-
 				for (int j = Left[i]; j < 29 - Right[i]; ++j)
 				{
 					for (int k = 0; k < 4; ++k)
