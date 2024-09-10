@@ -1004,14 +1004,13 @@ namespace TetrisAI
         {
             TetrisActive copy = active;
             D_PRESERVE_LAST_ROTATE(copy);
-            copy.x -= mino.left_offset[copy.r];
             copy.y -= mino.down_offset[copy.r];
-            active.snapshot = 5381;
+            active.snapshot = 0;
             for (int8_t i = -mino.down_offset[copy.r], j = 4 + mino.up_offset[copy.r]; i < j; i++)
             {
-                active.snapshot = ((active.snapshot << 5) + active.snapshot) + _mm_popcnt_u32(move_cache[active.r][active.x][i]);
+                active.snapshot = active.snapshot * 7 + move_cache[active.r][active.x][i];
             }
-            active.snapshot += copy.x * (31 + copy.y);
+            active.snapshot = active.snapshot * 31 + copy.y;
         }
         void attach(TetrisMap &map_copy, const TetrisActive &active) const
         {
@@ -2190,10 +2189,7 @@ namespace TetrisAI
         TetrisConfig &config;
         int build_hash(TetrisCoord &coord)
         {
-            int combined = coord.x * 31 + coord.y;
-            combined = combined * 31 + coord.r;
-
-            return combined;
+            return (coord.x + 2) + 34 * ((coord.y + 2) + 32 * coord.r);
         }
         TetrisPathManager(TetrisActive active, TetrisConfig &config, TetrisMap &map) : instructor(map, active.type), config(config)
         {
