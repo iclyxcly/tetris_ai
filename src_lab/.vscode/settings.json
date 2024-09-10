@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "*.embeddedhtml": "html",
+        "*.ttrm": "json",
+        "*.ttc": "json",
+        "format": "cpp",
+        "vector": "cpp",
+        "cstdint": "cpp"
+    },
+    "C_Cpp.errorSquiggles": "enabled"
+}

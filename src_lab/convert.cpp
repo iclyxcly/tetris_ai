@@ -1,37 +1,37 @@
-#include "board.h"
-#include "mino.h"
+#include "board.hpp"
+#include "mino.hpp"
+#include "utils.hpp"
 #include <map>
-#pragma warning(disable: 4996)
 int main()
 {
 	std::string file = "botris_srs.json";
 	moenew::init_minos(file);
 
-	std::map<size_t, std::string> type_to_string_cw = {
+	std::map<std::size_t, std::string> type_to_string_cw = {
 		{0, "L->0"},
 		{1, "0->R"},
 		{2, "R->2"},
-		{3, "2->L"} };
+		{3, "2->L"}};
 
-	std::map<size_t, std::string> type_to_string_ccw = {
+	std::map<std::size_t, std::string> type_to_string_ccw = {
 		{0, "R->0"},
 		{1, "2->R"},
 		{2, "L->2"},
-		{3, "0->L"} };
+		{3, "0->L"}};
 
-	for (size_t i = 0; i < 7; ++i)
+	for (std::size_t i = 0; i < 7; ++i)
 	{
-		auto& mino = moenew::Minos::get(i);
+		auto &mino = moenew::Minos::get(i);
 		printf("Type: %c\n", moenew::type_to_char(i));
-		for (size_t j = 0; j < 4; ++j)
+		for (std::size_t j = 0; j < 4; ++j)
 		{
-			auto& node = mino.rot(j);
+			auto &node = mino.rot(j);
 			for (int k = 3; k >= 0; --k)
 			{
 				printf("|");
 				for (int l = 0; l < 4; ++l)
 				{
-					printf("%s", (node.data(k) & moenew::X_INDEX[l]) ? "[]" : "  ");
+					printf("%s", (node.data(k) & moenew::loc_x.of(l)) ? "[]" : "  ");
 				}
 				printf("|\n");
 			}
@@ -54,19 +54,19 @@ int main()
 
 	printf("Please verify if the data is correct. Press CTRL+C to cancel, enter to export as header file.\n");
 	getchar();
-	FILE* out = fopen("output.h", "w");
-	auto& s_mino = moenew::Minos::get(moenew::S);
-	auto& l_mino = moenew::Minos::get(moenew::L);
-	auto& z_mino = moenew::Minos::get(moenew::Z);
-	auto& i_mino = moenew::Minos::get(moenew::I);
-	auto& t_mino = moenew::Minos::get(moenew::T);
-	auto& o_mino = moenew::Minos::get(moenew::O);
-	auto& j_mino = moenew::Minos::get(moenew::J);
+	FILE *out = fopen("minotemplate.h", "w");
+	auto &s_mino = moenew::Minos::get(moenew::S);
+	auto &l_mino = moenew::Minos::get(moenew::L);
+	auto &z_mino = moenew::Minos::get(moenew::Z);
+	auto &i_mino = moenew::Minos::get(moenew::I);
+	auto &t_mino = moenew::Minos::get(moenew::T);
+	auto &o_mino = moenew::Minos::get(moenew::O);
+	auto &j_mino = moenew::Minos::get(moenew::J);
 	fprintf(out, "#pragma once\n");
 	fprintf(out, "#include <cstdint>\n");
 	fprintf(out, "#include <vector>\n");
-	fprintf(out, "#include \"mino.h\"\n");
-	fprintf(out, "// THIS FILE IS NOT MEANT TO BE READ !!! PLEASE GENERATE A MINO CONFIG FILE USING JSON2HEADER\n");
+	fprintf(out, "#include \"mino.hpp\"\n");
+	fprintf(out, "// THIS FILE IS NOT MEANT TO BE READ !!! PLEASE GENERATE A MINO CONFIG FILE USING convert.cpp\n");
 	fprintf(out, "namespace moenew {\n");
 	fprintf(out, "	constexpr uint8_t minodata[7][4][4] = {\n");
 	fprintf(out, "		{{%hhu, %hhu, %hhu, %hhu},\n", s_mino.rot(0).data(0), s_mino.rot(0).data(1), s_mino.rot(0).data(2), s_mino.rot(0).data(3));

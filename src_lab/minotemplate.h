@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <vector>
-#include "mino.h"
-// THIS FILE IS NOT MEANT TO BE READ !!! PLEASE GENERATE A MINO CONFIG FILE USING JSON2HEADER
+#include "mino.hpp"
+// THIS FILE IS NOT MEANT TO BE READ !!! PLEASE GENERATE A MINO CONFIG FILE USING convert.cpp
 namespace moenew {
 	constexpr uint8_t minodata[7][4][4] = {
 		{{0, 0, 3, 6},
