@@ -8,9 +8,9 @@ namespace moenew
 	using random = std::mt19937;
 	inline constexpr int BOARD_WIDTH = 10;
 	inline constexpr int BOARD_HEIGHT = 40;
-	inline constexpr bool within(const int& x, const int& y, const int& w, const int& h)
+	inline constexpr bool within(const int t, const int min, const int max)
 	{
-		return x >= 0 && x < w && y >= 0 && y < h;
+		return t >= min && t < max;
 	}
 	enum Piece
 	{
@@ -67,7 +67,7 @@ namespace moenew
 			return 'X';
 		}
 	}
-	inline constexpr char type_to_char(const int& p)
+	inline constexpr char type_to_char(int& p)
 	{
 		switch (p)
 		{

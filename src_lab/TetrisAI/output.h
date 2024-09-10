@@ -35,40 +35,40 @@ namespace moenew {
 		{0, 3, 2, 2}}
 	};
 	constexpr int up_offset[7][4] = {
-		{0, 0, -1, -1},
-		{0, 0, -1, -1},
-		{0, 0, -1, -1},
-		{-1, 0, -2, -2},
-		{0, 0, -1, -1},
-		{0, -1, -2, -2},
-		{0, 0, -1, -1}
+		{0, 0, -1, 0},
+		{0, 0, -1, 0},
+		{0, 0, -1, 0},
+		{-1, 0, -2, 0},
+		{0, 0, -1, 0},
+		{0, -1, -2, -1},
+		{0, 0, -1, 0}
 	};
 	constexpr int down_offset[7][4] = {
 		{-2, -1, -1, -1},
 		{-2, -1, -1, -1},
 		{-2, -1, -1, -1},
-		{-2, 0, -1, -1},
+		{-2, 0, -1, 0},
 		{-2, -1, -1, -1},
-		{-2, -1, 0, 0},
+		{-2, -1, 0, -1},
 		{-2, -1, -1, -1}
 	};
 	constexpr int left_offset[7][4] = {
 		{0, -1, 0, 0},
 		{0, -1, 0, 0},
 		{0, -1, 0, 0},
-		{0, -2, 0, 0},
+		{0, -2, 0, -1},
 		{0, -1, 0, 0},
-		{-1, -2, -1, -1},
+		{-1, -2, -1, 0},
 		{0, -1, 0, 0}
 	};
 	constexpr int right_offset[7][4] = {
-		{-1, -1, -1, -1},
-		{-1, -1, -1, -1},
-		{-1, -1, -1, -1},
-		{0, -1, 0, 0},
-		{-1, -1, -1, -1},
-		{-1, 0, -1, -1},
-		{-1, -1, -1, -1}
+		{-1, -1, -1, -2},
+		{-1, -1, -1, -2},
+		{-1, -1, -1, -2},
+		{0, -1, 0, -2},
+		{-1, -1, -1, -2},
+		{-1, 0, -1, -2},
+		{-1, -1, -1, -2}
 	};
 	constexpr Minocache s_cache(left_offset[S], right_offset[S], minodata[S]);
 	constexpr Minocache z_cache(left_offset[Z], right_offset[Z], minodata[Z]);
@@ -77,7 +77,7 @@ namespace moenew {
 	constexpr Minocache i_cache(left_offset[I], right_offset[I], minodata[I]);
 	constexpr Minocache o_cache(left_offset[O], right_offset[O], minodata[O]);
 	constexpr Minocache t_cache(left_offset[T], right_offset[T], minodata[T]);
-	constexpr Minocache mino_cache[7] = {s_cache, z_cache, l_cache, j_cache, i_cache, o_cache, t_cache};
+	constexpr Minocache mino_cache[7] = {s_cache, l_cache, z_cache, i_cache, t_cache, o_cache, j_cache};
 	inline constexpr const uint32_t* cache_get(int m, int r, int x) {
 		return mino_cache[m].get(r, x);
 	}
