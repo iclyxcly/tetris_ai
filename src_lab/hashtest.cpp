@@ -17,7 +17,7 @@ uint64_t state_hashify(const Minos::Active &mino, const uint32_t data[4])
     {
         hash = hash * 7 + data[i];
     }
-    return hash * 31 + mino.x * 31 + mino.y;
+    return hash * 31 + mino.y;
 }
 bool check(const uint32_t data[4], const uint32_t data2[4])
 {
