@@ -13,6 +13,12 @@ namespace moenew
 			int x;
 			int y;
 		};
+		struct Active : Coord
+		{
+			int x;
+			int y;
+			int r;
+		};
 		struct MinoNode
 		{
 		private:
@@ -83,7 +89,7 @@ namespace moenew
 						data[i][j][k] = 0;
 					}
 				}
-				for (int j = Left[i]; j < 28 - Right[i]; ++j)
+				for (int j = Left[i]; j < 29 - Right[i]; ++j)
 				{
 					for (int k = 0; k < 4; ++k)
 					{

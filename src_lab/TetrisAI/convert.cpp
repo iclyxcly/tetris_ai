@@ -1,6 +1,5 @@
 #include "board.h"
 #include "mino.h"
-#include "output.h"
 #include <map>
 #pragma warning(disable: 4996)
 int main()
@@ -100,40 +99,40 @@ int main()
 	fprintf(out, "		{%hhu, %hhu, %hhu, %hhu}}\n", j_mino.rot(3).data(0), j_mino.rot(3).data(1), j_mino.rot(3).data(2), j_mino.rot(3).data(3));
 	fprintf(out, "	};\n");
 	fprintf(out, "	constexpr int up_offset[7][4] = {\n");
-	fprintf(out, "		{%d, %d, %d, %d},\n", s_mino.rot(0).north(), s_mino.rot(1).north(), s_mino.rot(2).north(), s_mino.rot(2).north());
-	fprintf(out, "		{%d, %d, %d, %d},\n", l_mino.rot(0).north(), l_mino.rot(1).north(), l_mino.rot(2).north(), l_mino.rot(2).north());
-	fprintf(out, "		{%d, %d, %d, %d},\n", z_mino.rot(0).north(), z_mino.rot(1).north(), z_mino.rot(2).north(), z_mino.rot(2).north());
-	fprintf(out, "		{%d, %d, %d, %d},\n", i_mino.rot(0).north(), i_mino.rot(1).north(), i_mino.rot(2).north(), i_mino.rot(2).north());
-	fprintf(out, "		{%d, %d, %d, %d},\n", t_mino.rot(0).north(), t_mino.rot(1).north(), t_mino.rot(2).north(), t_mino.rot(2).north());
-	fprintf(out, "		{%d, %d, %d, %d},\n", o_mino.rot(0).north(), o_mino.rot(1).north(), o_mino.rot(2).north(), o_mino.rot(2).north());
-	fprintf(out, "		{%d, %d, %d, %d}\n", j_mino.rot(0).north(), j_mino.rot(1).north(), j_mino.rot(2).north(), j_mino.rot(2).north());
+	fprintf(out, "		{%d, %d, %d, %d},\n", s_mino.rot(0).north(), s_mino.rot(1).north(), s_mino.rot(2).north(), s_mino.rot(3).north());
+	fprintf(out, "		{%d, %d, %d, %d},\n", l_mino.rot(0).north(), l_mino.rot(1).north(), l_mino.rot(2).north(), l_mino.rot(3).north());
+	fprintf(out, "		{%d, %d, %d, %d},\n", z_mino.rot(0).north(), z_mino.rot(1).north(), z_mino.rot(2).north(), z_mino.rot(3).north());
+	fprintf(out, "		{%d, %d, %d, %d},\n", i_mino.rot(0).north(), i_mino.rot(1).north(), i_mino.rot(2).north(), i_mino.rot(3).north());
+	fprintf(out, "		{%d, %d, %d, %d},\n", t_mino.rot(0).north(), t_mino.rot(1).north(), t_mino.rot(2).north(), t_mino.rot(3).north());
+	fprintf(out, "		{%d, %d, %d, %d},\n", o_mino.rot(0).north(), o_mino.rot(1).north(), o_mino.rot(2).north(), o_mino.rot(3).north());
+	fprintf(out, "		{%d, %d, %d, %d}\n", j_mino.rot(0).north(), j_mino.rot(1).north(), j_mino.rot(2).north(), j_mino.rot(3).north());
 	fprintf(out, "	};\n");
 	fprintf(out, "	constexpr int down_offset[7][4] = {\n");
-	fprintf(out, "		{%d, %d, %d, %d},\n", s_mino.rot(0).south(), s_mino.rot(1).south(), s_mino.rot(2).south(), s_mino.rot(2).south());
-	fprintf(out, "		{%d, %d, %d, %d},\n", l_mino.rot(0).south(), l_mino.rot(1).south(), l_mino.rot(2).south(), l_mino.rot(2).south());
-	fprintf(out, "		{%d, %d, %d, %d},\n", z_mino.rot(0).south(), z_mino.rot(1).south(), z_mino.rot(2).south(), z_mino.rot(2).south());
-	fprintf(out, "		{%d, %d, %d, %d},\n", i_mino.rot(0).south(), i_mino.rot(1).south(), i_mino.rot(2).south(), i_mino.rot(2).south());
-	fprintf(out, "		{%d, %d, %d, %d},\n", t_mino.rot(0).south(), t_mino.rot(1).south(), t_mino.rot(2).south(), t_mino.rot(2).south());
-	fprintf(out, "		{%d, %d, %d, %d},\n", o_mino.rot(0).south(), o_mino.rot(1).south(), o_mino.rot(2).south(), o_mino.rot(2).south());
-	fprintf(out, "		{%d, %d, %d, %d}\n", j_mino.rot(0).south(), j_mino.rot(1).south(), j_mino.rot(2).south(), j_mino.rot(2).south());
+	fprintf(out, "		{%d, %d, %d, %d},\n", s_mino.rot(0).south(), s_mino.rot(1).south(), s_mino.rot(2).south(), s_mino.rot(3).south());
+	fprintf(out, "		{%d, %d, %d, %d},\n", l_mino.rot(0).south(), l_mino.rot(1).south(), l_mino.rot(2).south(), l_mino.rot(3).south());
+	fprintf(out, "		{%d, %d, %d, %d},\n", z_mino.rot(0).south(), z_mino.rot(1).south(), z_mino.rot(2).south(), z_mino.rot(3).south());
+	fprintf(out, "		{%d, %d, %d, %d},\n", i_mino.rot(0).south(), i_mino.rot(1).south(), i_mino.rot(2).south(), i_mino.rot(3).south());
+	fprintf(out, "		{%d, %d, %d, %d},\n", t_mino.rot(0).south(), t_mino.rot(1).south(), t_mino.rot(2).south(), t_mino.rot(3).south());
+	fprintf(out, "		{%d, %d, %d, %d},\n", o_mino.rot(0).south(), o_mino.rot(1).south(), o_mino.rot(2).south(), o_mino.rot(3).south());
+	fprintf(out, "		{%d, %d, %d, %d}\n", j_mino.rot(0).south(), j_mino.rot(1).south(), j_mino.rot(2).south(), j_mino.rot(3).south());
 	fprintf(out, "	};\n");
 	fprintf(out, "	constexpr int left_offset[7][4] = {\n");
-	fprintf(out, "		{%d, %d, %d, %d},\n", s_mino.rot(0).west(), s_mino.rot(1).west(), s_mino.rot(2).west(), s_mino.rot(2).west());
-	fprintf(out, "		{%d, %d, %d, %d},\n", l_mino.rot(0).west(), l_mino.rot(1).west(), l_mino.rot(2).west(), l_mino.rot(2).west());
-	fprintf(out, "		{%d, %d, %d, %d},\n", z_mino.rot(0).west(), z_mino.rot(1).west(), z_mino.rot(2).west(), z_mino.rot(2).west());
-	fprintf(out, "		{%d, %d, %d, %d},\n", i_mino.rot(0).west(), i_mino.rot(1).west(), i_mino.rot(2).west(), i_mino.rot(2).west());
-	fprintf(out, "		{%d, %d, %d, %d},\n", t_mino.rot(0).west(), t_mino.rot(1).west(), t_mino.rot(2).west(), t_mino.rot(2).west());
-	fprintf(out, "		{%d, %d, %d, %d},\n", o_mino.rot(0).west(), o_mino.rot(1).west(), o_mino.rot(2).west(), o_mino.rot(2).west());
-	fprintf(out, "		{%d, %d, %d, %d}\n", j_mino.rot(0).west(), j_mino.rot(1).west(), j_mino.rot(2).west(), j_mino.rot(2).west());
+	fprintf(out, "		{%d, %d, %d, %d},\n", s_mino.rot(0).west(), s_mino.rot(1).west(), s_mino.rot(2).west(), s_mino.rot(3).west());
+	fprintf(out, "		{%d, %d, %d, %d},\n", l_mino.rot(0).west(), l_mino.rot(1).west(), l_mino.rot(2).west(), l_mino.rot(3).west());
+	fprintf(out, "		{%d, %d, %d, %d},\n", z_mino.rot(0).west(), z_mino.rot(1).west(), z_mino.rot(2).west(), z_mino.rot(3).west());
+	fprintf(out, "		{%d, %d, %d, %d},\n", i_mino.rot(0).west(), i_mino.rot(1).west(), i_mino.rot(2).west(), i_mino.rot(3).west());
+	fprintf(out, "		{%d, %d, %d, %d},\n", t_mino.rot(0).west(), t_mino.rot(1).west(), t_mino.rot(2).west(), t_mino.rot(3).west());
+	fprintf(out, "		{%d, %d, %d, %d},\n", o_mino.rot(0).west(), o_mino.rot(1).west(), o_mino.rot(2).west(), o_mino.rot(3).west());
+	fprintf(out, "		{%d, %d, %d, %d}\n", j_mino.rot(0).west(), j_mino.rot(1).west(), j_mino.rot(2).west(), j_mino.rot(3).west());
 	fprintf(out, "	};\n");
 	fprintf(out, "	constexpr int right_offset[7][4] = {\n");
-	fprintf(out, "		{%d, %d, %d, %d},\n", s_mino.rot(0).east(), s_mino.rot(1).east(), s_mino.rot(2).east(), s_mino.rot(2).east());
-	fprintf(out, "		{%d, %d, %d, %d},\n", l_mino.rot(0).east(), l_mino.rot(1).east(), l_mino.rot(2).east(), l_mino.rot(2).east());
-	fprintf(out, "		{%d, %d, %d, %d},\n", z_mino.rot(0).east(), z_mino.rot(1).east(), z_mino.rot(2).east(), z_mino.rot(2).east());
-	fprintf(out, "		{%d, %d, %d, %d},\n", i_mino.rot(0).east(), i_mino.rot(1).east(), i_mino.rot(2).east(), i_mino.rot(2).east());
-	fprintf(out, "		{%d, %d, %d, %d},\n", t_mino.rot(0).east(), t_mino.rot(1).east(), t_mino.rot(2).east(), t_mino.rot(2).east());
-	fprintf(out, "		{%d, %d, %d, %d},\n", o_mino.rot(0).east(), o_mino.rot(1).east(), o_mino.rot(2).east(), o_mino.rot(2).east());
-	fprintf(out, "		{%d, %d, %d, %d}\n", j_mino.rot(0).east(), j_mino.rot(1).east(), j_mino.rot(2).east(), j_mino.rot(2).east());
+	fprintf(out, "		{%d, %d, %d, %d},\n", s_mino.rot(0).east(), s_mino.rot(1).east(), s_mino.rot(2).east(), s_mino.rot(3).east());
+	fprintf(out, "		{%d, %d, %d, %d},\n", l_mino.rot(0).east(), l_mino.rot(1).east(), l_mino.rot(2).east(), l_mino.rot(3).east());
+	fprintf(out, "		{%d, %d, %d, %d},\n", z_mino.rot(0).east(), z_mino.rot(1).east(), z_mino.rot(2).east(), z_mino.rot(3).east());
+	fprintf(out, "		{%d, %d, %d, %d},\n", i_mino.rot(0).east(), i_mino.rot(1).east(), i_mino.rot(2).east(), i_mino.rot(3).east());
+	fprintf(out, "		{%d, %d, %d, %d},\n", t_mino.rot(0).east(), t_mino.rot(1).east(), t_mino.rot(2).east(), t_mino.rot(3).east());
+	fprintf(out, "		{%d, %d, %d, %d},\n", o_mino.rot(0).east(), o_mino.rot(1).east(), o_mino.rot(2).east(), o_mino.rot(3).east());
+	fprintf(out, "		{%d, %d, %d, %d}\n", j_mino.rot(0).east(), j_mino.rot(1).east(), j_mino.rot(2).east(), j_mino.rot(3).east());
 	fprintf(out, "	};\n");
 	fprintf(out, "	constexpr Minocache s_cache(left_offset[S], right_offset[S], minodata[S]);\n");
 	fprintf(out, "	constexpr Minocache z_cache(left_offset[Z], right_offset[Z], minodata[Z]);\n");
@@ -142,7 +141,7 @@ int main()
 	fprintf(out, "	constexpr Minocache i_cache(left_offset[I], right_offset[I], minodata[I]);\n");
 	fprintf(out, "	constexpr Minocache o_cache(left_offset[O], right_offset[O], minodata[O]);\n");
 	fprintf(out, "	constexpr Minocache t_cache(left_offset[T], right_offset[T], minodata[T]);\n");
-	fprintf(out, "	constexpr Minocache mino_cache[7] = {s_cache, z_cache, l_cache, j_cache, i_cache, o_cache, t_cache};\n");
+	fprintf(out, "	constexpr Minocache mino_cache[7] = {s_cache, l_cache, z_cache, i_cache, t_cache, o_cache, j_cache};\n");
 	fprintf(out, "	inline constexpr const uint32_t* cache_get(int m, int r, int x) {\n");
 	fprintf(out, "		return mino_cache[m].get(r, x);\n");
 	fprintf(out, "	}\n");

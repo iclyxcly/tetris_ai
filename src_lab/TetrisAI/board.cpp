@@ -63,7 +63,7 @@ namespace moenew
 		{
 			if (line(y))
 			{
-				std::memmove(&board[y], &board[y + 1], sizeof(uint64_t) * (h - y));
+				std::memmove(&board[y], &board[y + 1], sizeof(uint64_t) * (h - static_cast<unsigned long long>(y)));
 				board[height_m1] = 0;
 				clear++;
 			}
