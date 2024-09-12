@@ -386,7 +386,7 @@ private:
 		auto result = runner.run();
 		utils::println(utils::INFO, " -> Total nodes: " + std::to_string(runner.total_nodes));
 		TetrisGameEmulation emu;
-		emu.run(map, next_manager, status, result);
+		emu.run(map, next_manager, status, result, 1);
 		if (status.dead)
 		{
 			return;

@@ -61,3 +61,8 @@ src/main_2
 /TetrisAI/.vscode
 /src_lab/MinocacheValidate/x64
 /src_lab/MovegenTest/x64
+src_lab/loc_test
+src_lab/hashtest
+src_lab/hashtest
+src/export_param.txt
+src/best_param.txt

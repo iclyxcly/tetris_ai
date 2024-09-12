@@ -12,12 +12,11 @@ uint32_t coord_hashify(const Minos::Active &mino)
 }
 uint64_t state_hashify(const Minos::Active &mino, const uint32_t data[4])
 {
-    uint64_t hash = 0;
-    for (int i = 0; i < 4; ++i)
-    {
-        hash = hash * 7 + data[i];
-    }
-    return hash * 31 + mino.y;
+    uint64_t hash = data[0];
+    hash = hash * 7 + data[1];
+    hash = hash * 7 + data[2];
+    hash = hash * 7 + data[3];
+    return hash * 7 + mino.y;
 }
 bool check(const uint32_t data[4], const uint32_t data2[4])
 {
@@ -57,7 +56,7 @@ void test_state()
                     if (visited.find(hash) != visited.end() && !check(cache_get(i, l, k), cache_get(i, active_data[hash].r, active_data[hash].x + left_offset[i][active_data[hash].r])))
                     {
                         printf("Mino %c\n", type_to_char(i));
-                        printf("collision: %lld\n", hash);
+                        printf("collision: %lu\n", hash);
                         printf("x: %d, y: %d, r: %d\n", mino.x, mino.y, mino.r);
                         auto &collide_mino = active_data[hash];
                         printf("collides with: x: %d, y: %d, r: %d\n", collide_mino.x, collide_mino.y, collide_mino.r);
@@ -71,7 +70,7 @@ void test_state()
                         std::cout << std::bitset<32>(cache[1]) << " (" + std::to_string(cache[1]) << ")" << std::endl;
                         std::cout << std::bitset<32>(cache[2]) << " (" + std::to_string(cache[2]) << ")" << std::endl;
                         std::cout << std::bitset<32>(cache[3]) << " (" + std::to_string(cache[3]) << ")" << std::endl;
-                        printf("total find: %d/%d\n", visited.size(), (30 - down_offset[i][l]) * (29 - right_offset[i][l] - left_offset[i][l]) * 4);
+                        printf("total find: %zu/%d\n", visited.size(), (30 - down_offset[i][l]) * (29 - right_offset[i][l] - left_offset[i][l]) * 4);
                         exit(0);
                     }
                     visited[hash] = true;
@@ -80,7 +79,7 @@ void test_state()
             }
         }
         printf("Mino %c\n", type_to_char(i));
-        printf("hashmax: %lld\n", max);
+        printf("hashmax: %lu\n", max);
     }
 }
 void test_coord()
@@ -105,8 +104,8 @@ void test_coord()
                 if (visited.find(hash) != visited.end())
                 {
                     printf("Coord\n");
-                    printf("collision: %lld\n", hash);
-                    printf("total find: %d/%d\n", visited.size(), 32 * 34 * 4);
+                    printf("collision: %u\n", hash);
+                    printf("total find: %zd/%d\n", visited.size(), 32 * 34 * 4);
                     exit(0);
                 }
                 visited[hash] = true;
@@ -114,7 +113,7 @@ void test_coord()
         }
     }
     printf("Coord\n");
-    printf("hashmax: %lld\n", max);
+    printf("hashmax: %u\n", max);
 }
 int main()
 {

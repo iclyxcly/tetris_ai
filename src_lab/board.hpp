@@ -36,7 +36,7 @@ namespace moenew
 				{
 					ret += get(x, y) ? "[]" : "  ";
 				}
-				ret += "\n";
+				ret += "|\n";
 			}
 			return ret;
 		}
@@ -91,6 +91,13 @@ namespace moenew
 			board[y_max] = 0;
 			amt++;
 			tidy();
+		}
+		void paste(const uint32_t data[], const int y, const int start, const int end)
+		{
+			for (int i = start; i < end; i++)
+			{
+				board[y + i] |= data[i];
+			}
 		}
 		int y_max;
 		int cnt;

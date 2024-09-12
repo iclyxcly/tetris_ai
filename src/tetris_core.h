@@ -12,6 +12,9 @@
 #include "json.hpp"
 #include <nmmintrin.h>
 #include <unordered_map>
+#include <unordered_set>
+#include <atomic>
+#pragma omp simd
 #if !_MSC_VER
 #define _mm_popcnt_u32 __builtin_popcount
 #endif
@@ -566,7 +569,7 @@ namespace TetrisAI
                         move_cache[char_to_type[type]].push_back(moves);
                     }
                 }
-                loaded = s;
+                loaded = true;
             }
             catch (std::exception &e)
             {
@@ -637,41 +640,41 @@ namespace TetrisAI
         TetrisParam()
         {
             memset(weight, 0, sizeof(weight));
-            // weight[ALLSPIN_1] = 60;
-            // weight[ALLSPIN_2] = 48;
-            // weight[ALLSPIN_3] = 32;
-            // weight[ALLSPIN_SLOT] = 35;
-            // weight[COMBO] = 60;
-            // weight[ATTACK] = 60;
-            // weight[CLEAR_1] = 0;
-            // weight[CLEAR_2] = 0;
-            // weight[CLEAR_3] = 0;
-            // weight[CLEAR_4] = 32;
-            // weight[B2B] = 12;
-            // weight[ROOF] = 0;
-            // weight[COL_TRANS] = -1.1;
-            // weight[ROW_TRANS] = 60;
-            // weight[HOLE_COUNT] = 60;
-            // weight[HOLE_LINE] = 30;
-            // weight[WIDE_2] = 4;
-            // weight[WIDE_3] = 8;
-            // weight[WIDE_4] = 12;
-            // weight[HIGH_WIDING] = 1;
-            // weight[AGGREGATE_HEIGHT] = 2.5;
-            // weight[BUMPINESS] = 1;
-            // weight[HOLD_I] = 0.8;
-            // weight[HOLD_SZO] = 0.4;
-            // weight[HOLD_LJT] = 0.2;
-            // weight[WASTE_I] = 0.2;
-            // weight[WASTE_SZO] = 0.4;
-            // weight[WASTE_LJT] = 0.8;
-            // weight[TANK] = 40;
-            // weight[MID_GROUND] = 0.7;
-            // weight[HIGH_GROUND] = 0.3;
-            // weight[SEND] = 20;
-            // weight[CANCEL] = 40;
-            // weight[SKIM] = 10;
-            // weight[APL] = 40;
+            weight[ALLSPIN_1] = 60;
+            weight[ALLSPIN_2] = 48;
+            weight[ALLSPIN_3] = 32;
+            weight[ALLSPIN_SLOT] = 35;
+            weight[COMBO] = 60;
+            weight[ATTACK] = 60;
+            weight[CLEAR_1] = 0;
+            weight[CLEAR_2] = 0;
+            weight[CLEAR_3] = 0;
+            weight[CLEAR_4] = 32;
+            weight[B2B] = 12;
+            weight[ROOF] = 0;
+            weight[COL_TRANS] = -1.1;
+            weight[ROW_TRANS] = 60;
+            weight[HOLE_COUNT] = 60;
+            weight[HOLE_LINE] = 30;
+            weight[WIDE_2] = 4;
+            weight[WIDE_3] = 8;
+            weight[WIDE_4] = 12;
+            weight[HIGH_WIDING] = 1;
+            weight[AGGREGATE_HEIGHT] = 2.5;
+            weight[BUMPINESS] = 1;
+            weight[HOLD_I] = 0.8;
+            weight[HOLD_SZO] = 0.4;
+            weight[HOLD_LJT] = 0.2;
+            weight[WASTE_I] = 0.2;
+            weight[WASTE_SZO] = 0.4;
+            weight[WASTE_LJT] = 0.8;
+            weight[TANK] = 40;
+            weight[MID_GROUND] = 0.7;
+            weight[HIGH_GROUND] = 0.3;
+            weight[SEND] = 20;
+            weight[CANCEL] = 40;
+            weight[SKIM] = 10;
+            weight[APL] = 40;
             // the rest depends on pso
         }
         bool operator==(const TetrisParam &other) const
@@ -1723,24 +1726,25 @@ namespace TetrisAI
             return a->rating > b->rating;
         }
     };
+    std::atomic<std::size_t> max_visit(0);
+    std::atomic<std::size_t> max_result(0);
     struct TetrisPathManager
     {
         std::queue<TetrisActive> search;
-        std::unordered_map<int, bool> visited_db;
-        std::unordered_map<uint32_t, bool> result_db;
+        std::unordered_set<int> visited_db;
+        std::unordered_set<uint32_t> result_db;
         std::vector<std::function<bool(TetrisActive &)>> moves;
         TetrisInstructor instructor;
         TetrisConfig &config;
         int build_hash(const TetrisCoord &coord) const
         {
-            return (coord.x + 2) + 34 * ((coord.y + 2) + 32 * coord.r);
+            return coord.x + coord.y * 100 + coord.r * 10000;
         }
         TetrisPathManager(TetrisActive &active, TetrisConfig &config, TetrisMap &map) : instructor(map, active.type), config(config)
         {
-            std::size_t size = map.width * map.height * 4;
-            visited_db.reserve(size);
-            visited_db[build_hash(active)] = true;
-            result_db.reserve(static_cast<std::size_t>(size / 2));
+            visited_db.reserve(max_visit);
+            visited_db.insert(build_hash(active));
+            result_db.reserve(max_result);
             search.push(active);
 
             if (config.allow_D)
@@ -1787,18 +1791,18 @@ namespace TetrisAI
                     if (move(temp))
                     {
                         hash = build_hash(temp);
-                        if (!visited_db[hash])
+                        if (visited_db.find(hash) == visited_db.end())
                         {
-                            visited_db[hash] = true;
+                            visited_db.insert(hash);
                             search.push(temp);
                         }
                     }
                 }
 
                 instructor.build_snaphash(current);
-                if (!result_db[current.snapshot])
+                if (result_db.find(current.snapshot) == result_db.end())
                 {
-                    result_db[current.snapshot] = true;
+                    result_db.insert(current.snapshot);
                     result.push_back(current);
                 }
                 search.pop();
@@ -1821,18 +1825,18 @@ namespace TetrisAI
                     if (move(temp))
                     {
                         hash = build_hash(temp);
-                        if (!visited_db[hash])
+                        if (visited_db.find(hash) == visited_db.end())
                         {
-                            visited_db[hash] = true;
+                            visited_db.insert(hash);
                             search.push(temp);
                         }
                     }
                 }
 
                 instructor.build_snaphash(current);
-                if (!result_db[current.snapshot])
+                if (result_db.find(current.snapshot) == result_db.end())
                 {
-                    result_db[current.snapshot] = true;
+                    result_db.insert(current.snapshot);
                     TetrisMap map_copy = map;
                     TetrisStatus status_copy = status;
                     status_copy.next.active = current;
@@ -1869,18 +1873,18 @@ namespace TetrisAI
                     if (move(temp))
                     {
                         hash = build_hash(temp);
-                        if (!visited_db[hash])
+                        if (visited_db.find(hash) == visited_db.end())
                         {
-                            visited_db[hash] = true;
+                            visited_db.insert(hash);
                             search.push(temp);
                         }
                     }
                 }
 
                 instructor.build_snaphash(current);
-                if (!result_db[current.snapshot])
+                if (result_db.find(current.snapshot) == result_db.end())
                 {
-                    result_db[current.snapshot] = true;
+                    result_db.insert(current.snapshot);
                     map_cache = node->map;
                     status_cache = node->status;
                     status_cache.next = next_manager;
@@ -2012,7 +2016,7 @@ namespace TetrisAI
     };
     struct TetrisGameEmulation
     {
-        void run(TetrisMap &map, TetrisNextManager &next, TetrisStatus &status, std::string &path)
+        void run(TetrisMap &map, TetrisNextManager &next, TetrisStatus &status, std::string &path, const double &mul)
         {
             if (!path.empty() && path.front() == 'v')
             {
@@ -2113,6 +2117,7 @@ namespace TetrisAI
             {
                 status.attack = atk.pc;
             }
+            status.attack *= mul;
             status.send_attack = status.attack;
             status.garbage.fight_lines(status.send_attack);
             TetrisActive next_mino(next.config.default_x, next.config.default_y, next.config.default_r, status.next.queue.front());
