@@ -76,7 +76,7 @@ namespace moenew
 		void tidy()
 		{
 			int y = h - 1;
-			while (y >= 0 && board[y] == 0)
+			while (y > 0 && board[y] == 0)
 			{
 				y--;
 			}

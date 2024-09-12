@@ -44,8 +44,6 @@ namespace moenew
 		}
 		void try_push_landpoint(Minos::Active &mino)
 		{
-			while (try_down(mino));
-			++mino.y;
 			auto hash = landpoint_hashify(mino, cache_get(type, mino.r, mino.x));
 			if (landpoints.find(hash) == landpoints.end())
 			{
@@ -206,11 +204,25 @@ namespace moenew
 		void expand(Minos::Active &node)
 		{
 			Minos::Active copy = node;
+			bool can_push = false;
 			while (try_left(copy) && try_push_coord(copy));
 			copy.x = node.x;
 			while (try_right(copy) && try_push_coord(copy));
 			copy.x = node.x;
-			while (try_down(copy) && try_push_coord(copy));
+			while (try_down(copy))
+			{
+				if (try_push_coord(copy))
+				{
+					can_push = false;
+					break;
+				}
+				can_push = true;
+			}
+			if (can_push)
+			{
+				++copy.y;
+				try_push_landpoint(copy);
+			}
 			copy.y = node.y;
 			if (try_cw(copy))
 			{
@@ -233,7 +245,6 @@ namespace moenew
 			{
 				auto &node = search.front();
 				expand(node);
-				try_push_landpoint(node);
 				search.pop();
 			}
 		}
