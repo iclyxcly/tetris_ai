@@ -8,7 +8,7 @@ if [ ! -f $1.cpp ]; then
     exit 1
 fi
 clang++ -o $1 $1.cpp -O3 -fprofile-instr-generate -ffast-math -funroll-loops -march=native -std=c++23 -lixwebsocket -lz -lssl -lcrypto -pipe
-./$1
+./$1 > /dev/null
 llvm-profdata merge -o default.profdata default.profraw
 clang++ -o $1 $1.cpp -O3 -fprofile-instr-use=default.profdata -ffast-math -funroll-loops -march=native -std=c++23 -lixwebsocket -lz -lssl -lcrypto -pipe
 rm default.prof*

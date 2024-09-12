@@ -30,6 +30,7 @@ int main()
         ++runs;
         total += movegen.landpoints.size();
     } while (duration_cast<milliseconds>(high_resolution_clock::now() - now).count() < 1000);
+    auto end = high_resolution_clock::now();
     Piece type = static_cast<Piece>(rand() % 7);
     MoveGen movegen(board, mino, type);
     movegen.start();
@@ -39,11 +40,13 @@ int main()
         auto board_copy = board;
         auto data = cache_get(type, i.get_r(), i.get_x());
         board_copy.paste(data, i.get_y(), -down_offset[type][i.get_r()], 4 + up_offset[type][i.get_r()]);
-        std::cout << board_copy.print(22);
+        std::cout << board_copy.print(4);
     }
     printf("coords: %lu\n", movegen.coords.size());
-    printf("landpoints: %lu\n", movegen.result.size());
+    printf("nodes: %lu\n", movegen.result.size());
     printf("cps: %d\n", runs);
     printf("nps: %d\n", total);
+    printf("per call: %f ns\n", duration_cast<nanoseconds>(end - now).count() / static_cast<double>(runs));
+    printf("per node: %f ns\n", duration_cast<nanoseconds>(end - now).count() / static_cast<double>(total));
     return 0;
 }

@@ -54,7 +54,7 @@ namespace moenew
 		bool integrate(const int8_t &x, const int8_t &y, const int8_t &r) const
 		{
 			const auto *rows = data->get(r, x);
-			for (int i = -down[r], j = 4 + up[r]; i < j; ++i)
+			for (int i = 0, j = 4; i < j; ++i)
 			{
 				if (target.board[y + i] & rows[i])
 				{
@@ -81,6 +81,13 @@ namespace moenew
 		{
 			int x = mino.get_x() + 1;
 			return x <= target.w - right[mino.get_r()] - 4 && integrate(x, mino.get_y(), mino.get_r());
+		}
+		void harddrop(MoveData &mino)
+		{
+			while (try_down(mino))
+				;
+			mino.set_y(mino.get_y() + 1);
+			try_push_landpoint(mino);
 		}
 		bool try_down(MoveData &mino) const
 		{
@@ -209,22 +216,9 @@ namespace moenew
 			}
 			if (last != Down)
 			{
-				bool can_push = false;
 				copy.set_status(Down);
-				while (try_down(copy))
-				{
-					if (try_push_coord(copy))
-					{
-						can_push = false;
-						break;
-					}
-					can_push = true;
-				}
-				if (can_push)
-				{
-					copy.set_y(copy.get_y() + 1);
-					try_push_landpoint(copy);
-				}
+				while (try_down(copy) && try_push_coord(copy));
+				harddrop(node);
 			}
 			node.set_status(Rotate);
 			copy = node;
@@ -236,6 +230,7 @@ namespace moenew
 			if (try_ccw(copy))
 			{
 				try_push_coord(copy);
+				// copy = node;
 			}
 			// if (try_180(copy))
 			// {
