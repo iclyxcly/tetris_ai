@@ -18,20 +18,20 @@ namespace moenew
 		const int *down;
 		const int *left;
 		const int *right;
-		Piece &type;
-		std::queue<Minos::Active> search;
-		std::vector<Minos::Active> result;
+		Piece type;
+		std::queue<MoveData> search;
+		std::vector<MoveData> result;
 		std::unordered_set<uint16_t> coords;
 		std::unordered_set<uint64_t> landpoints;
-		constexpr uint16_t hashify(const Minos::Active &mino) const
+		constexpr uint16_t hashify(const MoveData &mino) const
 		{
-			return (mino.x + 2) + 34 * ((mino.y + 2) + 32 * mino.r);
+			return (mino.get_x() + 2) + 34 * ((mino.get_y() + 2) + 32 * mino.get_r());
 		}
-		constexpr uint64_t landpoint_hashify(const Minos::Active &mino, const uint32_t data[4])
+		constexpr uint64_t landpoint_hashify(const MoveData &mino, const uint32_t data[4]) const
 		{
-			return data[0] * 7 + data[1] * 7 + data[2] * 7 + data[3] * 7 + (mino.y - down[mino.r]);
+			return data[0] * 7 + data[1] * 7 + data[2] * 7 + data[3] * 7 + (mino.get_y() - down[mino.get_r()]);
 		}
-		bool try_push_coord(const Minos::Active &mino)
+		bool try_push_coord(const MoveData &mino)
 		{
 			auto hash = hashify(mino);
 			if (coords.find(hash) == coords.end())
@@ -42,9 +42,9 @@ namespace moenew
 			}
 			return false;
 		}
-		void try_push_landpoint(Minos::Active &mino)
+		void try_push_landpoint(const MoveData &mino)
 		{
-			auto hash = landpoint_hashify(mino, cache_get(type, mino.r, mino.x));
+			auto hash = landpoint_hashify(mino, cache_get(type, mino.get_r(), mino.get_x()));
 			if (landpoints.find(hash) == landpoints.end())
 			{
 				landpoints.insert(hash);
@@ -63,167 +63,171 @@ namespace moenew
 			}
 			return true;
 		}
-		bool test_up(const Minos::Active &mino) const
+		bool test_up(const MoveData &mino) const
 		{
-			return integrate(mino.x, mino.y + 1, mino.r);
+			return integrate(mino.get_x(), mino.get_y() + 1, mino.get_r());
 		}
-		bool test_down(const Minos::Active &mino) const
+		bool test_down(const MoveData &mino) const
 		{
-			int y = mino.y - 1;
-			return y >= down[mino.r] && integrate(mino.x, y, mino.r);
+			int y = mino.get_y() - 1;
+			return y >= down[mino.get_r()] && integrate(mino.get_x(), y, mino.get_r());
 		}
-		bool test_left(const Minos::Active &mino) const
+		bool test_left(const MoveData &mino) const
 		{
-			int x = mino.x - 1;
-			return x >= left[mino.r] && integrate(x, mino.y, mino.r);
+			int x = mino.get_x() - 1;
+			return x >= left[mino.get_r()] && integrate(x, mino.get_y(), mino.get_r());
 		}
-		bool test_right(const Minos::Active &mino) const
+		bool test_right(const MoveData &mino) const
 		{
-			int x = mino.x + 1;
-			return x <= target.w - right[mino.r] - 4 && integrate(x, mino.y, mino.r);
+			int x = mino.get_x() + 1;
+			return x <= target.w - right[mino.get_r()] - 4 && integrate(x, mino.get_y(), mino.get_r());
 		}
-		bool try_down(Minos::Active &mino) const
+		bool try_down(MoveData &mino) const
 		{
-			--mino.y;
-			return mino.y >= down[mino.r] && integrate(mino.x, mino.y, mino.r);
+			mino.set_y(mino.get_y() - 1);
+			return mino.get_y() >= down[mino.get_r()] && integrate(mino.get_x(), mino.get_y(), mino.get_r());
 		}
-		bool try_left(Minos::Active &mino) const
+		bool try_left(MoveData &mino) const
 		{
-			--mino.x;
-			return mino.x >= left[mino.r] && integrate(mino.x, mino.y, mino.r);
+			mino.set_x(mino.get_x() - 1);
+			return mino.get_x() >= left[mino.get_r()] && integrate(mino.get_x(), mino.get_y(), mino.get_r());
 		}
-		bool try_right(Minos::Active &mino) const
+		bool try_right(MoveData &mino) const
 		{
-			++mino.x;
-			return mino.x <= target.w - right[mino.r] - 4 && integrate(mino.x, mino.y, mino.r);
+			mino.set_x(mino.get_x() + 1);
+			return mino.get_x() <= target.w - right[mino.get_r()] - 4 && integrate(mino.get_x(), mino.get_y(), mino.get_r());
 		}
-		bool try_cw(Minos::Active &mino) const
+		bool try_cw(MoveData &mino) const
 		{
-			mino.r = (mino.r + 1) & 3;
-			int rightmost = target.w - right[mino.r] - 4;
-			if (within(mino.x, left[mino.r], rightmost) && mino.y >= down[mino.r])
+			mino.set_r((mino.get_r() + 1) & 3);
+			const int rightmost = target.w - right[mino.get_r()] - 4;
+			if (within(mino.get_x(), left[mino.get_r()], rightmost) && mino.get_y() >= down[mino.get_r()])
 			{
-				if (integrate(mino.x, mino.y, mino.r))
+				if (integrate(mino.get_x(), mino.get_y(), mino.get_r()))
 				{
-					mino.last_rotate = true;
 					return true;
 				}
 			}
-			const auto *offset = clockwise(type, mino.r);
-			const auto &max = clockwise_size(type, mino.r);
+			const auto *offset = clockwise(type, mino.get_r());
+			const auto &max = clockwise_size(type, mino.get_r());
 			for (int i = 0; i < max; i++)
 			{
-				int x = mino.x + offset[i].x;
-				int y = mino.y + offset[i].y;
-				if (within(x, left[mino.r], rightmost) && y >= down[mino.r])
+				int x = mino.get_x() + offset[i].x;
+				int y = mino.get_y() + offset[i].y;
+				if (within(x, left[mino.get_r()], rightmost) && y >= down[mino.get_r()])
 				{
-					if (integrate(x, y, mino.r))
+					if (integrate(x, y, mino.get_r()))
 					{
-						mino.x = x;
-						mino.y = y;
-						mino.last_rotate = true;
+						mino.set_x(x);
+						mino.set_y(y);
 						return true;
 					}
 				}
 			}
-			mino.r = (mino.r - 1) & 3;
+			mino.set_r((mino.get_r() - 1) & 3);
 			return false;
 		}
-		bool try_ccw(Minos::Active &mino) const
+		bool try_ccw(MoveData &mino) const
 		{
-			mino.r = (mino.r - 1) & 3;
-			int rightmost = target.w - right[mino.r] - 4;
-			if (within(mino.x, left[mino.r], rightmost) && mino.y >= down[mino.r])
+			mino.set_r((mino.get_r() - 1) & 3);
+			const int rightmost = target.w - right[mino.get_r()] - 4;
+			if (within(mino.get_x(), left[mino.get_r()], rightmost) && mino.get_y() >= down[mino.get_r()])
 			{
-				if (integrate(mino.x, mino.y, mino.r))
+				if (integrate(mino.get_x(), mino.get_y(), mino.get_r()))
 				{
-					mino.last_rotate = true;
 					return true;
 				}
 			}
-			const auto *offset = counterclockwise(type, mino.r);
-			const auto &max = counter_clockwise_size(type, mino.r);
+			const auto *offset = counterclockwise(type, mino.get_r());
+			const auto &max = counter_clockwise_size(type, mino.get_r());
 			for (int i = 0; i < max; i++)
 			{
-				int x = mino.x + offset[i].x;
-				int y = mino.y + offset[i].y;
-				if (within(x, left[mino.r], rightmost) && y >= down[mino.r])
+				int x = mino.get_x() + offset[i].x;
+				int y = mino.get_y() + offset[i].y;
+				if (within(x, left[mino.get_r()], rightmost) && y >= down[mino.get_r()])
 				{
-					if (integrate(x, y, mino.r))
+					if (integrate(x, y, mino.get_r()))
 					{
-						mino.x = x;
-						mino.y = y;
-						mino.last_rotate = true;
+						mino.set_x(x);
+						mino.set_y(y);
 						return true;
 					}
 				}
 			}
-			mino.r = (mino.r + 1) & 3;
+			mino.set_r((mino.get_r() + 1) & 3);
 			return false;
 		}
-		bool try_180(Minos::Active &mino) const
+		bool try_180(MoveData &mino) const
 		{
-			mino.r = (mino.r + 2) & 3;
-			int rightmost = target.w - right[mino.r] - 4;
-			if (within(mino.x, left[mino.r], rightmost) && mino.y >= down[mino.r])
+			mino.set_r((mino.get_r() + 2) & 3);
+			const int rightmost = target.w - right[mino.get_r()] - 4;
+			if (within(mino.get_x(), left[mino.get_r()], rightmost) && mino.get_y() >= down[mino.get_r()])
 			{
-				if (integrate(mino.x, mino.y, mino.r))
+				if (integrate(mino.get_x(), mino.get_y(), mino.get_r()))
 				{
-					mino.last_rotate = true;
 					return true;
 				}
 			}
-			const auto *offset = _180_spin(type, mino.r);
-			const auto &max = _180_spin_size(type, mino.r);
+			const auto *offset = _180_spin(type, mino.get_r());
+			const auto &max = _180_spin_size(type, mino.get_r());
 			for (int i = 0; i < max; i++)
 			{
-				int x = mino.x + offset[i].x;
-				int y = mino.y + offset[i].y;
-				if (within(x, left[mino.r], rightmost) && y >= down[mino.r])
+				int x = mino.get_x() + offset[i].x;
+				int y = mino.get_y() + offset[i].y;
+				if (within(x, left[mino.get_r()], rightmost) && y >= down[mino.get_r()])
 				{
-					if (integrate(x, y, mino.r))
+					if (integrate(x, y, mino.get_r()))
 					{
-						mino.x = x;
-						mino.y = y;
-						mino.last_rotate = true;
+						mino.set_x(x);
+						mino.set_y(y);
 						return true;
 					}
 				}
 			}
-			mino.r = (mino.r + 2) & 3;
+			mino.set_r((mino.get_r() + 2) & 3);
 			return false;
 		}
-		bool allspin(const Minos::Active &mino) const
-		{
-			return mino.last_rotate && !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
-		}
-		bool immobile(const Minos::Active &mino) const
+		bool immobile(const MoveData &mino) const
 		{
 			return !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
 		}
-		void expand(Minos::Active &node)
+		bool allspin(const MoveData &mino) const
 		{
-			Minos::Active copy = node;
-			bool can_push = false;
-			while (try_left(copy) && try_push_coord(copy));
-			copy.x = node.x;
-			while (try_right(copy) && try_push_coord(copy));
-			copy.x = node.x;
-			while (try_down(copy))
+			return mino.get_status() == Rotate && !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
+		}
+		void expand(MoveData &node)
+		{
+			MoveData copy = node;
+			auto last = copy.get_status();
+			if (last != LR)
 			{
-				if (try_push_coord(copy))
+				copy.set_status(LR);
+				while (try_left(copy) && try_push_coord(copy));
+				copy = node;
+				while (try_right(copy) && try_push_coord(copy));
+				copy = node;
+			}
+			if (last != Down)
+			{
+				bool can_push = false;
+				copy.set_status(Down);
+				while (try_down(copy))
 				{
-					can_push = false;
-					break;
+					if (try_push_coord(copy))
+					{
+						can_push = false;
+						break;
+					}
+					can_push = true;
 				}
-				can_push = true;
+				if (can_push)
+				{
+					copy.set_y(copy.get_y() + 1);
+					try_push_landpoint(copy);
+				}
 			}
-			if (can_push)
-			{
-				++copy.y;
-				try_push_landpoint(copy);
-			}
-			copy.y = node.y;
+			node.set_status(Rotate);
+			copy = node;
 			if (try_cw(copy))
 			{
 				try_push_coord(copy);
@@ -232,27 +236,25 @@ namespace moenew
 			if (try_ccw(copy))
 			{
 				try_push_coord(copy);
-				copy = node;
 			}
-			if (try_180(copy))
-			{
-				try_push_coord(copy);
-			}
+			// if (try_180(copy))
+			// {
+			// 	try_push_coord(copy);
+			// }
 		}
 		void start()
 		{
 			while (!search.empty())
 			{
-				auto &node = search.front();
-				expand(node);
+				expand(search.front());
 				search.pop();
 			}
 		}
-		MoveGen(Board &target, Minos::Active &init, Piece &type)
+		MoveGen(Board &target, MoveData &init, Piece type)
 			: target(target), data(&mino_cache[type]), up(up_offset[type]), down(down_offset[type]), left(left_offset[type]), right(right_offset[type]), type(type)
 		{
 			search.emplace(init);
-			search.front().y = std::min(search.front().y, target.y_max);
+			search.front().set_y(std::min(search.front().get_y(), target.y_max));
 			coords.reserve(max_coords);
 			landpoints.reserve(max_landpoints);
 			result.reserve(max_landpoints);
