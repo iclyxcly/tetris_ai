@@ -8,25 +8,9 @@
 namespace moenew
 {
 	std::atomic<std::size_t> max_coords(0);
-	std::atomic<std::size_t> max_states(0);
+	std::atomic<std::size_t> max_landpoints(0);
 	class MoveGen
 	{
-	private:
-		enum Operation
-		{
-			Down = 0,
-			Left = 1,
-			Right = 2,
-			CW = 3,
-			CCW = 4,
-			_180 = 5
-		};
-		struct Expansion : public Minos::Active
-		{
-			int avoid;
-			Expansion(Minos::Active &data, int avoid) : Minos::Active(data), avoid(avoid) {}
-		};
-
 	public:
 		Board &target;
 		const Minocache *data;
@@ -35,17 +19,39 @@ namespace moenew
 		const int *left;
 		const int *right;
 		Piece &type;
-		std::queue<Expansion> search;
+		std::queue<Minos::Active> search;
 		std::vector<Minos::Active> result;
 		std::unordered_set<uint16_t> coords;
-		std::unordered_set<uint64_t> states;
+		std::unordered_set<uint64_t> landpoints;
 		constexpr uint16_t hashify(const Minos::Active &mino) const
 		{
 			return (mino.x + 2) + 34 * ((mino.y + 2) + 32 * mino.r);
 		}
-		constexpr uint64_t state_hashify(const Minos::Active &mino, const uint32_t data[4])
+		constexpr uint64_t landpoint_hashify(const Minos::Active &mino, const uint32_t data[4])
 		{
-			return data[0] * 7 + data[1] * 7 + data[2] * 7 + data[3] * 7 + mino.y;
+			return data[0] * 7 + data[1] * 7 + data[2] * 7 + data[3] * 7 + (mino.y - down[mino.r]);
+		}
+		bool try_push_coord(const Minos::Active &mino)
+		{
+			auto hash = hashify(mino);
+			if (coords.find(hash) == coords.end())
+			{
+				coords.insert(hash);
+				search.push(mino);
+				return true;
+			}
+			return false;
+		}
+		void try_push_landpoint(Minos::Active &mino)
+		{
+			while (try_down(mino));
+			++mino.y;
+			auto hash = landpoint_hashify(mino, cache_get(type, mino.r, mino.x));
+			if (landpoints.find(hash) == landpoints.end())
+			{
+				landpoints.insert(hash);
+				result.push_back(mino);
+			}
 		}
 		bool integrate(const int8_t &x, const int8_t &y, const int8_t &r) const
 		{
@@ -78,13 +84,30 @@ namespace moenew
 			int x = mino.x + 1;
 			return x <= target.w - right[mino.r] - 4 && integrate(x, mino.y, mino.r);
 		}
-		bool test_cw(const Minos::Active &mino) const
+		bool try_down(Minos::Active &mino) const
 		{
-			int rightmost = target.w - right[mino.r] - 3;
+			--mino.y;
+			return mino.y >= down[mino.r] && integrate(mino.x, mino.y, mino.r);
+		}
+		bool try_left(Minos::Active &mino) const
+		{
+			--mino.x;
+			return mino.x >= left[mino.r] && integrate(mino.x, mino.y, mino.r);
+		}
+		bool try_right(Minos::Active &mino) const
+		{
+			++mino.x;
+			return mino.x <= target.w - right[mino.r] - 4 && integrate(mino.x, mino.y, mino.r);
+		}
+		bool try_cw(Minos::Active &mino) const
+		{
+			mino.r = (mino.r + 1) & 3;
+			int rightmost = target.w - right[mino.r] - 4;
 			if (within(mino.x, left[mino.r], rightmost) && mino.y >= down[mino.r])
 			{
 				if (integrate(mino.x, mino.y, mino.r))
 				{
+					mino.last_rotate = true;
 					return true;
 				}
 			}
@@ -98,19 +121,25 @@ namespace moenew
 				{
 					if (integrate(x, y, mino.r))
 					{
+						mino.x = x;
+						mino.y = y;
+						mino.last_rotate = true;
 						return true;
 					}
 				}
 			}
+			mino.r = (mino.r - 1) & 3;
 			return false;
 		}
-		bool test_ccw(const Minos::Active &mino) const
+		bool try_ccw(Minos::Active &mino) const
 		{
-			int rightmost = target.w - right[mino.r] - 3;
+			mino.r = (mino.r - 1) & 3;
+			int rightmost = target.w - right[mino.r] - 4;
 			if (within(mino.x, left[mino.r], rightmost) && mino.y >= down[mino.r])
 			{
 				if (integrate(mino.x, mino.y, mino.r))
 				{
+					mino.last_rotate = true;
 					return true;
 				}
 			}
@@ -124,19 +153,25 @@ namespace moenew
 				{
 					if (integrate(x, y, mino.r))
 					{
+						mino.x = x;
+						mino.y = y;
+						mino.last_rotate = true;
 						return true;
 					}
 				}
 			}
+			mino.r = (mino.r + 1) & 3;
 			return false;
 		}
-		bool test_180(const Minos::Active &mino) const
+		bool try_180(Minos::Active &mino) const
 		{
-			int rightmost = target.w - right[mino.r] - 3;
+			mino.r = (mino.r + 2) & 3;
+			int rightmost = target.w - right[mino.r] - 4;
 			if (within(mino.x, left[mino.r], rightmost) && mino.y >= down[mino.r])
 			{
 				if (integrate(mino.x, mino.y, mino.r))
 				{
+					mino.last_rotate = true;
 					return true;
 				}
 			}
@@ -150,10 +185,14 @@ namespace moenew
 				{
 					if (integrate(x, y, mino.r))
 					{
+						mino.x = x;
+						mino.y = y;
+						mino.last_rotate = true;
 						return true;
 					}
 				}
 			}
+			mino.r = (mino.r + 2) & 3;
 			return false;
 		}
 		bool allspin(const Minos::Active &mino) const
@@ -164,106 +203,28 @@ namespace moenew
 		{
 			return !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
 		}
-		void expand(Expansion &node)
+		void expand(Minos::Active &node)
 		{
-			// todo next: fix cw, ccw, 180
-			// todo next: expand left right down on each spin
-			Minos::Active next = node;
-			if (node.avoid != CW)
+			Minos::Active copy = node;
+			while (try_left(copy) && try_push_coord(copy));
+			copy.x = node.x;
+			while (try_right(copy) && try_push_coord(copy));
+			copy.x = node.x;
+			while (try_down(copy) && try_push_coord(copy));
+			copy.y = node.y;
+			if (try_cw(copy))
 			{
-				next.r = (next.r + 1) & 3;
-				auto hash = hashify(next);
-				if (coords.find(hash) == coords.end() && test_cw(next))
-				{
-					next.last_rotate = true;
-					coords.insert(hash);
-					search.emplace(next, CCW);
-					next.r = (next.r - 1) & 3;
-				}
-				else
-				{
-					next.r = (next.r - 1) & 3;
-				}
+				try_push_coord(copy);
+				copy = node;
 			}
-			if (node.avoid != CCW)
+			if (try_ccw(copy))
 			{
-				next.r = (next.r - 1) & 3;
-				auto hash = hashify(next);
-				if (coords.find(hash) == coords.end() && test_ccw(next))
-				{
-					next.last_rotate = true;
-					coords.insert(hash);
-					search.emplace(next, CW);
-					next.r = (next.r + 1) & 3;
-				}
-				else
-				{
-					next.r = (next.r + 1) & 3;
-				}
+				try_push_coord(copy);
+				copy = node;
 			}
-			if (node.avoid != _180)
+			if (try_180(copy))
 			{
-				next.r = (next.r + 2) & 3;
-				auto hash = hashify(next);
-				if (coords.find(hash) == coords.end() && test_180(next))
-				{
-					next.last_rotate = true;
-					coords.insert(hash);
-					search.emplace(next, _180);
-					next.r = (next.r - 2) & 3;
-				}
-				else
-				{
-					next.r = (next.r - 2) & 3;
-				}
-			}
-			if (node.avoid != Down)
-			{
-				next.y--;
-				auto hash = hashify(next);
-				if (coords.find(hash) == coords.end() && test_down(next))
-				{
-					next.last_rotate = false;
-					coords.insert(hash);
-					search.emplace(next, -1);
-					next.y++;
-				}
-				else
-				{
-					next.y++;
-				}
-			}
-			if (node.avoid != Left)
-			{
-				next.x--;
-				auto hash = hashify(next);
-				if (coords.find(hash) == coords.end() && test_left(next))
-				{
-					next.last_rotate = false;
-					coords.insert(hash);
-					search.emplace(next, Right);
-					next.x++;
-				}
-				else
-				{
-					next.x++;
-				}
-			}
-			if (node.avoid != Right)
-			{
-				next.x++;
-				auto hash = hashify(next);
-				if (coords.find(hash) == coords.end() && test_right(next))
-				{
-					next.last_rotate = false;
-					coords.insert(hash);
-					search.emplace(next, Left);
-					next.x--;
-				}
-				else
-				{
-					next.x--;
-				}
+				try_push_coord(copy);
 			}
 		}
 		void start()
@@ -272,28 +233,23 @@ namespace moenew
 			{
 				auto &node = search.front();
 				expand(node);
-				auto hash = state_hashify(node, data->get(node.r, node.x));
-				if (states.find(hash) == states.end())
-				{
-					states.insert(hash);
-					result.push_back(node);
-				}
+				try_push_landpoint(node);
 				search.pop();
 			}
 		}
 		MoveGen(Board &target, Minos::Active &init, Piece &type)
 			: target(target), data(&mino_cache[type]), up(up_offset[type]), down(down_offset[type]), left(left_offset[type]), right(right_offset[type]), type(type)
 		{
-			search.emplace(init, -1);
+			search.emplace(init);
 			search.front().y = std::min(search.front().y, target.y_max);
-			coords.reserve(max_coords.load());
-			states.reserve(max_states.load());
-			result.reserve(max_states.load());
+			coords.reserve(max_coords);
+			landpoints.reserve(max_landpoints);
+			result.reserve(max_landpoints);
 		}
 		~MoveGen()
 		{
 			max_coords = std::max(max_coords.load(), coords.size());
-			max_states = std::max(max_states.load(), states.size());
+			max_landpoints = std::max(max_landpoints.load(), landpoints.size());
 		}
 	};
 }

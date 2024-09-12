@@ -10,7 +10,7 @@ namespace moenew
     }
     inline constexpr bool within(const int t, const int min, const int max)
     {
-        return t >= min && t < max;
+        return t >= min && t <= max;
     }
     inline constexpr Piece char_to_type(const char &c)
     {
