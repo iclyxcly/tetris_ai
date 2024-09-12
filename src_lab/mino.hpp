@@ -19,9 +19,8 @@ namespace moenew
 		};
 		struct Active : Coord
 		{
-			int x;
-			int y;
 			int r;
+			bool last_rotate;
 		};
 		struct MinoNode
 		{
@@ -227,6 +226,7 @@ namespace moenew
 		uint32_t data[4][32][4] = {};
 		int left[4] = {};
 		int right[4] = {};
+
 	public:
 		constexpr Minocache(const int Left[4], const int Right[4], const uint8_t Data[4][4])
 		{

@@ -130,7 +130,7 @@ struct TetrisPlayer
         TetrisTree tree(map, status, config, param);
         last_path = tree.run();
         TetrisGameEmulation emu;
-        emu.run(map, next, status, last_path);
+        emu.run(map, next, status, last_path, 1);
         ++count;
         attack += status.attack;
         clear += status.clear;
@@ -397,20 +397,12 @@ struct PSOSwarmManager
     void inform_complete(PSOParticleData *a, PSOParticleData *b, const int &a_gen, bool b_win, double b_score)
     {
         bool a_cancelled = a->generation != a_gen;
-        if (!a_cancelled && !b_win)
-        {
-            b->inform_complete(b_score);
-        }
-        else if (!a_cancelled && b_win)
+        if (!a_cancelled && b_win)
         {
             a->push_new_standard(b->pos[PSO_CURRENT]);
             update_best();
-            b->inform_complete(b_score);
         }
-        else
-        {
-            b->ingame = false;
-        }
+        b->inform_complete(b_score);
     }
 };
 
