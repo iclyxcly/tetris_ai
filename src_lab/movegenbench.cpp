@@ -32,7 +32,7 @@ int main()
         std::cout << board_copy.print(4);
     }
     printf("coords: %lu\n", movegen.coords.size());
-    printf("landpoints: %lu\n", movegen.landpoints.size());
+    printf("landpoints: %lu\n", movegen.result.size());
     printf("time: %ld ns\n", std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
     return 0;
 }
