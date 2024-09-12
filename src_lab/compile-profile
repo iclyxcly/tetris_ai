@@ -1,3 +1,4 @@
+set -e
 if [ -z $1 ]; then
     echo "Usage: ./build.sh <filename>"
     exit 1
@@ -6,4 +7,11 @@ if [ ! -f $1.cpp ]; then
     echo "File not found!"
     exit 1
 fi
-clang++ -o $1 $1.cpp -O3 -g -std=c++23 -lixwebsocket -lz -lssl -lcrypto && valgrind --tool=callgrind ./$1 && kcachegrind callgrind.out.* && rm callgrind.out.*
+clang++ -o $1 $1.cpp -O3 -g -fprofile-instr-generate -ffast-math -funroll-loops -ftree-vectorize -march=native -std=c++23 -lixwebsocket -lz -lssl -lcrypto -pipe
+./$1
+llvm-profdata merge -o default.profdata default.profraw
+clang++ -o $1 $1.cpp -O3 -g -fprofile-instr-use=default.profdata -ffast-math -funroll-loops -ftree-vectorize -march=native -std=c++23 -lixwebsocket -lz -lssl -lcrypto -pipe
+rm default.prof*
+sudo perf record ./$1
+sudo perf report
+rm -f perf.dat*
