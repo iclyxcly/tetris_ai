@@ -67,3 +67,6 @@ src_lab/hashtest
 src/export_param.txt
 src/best_param.txt
 src_lab/movegenbench
+src_lab/convert
+src_lab/hashtest
+src_lab/validate

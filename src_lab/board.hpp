@@ -99,7 +99,7 @@ namespace moenew
 				board[y + i] |= data[i];
 			}
 		}
-		int y_max;
+		int8_t y_max;
 		int cnt;
 		int w;
 		int h;

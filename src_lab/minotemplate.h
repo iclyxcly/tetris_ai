@@ -81,7 +81,7 @@ namespace moenew {
 	inline constexpr const uint32_t* cache_get(int m, int r, int x) {
 		return mino_cache[m].get(r, x);
 	}
-	constexpr Minos::Coord cw_offset[7][4][8] = {
+	constexpr Offset cw_offset[7][4][8] = {
 		{{{-1, 0}, {-1, -1}, {0, 2}, {-1, 2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 		{{-1, 0}, {-1, 1}, {0, -2}, {-1, -2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 		{{1, 0}, {1, -1}, {0, 2}, {1, 2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
@@ -111,7 +111,7 @@ namespace moenew {
 		{{1, 0}, {1, -1}, {0, 2}, {1, 2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 		{{1, 0}, {1, 1}, {0, -2}, {1, -2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}}},
 	};
-	constexpr Minos::Coord ccw_offset[7][4][8] = {
+	constexpr Offset ccw_offset[7][4][8] = {
 		{{{1, 0}, {1, -1}, {0, 2}, {1, 2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 		{{-1, 0}, {-1, 1}, {0, -2}, {-1, -2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 		{{-1, 0}, {-1, -1}, {0, 2}, {-1, 2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
@@ -141,7 +141,7 @@ namespace moenew {
 		{{-1, 0}, {-1, -1}, {0, 2}, {-1, 2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 		{{1, 0}, {1, 1}, {0, -2}, {1, -2}, {0, 0}, {0, 0}, {0, 0}, {0, 0}}},
 	};
-	constexpr Minos::Coord _180_offset[7][4][8] = {
+	constexpr Offset _180_offset[7][4][8] = {
 		{{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 		{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 		{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
@@ -171,13 +171,13 @@ namespace moenew {
 		{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}},
 		{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}}},
 	};
-	inline constexpr const Minos::Coord *clockwise(int m, int r) {
+	inline constexpr const Offset *clockwise(int m, int r) {
 		return cw_offset[m][r];
 	}
-	inline constexpr const Minos::Coord *counterclockwise(int m, int r) {
+	inline constexpr const Offset *counterclockwise(int m, int r) {
 		return ccw_offset[m][r];
 	}
-	inline constexpr const Minos::Coord *_180_spin(int m, int r) {
+	inline constexpr const Offset *_180_spin(int m, int r) {
 		return _180_offset[m][r];
 	}
 	constexpr int cw_size[7][4] = {

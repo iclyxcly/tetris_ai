@@ -6,16 +6,18 @@ int main()
     TetrisConfig config;
     TetrisActive active(config.default_x, config.default_y, config.default_r, S);
     TetrisMap map(10, 40);
-    map.mutate(0, 15);
     map.scan();
     TetrisMinoManager mino_manager("botris_srs.json");
-    auto start = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 1000; ++i)
-    {
+    using namespace std::chrono;
+    auto start = high_resolution_clock::now();
+    int runs = 0;
+    int total = 0;
+    do {
+        ++runs;
         TetrisPathManager p_mgr(active, config, map);
         p_mgr.test_run();
-    }
-    auto end = std::chrono::high_resolution_clock::now();
+        total += p_mgr.result_db.size();
+    } while (duration_cast<milliseconds>(high_resolution_clock::now() - start).count() < 1000);
     TetrisPathManager p_mgr(active, config, map);
     auto result = p_mgr.test_run();
     TetrisInstructor instructor(map, active.type);
@@ -37,5 +39,6 @@ int main()
         }
     }
     printf("result size: %ld\n", result.size());
-    printf("time: %ldns\n", std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
+    printf("runs: %d\n", runs);
+    printf("total: %d\n", total);
 }

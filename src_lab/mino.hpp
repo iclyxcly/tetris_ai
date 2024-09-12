@@ -9,19 +9,65 @@
 #include "json.hpp"
 namespace moenew
 {
+	enum Move
+	{
+		Others,
+		LR,
+		Down,
+		Rotate
+	};
+		struct Offset
+		{
+			int8_t x;
+			int8_t y;
+		};
+		struct MoveData
+		{
+			uint16_t data;
+			constexpr int8_t get_x() const
+			{
+				const uint16_t ux = data & 0x3F;
+				return (int8_t)(data & 0x3F) - 3;
+			}
+			constexpr int8_t get_y() const
+			{
+				const uint16_t uy = (data >> 6) & 0x3F;
+				return (int8_t)((data >> 6) & 0x3F) - 3;
+			}
+			constexpr int8_t get_r() const
+			{
+				return (data >> 12) & 0x03;
+			}
+			constexpr int8_t get_status() const
+			{
+				return (data >> 14) & 0x07;
+			}
+			constexpr void set_x(int8_t x)
+			{
+				uint16_t ux = x + 3;
+				data &= ~(0x3F);
+				data |= ux & 0x3F;
+			}
+			constexpr void set_y(int8_t y)
+			{
+				uint16_t uy = y + 3;
+				data &= ~(0x3F << 6);
+				data |= (uy & 0x3F) << 6;
+			}
+			constexpr void set_r(int8_t r)
+			{
+				data &= ~(0x03 << 12);
+				data |= (r & 0x03) << 12;
+			}
+			constexpr void set_status(int8_t status)
+			{
+				data &= ~(0x07 << 14);
+				data |= (status & 0x07) << 14;
+			}
+		};
 	class Minos
 	{
 	public:
-		struct Coord
-		{
-			int x;
-			int y;
-		};
-		struct Active : Coord
-		{
-			int r;
-			bool last_rotate;
-		};
 		struct MinoNode
 		{
 		private:
@@ -33,9 +79,9 @@ namespace moenew
 			int _cw_max;
 			int _ccw_max;
 			int __180_max;
-			Coord _cw[8];
-			Coord _ccw[8];
-			Coord __180[8];
+			Offset _cw[8];
+			Offset _ccw[8];
+			Offset __180[8];
 
 		public:
 			uint8_t *data()
@@ -66,27 +112,27 @@ namespace moenew
 			{
 				return right;
 			}
-			Coord &cw(std::size_t i)
+			Offset &cw(std::size_t i)
 			{
 				return _cw[i];
 			}
-			Coord &ccw(std::size_t i)
+			Offset &ccw(std::size_t i)
 			{
 				return _ccw[i];
 			}
-			Coord &_180(std::size_t i)
+			Offset &_180(std::size_t i)
 			{
 				return __180[i];
 			}
-			Coord &cw(int i)
+			Offset &cw(int i)
 			{
 				return _cw[i];
 			}
-			Coord &ccw(int i)
+			Offset &ccw(int i)
 			{
 				return _ccw[i];
 			}
-			Coord &_180(int i)
+			Offset &_180(int i)
 			{
 				return __180[i];
 			}
