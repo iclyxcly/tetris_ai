@@ -75,7 +75,7 @@ namespace moenew
 		}
 		void tidy()
 		{
-			int y = y_max;
+			int y = h - 1;
 			while (y >= 0 && board[y] == 0)
 			{
 				y--;

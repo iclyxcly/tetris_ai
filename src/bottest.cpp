@@ -68,7 +68,7 @@ int main(void)
         TetrisTree tree(map, status, config, param);
         auto result = tree.run();
         TetrisGameEmulation emu;
-        emu.run(map, next, status, result);
+        emu.run(map, next, status, result, 1);
         
         if (count % piece_dis(gen) == 0)
         {
