@@ -14,6 +14,24 @@ int main()
     //     board.set(5, i);
     //     board.set(8, i);
     // }
+    
+    // for (int i = 0; i < 9; i ++)
+    // {
+    //     board.set(0, i);
+    //     board.set(9, i);
+    // }
+    // for (int i = 0; i < 5; i ++)
+    // {
+    //     board.set(1, i);
+    //     board.set(8, i);
+    // }
+    // for (int i = 0; i < 2; i ++)
+    // {
+    //     board.set(2, i);
+    //     board.set(7, i);
+    // }
+    //     board.set(3, 0);
+    //     board.set(6, 0);
     board.tidy();
     MoveData mino;
     mino.set_x(3);
@@ -40,7 +58,7 @@ int main()
         auto board_copy = board;
         auto data = cache_get(type, i.get_r(), i.get_x());
         board_copy.paste(data, i.get_y(), -down_offset[type][i.get_r()], 4 + up_offset[type][i.get_r()]);
-        std::cout << board_copy.print(4);
+        std::cout << board_copy.print(10);
     }
     printf("coords: %lu\n", movegen.coords.size());
     printf("nodes: %lu\n", movegen.result.size());
