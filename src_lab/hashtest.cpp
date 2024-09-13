@@ -13,10 +13,10 @@ uint32_t coord_hashify(const MoveData &mino)
 uint64_t state_hashify(const MoveData &mino, const uint32_t data[4])
 {
     uint64_t hash = data[0];
-    hash = hash * 7 + data[1];
-    hash = hash * 7 + data[2];
-    hash = hash * 7 + data[3];
-    return hash * 7 + mino.get_y();
+    hash = hash * 31 + data[1];
+    hash = hash * 31 + data[2];
+    hash = hash * 31 + data[3];
+    return hash * 31 + mino.get_y();
 }
 bool check(const uint32_t data[4], const uint32_t data2[4])
 {
@@ -84,8 +84,8 @@ void test_state()
 }
 void test_coord()
 {
-    std::unordered_map<uint32_t, bool> visited;
-    uint32_t max = 0;
+    std::unordered_map<int16_t, bool> visited;
+    int16_t max = 0;
     for (int i = -2; i < 30; ++i)
     {
         MoveData mino;
@@ -96,7 +96,7 @@ void test_coord()
             for (int k = 0; k < 4; ++k)
             {
                 mino.set_r(k);
-                uint32_t hash = coord_hashify(mino);
+                int16_t hash = mino.hash();
                 if (hash > max)
                 {
                     max = hash;

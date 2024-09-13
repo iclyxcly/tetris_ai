@@ -29,7 +29,7 @@ namespace moenew
 		}
 		constexpr uint64_t landpoint_hashify(const MoveData &mino, const uint32_t data[4]) const
 		{
-			return data[0] * 7 + data[1] * 7 + data[2] * 7 + data[3] * 7 + (mino.get_y() - down[mino.get_r()]);
+			return data[0] * 31 + data[1] * 31 + data[2] * 31 + data[3] * 31 + (mino.get_y() - down[mino.get_r()]);
 		}
 		bool try_push_coord(const MoveData &mino)
 		{
@@ -194,7 +194,6 @@ namespace moenew
 			mino.set_r((mino.get_r() + 2) & 3);
 			return false;
 		}
-		
 		bool immobile(const MoveData &mino) const
 		{
 			return !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
@@ -207,16 +206,6 @@ namespace moenew
 		{
 			MoveData copy = node;
 			auto last = copy.get_status();
-			if (last != LR)
-			{
-				copy.set_status(LR);
-				while (try_left(copy) && try_push_coord(copy))
-					;
-				copy = node;
-				while (try_right(copy) && try_push_coord(copy))
-					;
-				copy = node;
-			}
 			if (last != Down)
 			{
 				copy.set_status(Down);
@@ -233,13 +222,19 @@ namespace moenew
 				if (try_ccw(copy))
 				{
 					try_push_coord(copy);
-					// copy = node;
+					copy = node;
 				}
 			}
-			// if (try_180(copy))
-			// {
-			// 	try_push_coord(copy);
-			// }
+			if (last != LR)
+			{
+				copy.set_status(LR);
+				while (try_left(copy) && try_push_coord(copy))
+					;
+				copy = node;
+				while (try_right(copy) && try_push_coord(copy))
+					;
+				copy = node;
+			}
 		}
 		void start()
 		{
