@@ -21,7 +21,7 @@ namespace moenew
 		Piece type;
 		std::queue<MoveData> search;
 		std::vector<MoveData> result;
-		std::unordered_set<uint16_t> coords;
+		std::unordered_set<int16_t> coords;
 		std::unordered_set<uint64_t> landpoints;
 		constexpr uint16_t hashify(const MoveData &mino) const
 		{
@@ -33,7 +33,7 @@ namespace moenew
 		}
 		bool try_push_coord(const MoveData &mino)
 		{
-			auto hash = hashify(mino);
+			auto hash = mino.hash();
 			if (coords.find(hash) == coords.end())
 			{
 				coords.insert(hash);
@@ -54,7 +54,7 @@ namespace moenew
 		bool integrate(const int8_t &x, const int8_t &y, const int8_t &r) const
 		{
 			const auto *rows = data->get(r, x);
-			for (int i = 0, j = 4; i < j; ++i)
+			for (int i = 0; i < 4; ++i)
 			{
 				if (target.board[y + i] & rows[i])
 				{
@@ -194,6 +194,7 @@ namespace moenew
 			mino.set_r((mino.get_r() + 2) & 3);
 			return false;
 		}
+		
 		bool immobile(const MoveData &mino) const
 		{
 			return !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
@@ -209,28 +210,31 @@ namespace moenew
 			if (last != LR)
 			{
 				copy.set_status(LR);
-				while (try_left(copy) && try_push_coord(copy));
+				while (try_left(copy) && try_push_coord(copy))
+					;
 				copy = node;
-				while (try_right(copy) && try_push_coord(copy));
+				while (try_right(copy) && try_push_coord(copy))
+					;
 				copy = node;
 			}
 			if (last != Down)
 			{
 				copy.set_status(Down);
-				while (try_down(copy) && try_push_coord(copy));
+				while (try_down(copy) && try_push_coord(copy))
+					;
 				harddrop(node);
-			}
-			node.set_status(Rotate);
-			copy = node;
-			if (try_cw(copy))
-			{
-				try_push_coord(copy);
+				node.set_status(Rotate);
 				copy = node;
-			}
-			if (try_ccw(copy))
-			{
-				try_push_coord(copy);
-				// copy = node;
+				if (try_cw(copy))
+				{
+					try_push_coord(copy);
+					copy = node;
+				}
+				if (try_ccw(copy))
+				{
+					try_push_coord(copy);
+					// copy = node;
+				}
 			}
 			// if (try_180(copy))
 			// {
