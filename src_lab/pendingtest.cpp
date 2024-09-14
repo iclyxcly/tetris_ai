@@ -33,5 +33,20 @@ int main()
         print("Next pending total: " + std::to_string(pending.total()));
         print_wait("Next pending estimate: " + std::to_string(pending.estimate()));
     }
+    pending.push(2, 1);
+    pending.push(4, 1);
+    pending.push(8, 1);
+    pending.push(16, 1);
+    print("\n\n\n\n\n\n\n\nPending total: " + std::to_string(pending.total()));
+    print_wait("Next pending size: " + std::to_string(pending.size()));
+    int attack = 0;
+    while (!pending.empty())
+    {
+        attack += 6;
+        pending.cancel(attack);
+        print("Fight lines!");
+        print("Next pending total: " + std::to_string(pending.total()));
+        print_wait("Next pending size: " + std::to_string(pending.size()));
+    }
     return 0;
 }
