@@ -100,4 +100,70 @@ namespace moenew
             return 'X';
         }
     }
+    inline constexpr std::string type_to_string(const Piece &p)
+    {
+        switch (p)
+        {
+        case S:
+            return "S";
+        case L:
+            return "L";
+        case Z:
+            return "Z";
+        case I:
+            return "I";
+        case T:
+            return "T";
+        case O:
+            return "O";
+        case J:
+            return "J";
+        default:
+            return "X";
+        }
+    }
+    inline constexpr std::string type_to_string(const int &p)
+    {
+        switch (p)
+        {
+        case S:
+            return "S";
+        case L:
+            return "L";
+        case Z:
+            return "Z";
+        case I:
+            return "I";
+        case T:
+            return "T";
+        case O:
+            return "O";
+        case J:
+            return "J";
+        default:
+            return "X";
+        }
+    }
+    inline constexpr std::string type_to_string(const std::size_t &p)
+    {
+        switch (p)
+        {
+        case S:
+            return "S";
+        case L:
+            return "L";
+        case Z:
+            return "Z";
+        case I:
+            return "I";
+        case T:
+            return "T";
+        case O:
+            return "O";
+        case J:
+            return "J";
+        default:
+            return "X";
+        }
+    }
 }

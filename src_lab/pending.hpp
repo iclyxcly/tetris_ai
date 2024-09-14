@@ -15,7 +15,7 @@ namespace moenew
 		};
 		std::deque<PendingLine> lines;
 		random rng;
-		void push(int amt, int delay)
+		void push(const int amt, const int delay)
 		{
 			lines.emplace_back(amt, delay);
 		}
@@ -59,7 +59,7 @@ namespace moenew
 				}
 			}
 		}
-		void accept(Board &src, double &mess)
+		void accept(Board &src, const double &mess)
 		{
 			static rng_range cheese(0, src.w - 1);
 			static rng_range mess_(0, 99);

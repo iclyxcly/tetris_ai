@@ -53,7 +53,7 @@ namespace moenew
 		{
 			static int width = w - 1;
 			static auto &req = loc_c.of(width);
-			return board[y] & req;
+			return (board[y] & req) == req;
 		}
 		void clear()
 		{
@@ -64,13 +64,15 @@ namespace moenew
 		int flush()
 		{
 			int clear = 0;
-			for (int y = 0; y < y_max; y++)
+			for (int y = y_max; y >= 0; y--)
 			{
 				if (line(y))
 				{
-					rise(clear, y);
+					clear++;
+					trim(y);
 				}
 			}
+			tidy();
 			return clear;
 		}
 		void tidy()
@@ -81,23 +83,58 @@ namespace moenew
 				y--;
 			}
 			y_max = y;
-		}
-		void rise(int &amt, int &i)
-		{
-			for (int y = i; y < y_max; y++)
+			cnt = 0;
+			for (; y >= 0; y--)
 			{
-				board[y] = board[y + 1];
+				if (board[y] != 0)
+				{
+					cnt += std::popcount(loc_c.of(w) & board[y]);
+				}
 			}
-			board[y_max] = 0;
-			amt++;
+		}
+		void rise(int amt, int i)
+		{
+			auto data = loc_c.of(w - 1) & ~loc_x.of(i);
+			for (int y = y_max; y >= 0; y--)
+			{
+				board[y + amt] = board[y];
+			}
+			for (int y = 0; y < amt; y++)
+			{
+				board[y] = data;
+			}
 			tidy();
 		}
-		void paste(const uint32_t data[], const int y, const int start, const int end)
+		void trim(int &y)
+		{
+			for (int i = y; i < y_max && i < h - 1; i++)
+			{
+				board[i] = board[i + 1];
+			}
+			board[y_max] = 0;
+			--y_max;
+		}
+		void paste(const uint32_t data[4], const int y, const int start, const int end)
 		{
 			for (int i = start; i < end; i++)
 			{
 				board[y + i] |= data[i];
 			}
+		}
+		bool integrate(const uint32_t data[4], const int &y)
+		{
+			for (int i = 0; i < 4; i++)
+			{
+				if (y + i < 0)
+				{
+					continue;
+				}
+				if (board[i + y] & data[i])
+				{
+					return false;
+				}
+			}
+			return true;
 		}
 		int8_t y_max;
 		int cnt;
