@@ -13,10 +13,15 @@ uint32_t coord_hashify(const MoveData &mino)
 uint64_t state_hashify(const MoveData &mino, const uint32_t data[4])
 {
     uint64_t hash = data[0];
-    hash = hash * 31 + data[1];
-    hash = hash * 31 + data[2];
-    hash = hash * 31 + data[3];
-    return hash * 31 + mino.get_y();
+    for (int i = 1; i < 4; ++i)
+    {
+        if (data[i] == 0)
+        {
+            continue;
+        }
+        hash = hash * 31 + data[i];
+    }
+    return hash * 7 + mino.get_y();
 }
 bool check(const uint32_t data[4], const uint32_t data2[4])
 {
@@ -71,7 +76,8 @@ void test_state()
                         std::cout << std::bitset<32>(cache[2]) << " (" + std::to_string(cache[2]) << ")" << std::endl;
                         std::cout << std::bitset<32>(cache[3]) << " (" + std::to_string(cache[3]) << ")" << std::endl;
                         printf("total find: %zu/%d\n", visited.size(), (30 - down_offset[i][l]) * (29 - right_offset[i][l] - left_offset[i][l]) * 4);
-                        exit(0);
+                        printf("if you think this is expected, please ignore this message\n");
+                        printf("--------------------------------------------------------------------------\n");
                     }
                     visited[hash] = true;
                     active_data[hash] = mino;

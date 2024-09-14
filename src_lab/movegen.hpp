@@ -22,13 +22,18 @@ namespace moenew
 		std::vector<MoveData> result;
 		std::vector<int16_t> coords;
 		std::vector<uint64_t> landpoints;
-		constexpr uint16_t hashify(const MoveData &mino) const
-		{
-			return (mino.get_x() + 2) + 34 * ((mino.get_y() + 2) + 32 * mino.get_r());
-		}
 		constexpr uint64_t landpoint_hashify(const MoveData &mino, const uint32_t data[4]) const
 		{
-			return data[0] * 31 + data[1] * 31 + data[2] * 31 + data[3] * 31 + (mino.get_y() - down[mino.get_r()]);
+			uint64_t hash = data[0];
+			for (int i = 1; i < 4; ++i)
+			{
+				if (data[i] == 0)
+				{
+					continue;
+				}
+				hash = hash * 31 + data[i];
+			}
+			return hash * 7 + (mino.get_y() - down[mino.get_r()]);
 		}
 		bool try_push_coord(const MoveData &mino)
 		{
