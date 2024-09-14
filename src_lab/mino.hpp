@@ -26,13 +26,11 @@ namespace moenew
 		uint16_t data;
 		constexpr int8_t get_x() const
 		{
-			const uint16_t ux = data & 0x3F;
-			return (int8_t)(data & 0x3F) - 3;
+			return (data & 0x3F) - 3;
 		}
 		constexpr int8_t get_y() const
 		{
-			const uint16_t uy = (data >> 6) & 0x3F;
-			return (int8_t)((data >> 6) & 0x3F) - 3;
+			return ((data >> 6) & 0x3F) - 3;
 		}
 		constexpr int8_t get_r() const
 		{
@@ -48,15 +46,13 @@ namespace moenew
 		}
 		constexpr void set_x(int8_t x)
 		{
-			uint16_t ux = x + 3;
 			data &= ~(0x3F);
-			data |= ux & 0x3F;
+			data |= (x + 3) & 0x3F;
 		}
 		constexpr void set_y(int8_t y)
 		{
-			uint16_t uy = y + 3;
 			data &= ~(0x3F << 6);
-			data |= (uy & 0x3F) << 6;
+			data |= ((y + 3) & 0x3F) << 6;
 		}
 		constexpr void set_r(int8_t r)
 		{
