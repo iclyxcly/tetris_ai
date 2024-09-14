@@ -8,6 +8,9 @@ namespace moenew
 	using random = std::mt19937;
 	inline constexpr int BOARD_WIDTH = 10;
 	inline constexpr int BOARD_HEIGHT = 40;
+	inline constexpr int DEFAULT_X = 3;
+	inline constexpr int DEFAULT_Y = 17;
+	inline constexpr int DEFAULT_R = 0;
 	enum Piece
 	{
 		S,

@@ -58,14 +58,7 @@ namespace moenew
 		bool integrate(const int8_t &x, const int8_t &y, const int8_t &r) const
 		{
 			const auto *rows = data->get(r, x);
-			for (int i = 0; i < 4; ++i)
-			{
-				if (target.board[y + i] & rows[i])
-				{
-					return false;
-				}
-			}
-			return true;
+			return target.integrate(rows, y);
 		}
 		bool test_up(const MoveData &mino) const
 		{

@@ -1731,8 +1731,8 @@ namespace TetrisAI
     struct TetrisPathManager
     {
         std::queue<TetrisActive> search;
-        std::unordered_set<int> visited_db;
-        std::unordered_set<uint32_t> result_db;
+        std::vector<int> visited_db;
+        std::vector<uint32_t> result_db;
         std::vector<std::function<bool(TetrisActive &)>> moves;
         TetrisInstructor instructor;
         TetrisConfig &config;
@@ -1743,7 +1743,7 @@ namespace TetrisAI
         TetrisPathManager(TetrisActive &active, TetrisConfig &config, TetrisMap &map) : instructor(map, active.type), config(config)
         {
             visited_db.reserve(max_visit);
-            visited_db.insert(build_hash(active));
+            visited_db.push_back(build_hash(active));
             result_db.reserve(max_result);
             search.push(active);
 
@@ -1791,18 +1791,18 @@ namespace TetrisAI
                     if (move(temp))
                     {
                         hash = build_hash(temp);
-                        if (visited_db.find(hash) == visited_db.end())
+                        if (std::find(visited_db.rbegin(), visited_db.rend(), hash) == visited_db.rend())
                         {
-                            visited_db.insert(hash);
+                            visited_db.push_back(hash);
                             search.push(temp);
                         }
                     }
                 }
 
                 instructor.build_snaphash(current);
-                if (result_db.find(current.snapshot) == result_db.end())
+                if (std::find(result_db.begin(), result_db.end(), current.snapshot) == result_db.end())
                 {
-                    result_db.insert(current.snapshot);
+                    result_db.push_back(current.snapshot);
                     result.push_back(current);
                 }
                 search.pop();
@@ -1825,18 +1825,18 @@ namespace TetrisAI
                     if (move(temp))
                     {
                         hash = build_hash(temp);
-                        if (visited_db.find(hash) == visited_db.end())
+                        if (std::find(visited_db.rbegin(), visited_db.rend(), hash) == visited_db.rend())
                         {
-                            visited_db.insert(hash);
+                            visited_db.push_back(hash);
                             search.push(temp);
                         }
                     }
                 }
 
                 instructor.build_snaphash(current);
-                if (result_db.find(current.snapshot) == result_db.end())
+                if (std::find(result_db.begin(), result_db.end(), current.snapshot) == result_db.end())
                 {
-                    result_db.insert(current.snapshot);
+                    result_db.push_back(current.snapshot);
                     TetrisMap map_copy = map;
                     TetrisStatus status_copy = status;
                     status_copy.next.active = current;
@@ -1873,18 +1873,18 @@ namespace TetrisAI
                     if (move(temp))
                     {
                         hash = build_hash(temp);
-                        if (visited_db.find(hash) == visited_db.end())
+                        if (std::find(visited_db.rbegin(), visited_db.rend(), hash) == visited_db.rend())
                         {
-                            visited_db.insert(hash);
+                            visited_db.push_back(hash);
                             search.push(temp);
                         }
                     }
                 }
 
                 instructor.build_snaphash(current);
-                if (result_db.find(current.snapshot) == result_db.end())
+                if (std::find(result_db.begin(), result_db.end(), current.snapshot) == result_db.end())
                 {
-                    result_db.insert(current.snapshot);
+                    result_db.push_back(current.snapshot);
                     map_cache = node->map;
                     status_cache = node->status;
                     status_cache.next = next_manager;

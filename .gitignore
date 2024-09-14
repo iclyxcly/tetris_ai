@@ -70,3 +70,5 @@ src_lab/movegenbench
 src_lab/convert
 src_lab/hashtest
 src_lab/validate
+src_lab/boardtest
+src_lab/nexttest

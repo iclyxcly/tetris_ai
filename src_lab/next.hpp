@@ -1,5 +1,6 @@
 #pragma once
 #include "const.h"
+#include "utils.hpp"
 #include <deque>
 #include <algorithm>
 namespace moenew
@@ -47,8 +48,11 @@ namespace moenew
 		{
 			Piece temp = next.front();
 			next.pop_front();
-			fill();
 			return temp;
+		}
+		Piece peek()
+		{
+			return next.front();
 		}
 		void push(Piece &src)
 		{
@@ -57,6 +61,15 @@ namespace moenew
 		void push(std::deque<Piece> &src)
 		{
 			next.insert(next.end(), src.begin(), src.end());
+		}
+		std::string join()
+		{
+			std::string temp;
+			for (auto &i : next)
+			{
+				temp += type_to_char(i);
+			}
+			return temp;
 		}
 	};
 }
