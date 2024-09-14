@@ -7,9 +7,8 @@ if [ ! -f $1.cpp ]; then
     echo "File not found!"
     exit 1
 fi
-clang++ -o $1 $1.cpp -Ofast -fprofile-instr-generate -funroll-loops -ftree-vectorize -flto -march=native -std=c++23 -lixwebsocket -lz -lssl -lcrypto -pipe
+g++ -o $1 $1.cpp -Ofast -fprofile-generate -march=native -frename-registers -funroll-loops -std=c++23 -lixwebsocket -lz -lssl -lcrypto
 ./$1 > /dev/null
-llvm-profdata merge -o default.profdata default.profraw
-clang++ -o $1 $1.cpp -Ofast -fprofile-instr-use=default.profdata -funroll-loops -ftree-vectorize -flto -march=native -std=c++23 -lixwebsocket -lz -lssl -lcrypto -pipe
-rm default.prof*
+g++ -o $1 $1.cpp -Ofast -fprofile-use -march=native -frename-registers -funroll-loops -std=c++23 -lixwebsocket -lz -lssl -lcrypto
+rm -f $1.gcda
 ./$1
