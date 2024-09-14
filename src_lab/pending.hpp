@@ -83,6 +83,10 @@ namespace moenew
 		{
 			return lines.empty();
 		}
+		int size()
+		{
+			return lines.size();
+		}
 		Pending()
 		{
 			rng.seed(std::random_device()());
