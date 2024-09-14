@@ -3,7 +3,6 @@
 #include "mino.hpp"
 #include "minotemplate.h"
 #include <queue>
-#include <unordered_set>
 #include <vector>
 namespace moenew
 {
@@ -21,8 +20,8 @@ namespace moenew
 		Piece type;
 		std::queue<MoveData> search;
 		std::vector<MoveData> result;
-		std::unordered_set<int16_t> coords;
-		std::unordered_set<uint64_t> landpoints;
+		std::vector<int16_t> coords;
+		std::vector<uint64_t> landpoints;
 		constexpr uint16_t hashify(const MoveData &mino) const
 		{
 			return (mino.get_x() + 2) + 34 * ((mino.get_y() + 2) + 32 * mino.get_r());
@@ -34,9 +33,9 @@ namespace moenew
 		bool try_push_coord(const MoveData &mino)
 		{
 			auto hash = mino.hash();
-			if (coords.find(hash) == coords.end())
+			if (std::find(coords.rbegin(), coords.rend(), hash) == coords.rend())
 			{
-				coords.insert(hash);
+				coords.push_back(hash);
 				search.push(mino);
 				return true;
 			}
@@ -45,9 +44,9 @@ namespace moenew
 		void try_push_landpoint(const MoveData &mino)
 		{
 			auto hash = landpoint_hashify(mino, cache_get(type, mino.get_r(), mino.get_x()));
-			if (landpoints.find(hash) == landpoints.end())
+			if (std::find(landpoints.rbegin(), landpoints.rend(), hash) == landpoints.rend())
 			{
-				landpoints.insert(hash);
+				landpoints.push_back(hash);
 				result.push_back(mino);
 			}
 		}
