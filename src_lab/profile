@@ -7,7 +7,7 @@ if [ ! -f $1.cpp ]; then
     echo "File not found!"
     exit 1
 fi
-clang++ -o $1 $1.cpp -O0 -g -std=c++23 -lixwebsocket -lz -lssl -lcrypto
+g++ -o $1 $1.cpp -O0 -g -std=c++23 -lixwebsocket -lz -lssl -lcrypto
 ./$1
 valgrind --tool=callgrind --callgrind-out-file=callgrind.out ./$1
 kcachegrind callgrind.out
