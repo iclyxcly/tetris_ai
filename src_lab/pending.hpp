@@ -72,11 +72,22 @@ namespace moenew
 					++acc;
 					if (mess_(rng) < mess * 100)
 					{
-						src.set(index, src.y_max + acc);
+						index = cheese(rng);
 					}
+					src.rise(1, index);
 				}
 				lines.pop_front();
 			}
 		}
+		bool empty()
+		{
+			return lines.empty();
+		}
+		Pending()
+		{
+			rng.seed(std::random_device()());
+		}
+		Pending(random &rng) : rng(rng) {}
+		Pending(int seed) : rng(seed) {}
 	};
 }
