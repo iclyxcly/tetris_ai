@@ -11,7 +11,7 @@ namespace moenew
 	class MoveGen
 	{
 	public:
-		Board &target;
+		Board target;
 		const Minocache *data;
 		const int *up;
 		const int *down;
@@ -241,15 +241,26 @@ namespace moenew
 				search.pop();
 			}
 		}
-		MoveGen(Board &target, MoveData &init, Piece type)
-			: target(target), data(&mino_cache[type]), up(up_offset[type]), down(down_offset[type]), left(left_offset[type]), right(right_offset[type]), type(type)
+		void init(Board &target, MoveData &loc, Piece type)
 		{
-			search.emplace(init);
+			this->target = target;
+			this->type = type;
+			data = &mino_cache[type];
+			up = up_offset[type];
+			down = down_offset[type];
+			left = left_offset[type];
+			right = right_offset[type];
+			search.emplace(loc);
 			search.front().set_y(std::min(search.front().get_y(), target.y_max));
 			coords.reserve(max_coords);
 			landpoints.reserve(max_landpoints);
 			result.reserve(max_landpoints);
 		}
+		MoveGen(Board &target, MoveData &loc, Piece type)
+		{
+			init(target, loc, type);
+		}
+		MoveGen() {};
 		~MoveGen()
 		{
 			max_coords = std::max(max_coords.load(), coords.size());

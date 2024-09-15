@@ -1,9 +1,12 @@
+#pragma once
 #include "eval.hpp"
 #include "movegen.hpp"
 #include <vector>
 #include <queue>
 #include <limits>
 #include <atomic>
+#include <memory>
+#include <cassert>
 
 namespace moenew
 {
@@ -12,7 +15,7 @@ namespace moenew
         int version;
         MoveData decision;
         Evaluation::Status status;
-        const Node *parent;
+        std::shared_ptr<Node> parent;
         double acc;
 
         MoveData get() const
@@ -27,13 +30,14 @@ namespace moenew
             }
         }
     };
+    using nodeptr = std::shared_ptr<Node>;
 
     class NodeManager
     {
     private:
-        struct NodeSort
+        struct NodeCompare
         {
-            bool operator()(Node *a, Node *b)
+            bool operator()(const nodeptr &a, const nodeptr &b) const
             {
                 return a->acc < b->acc;
             }
@@ -42,53 +46,50 @@ namespace moenew
         struct NodeResult
         {
             MoveData decision;
-            double rating;
-
-            NodeResult()
-            {
-                rating = std::numeric_limits<double>::lowest();
-            }
+            double rating = std::numeric_limits<double>::lowest();
         };
 
-        Node *root;
-        // Pointer transfer: task (parent) -> row_task (parent) -> row_result (child) -> task (new parent) | repeat
-        std::priority_queue<Node *, std::vector<Node *>, NodeSort> row_result;
-        std::atomic<double> max;
+        nodeptr root;
+        std::priority_queue<nodeptr, std::vector<nodeptr>, NodeCompare> row_result;
+        std::atomic<double> max_acc{std::numeric_limits<double>::lowest()};
         double ratio;
-        std::queue<Node *> row_task;
-        std::queue<Node *> task;
-        // address storage, for memory deallocation purpose
-        std::vector<Node *> storage;
+        std::queue<nodeptr> row_task;
+        std::queue<nodeptr> task;
+        std::vector<nodeptr> storage;
         NodeResult result;
 
-        void insert_child(const Evaluation::Status &result, const Node *parent, const MoveData &move)
+        void insert_child(const Evaluation::Status &status, const nodeptr &parent, const MoveData &move)
         {
-            Node *child = new Node;
-            child->acc = parent->acc + result.rating;
+            auto child = std::make_shared<Node>();
+            child->acc = parent->acc + status.rating;
             child->decision = move;
             child->parent = parent;
-            child->status = result;
+            child->status = status;
             child->version = parent->version + 1;
             row_result.push(child);
-            if (child->acc > max)
-            {
-                max = child->acc;
-            }
+            max_acc = std::max(max_acc.load(), child->acc);
         }
 
         void trim()
         {
             while (row_result.size() > BEAM_WIDTH)
             {
-                delete row_result.top();
                 row_result.pop();
             }
         }
 
     public:
-        NodeManager(MoveData &loc, Evaluation::Status &status, double &ratio) : ratio(ratio)
+        NodeManager() {};
+
+        NodeManager(const MoveData &loc, const Evaluation::Status &status, double ratio)
+            : ratio(ratio)
         {
-            root = new Node;
+            create_root(loc, status, ratio);
+        }
+
+        void create_root(const MoveData &loc, const Evaluation::Status &status, double ratio)
+        {
+            root = std::make_shared<Node>();
             root->acc = 0;
             root->decision = loc;
             root->parent = nullptr;
@@ -97,25 +98,17 @@ namespace moenew
             task.push(root);
         }
 
-        ~NodeManager()
-        {
-            for (auto &node : storage)
-            {
-                delete node;
-            }
-        }
-
-        void try_insert(const Evaluation::Status &result, const Node *parent, const MoveData &move)
+        void try_insert(const Evaluation::Status &status, const nodeptr &parent, const MoveData &move)
         {
             double parentAcc = parent->acc;
             double rowResultAcc = row_result.top()->acc;
 
-            if (((parentAcc + result.rating - rowResultAcc) / (max - rowResultAcc)) < ratio)
+            if (((parentAcc + status.rating - rowResultAcc) / (max_acc - rowResultAcc)) < ratio)
             {
                 return;
             }
 
-            insert_child(result, parent, move);
+            insert_child(status, parent, move);
             trim();
         }
 
@@ -125,21 +118,22 @@ namespace moenew
             while (!row_result.empty())
             {
                 task.push(row_result.top());
-                storage.emplace_back(row_result.top());
+                storage.push_back(row_result.top());
                 if (row_result.size() == 1)
                 {
                     result.decision = row_result.top()->get();
                     result.rating = row_result.top()->acc;
                 }
+                row_result.pop();
             }
             return result;
         }
 
         bool prepare()
         {
-            row_task = task;
-            task = {};
-            max = std::numeric_limits<double>::lowest();
+            row_task = std::move(task);
+            task = std::queue<nodeptr>();
+            max_acc = std::numeric_limits<double>::lowest();
             return !row_task.empty();
         }
 

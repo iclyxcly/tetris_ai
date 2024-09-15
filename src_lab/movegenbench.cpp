@@ -57,7 +57,7 @@ int main()
         printf("x: %d, y: %d, r: %d\n", i.get_x(), i.get_y(), i.get_r());
         auto board_copy = board;
         auto data = cache_get(type, i.get_r(), i.get_x());
-        board_copy.paste(data, i.get_y(), -down_offset[type][i.get_r()], 4 + up_offset[type][i.get_r()]);
+        board_copy.paste(data, i.get_y());
         std::cout << board_copy.print(10);
     }
     printf("coords: %lu\n", movegen.coords.size());

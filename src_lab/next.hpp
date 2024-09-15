@@ -11,6 +11,7 @@ namespace moenew
 		Next() : hold(X) {}
 		std::deque<Piece> next;
 		Piece hold;
+		bool held;
 		void init()
 		{
 			hold = X;
@@ -30,8 +31,9 @@ namespace moenew
 		}
 		bool swap()
 		{
-			if (next.size() == 0 || hold == next[0])
+			if (held || next.size() == 0 || hold == next[0])
 				return false;
+			held = true;
 			if (hold == X)
 			{
 				hold = next.front();
@@ -48,6 +50,7 @@ namespace moenew
 		{
 			Piece temp = next.front();
 			next.pop_front();
+			held = false;
 			return temp;
 		}
 		Piece peek() const

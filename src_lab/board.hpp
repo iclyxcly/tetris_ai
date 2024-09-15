@@ -114,14 +114,14 @@ namespace moenew
 			field[y_max] = 0;
 			--y_max;
 		}
-		void paste(const uint32_t data[4], const int y, const int start, const int end)
+		void paste(const uint32_t data[4], const int y)
 		{
-			for (int i = start; i < end; i++)
+			for (int i = 0; i < 4; i++)
 			{
 				field[y + i] |= data[i];
 			}
 		}
-		bool integrate(const uint32_t data[4], const int &y)
+		bool integrate(const uint32_t data[4], const int &y) const
 		{
 			for (int i = 0; i < 4; i++)
 			{
