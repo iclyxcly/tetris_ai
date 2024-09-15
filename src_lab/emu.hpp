@@ -42,7 +42,7 @@ namespace moenew
         {
             auto active = status.next.pop();
             const uint32_t *mino = cache_get(active, data.get_r(), data.get_x());
-            status.board.paste(mino, data.get_y(), -down_offset[active][data.get_r()], 4 + up_offset[active][data.get_r()]);
+            status.board.paste(mino, data.get_y());
             status.clear = status.board.flush();
             status.attack = 0;
 

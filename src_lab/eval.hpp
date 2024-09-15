@@ -50,6 +50,7 @@ namespace moenew
             WIDE_3,
             WIDE_4,
             BUILD_ATTACK,
+            RATIO,
             END_OF_PARAM
         };
         struct Playstyle
@@ -123,17 +124,7 @@ namespace moenew
             {
                 ret.dead = true;
             }
-            ret.rating = (0.
-                - p[HEIGHT] * board.y_max
-                - p[COL_TRANS] * e.col_trans
-                - p[ROW_TRANS] * e.row_trans
-                - p[HOLE_COUNT] * e.hole_count
-                - p[HOLE_LINE] * e.hole_line
-                + p[WIDE_2] * e.wide[2]
-                + p[WIDE_3] * e.wide[3]
-                + p[WIDE_4] * e.wide[4]
-                - 999999. * ret.dead
-            );
+            ret.rating = (0. - p[HEIGHT] * board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE] * e.hole_line + p[WIDE_2] * e.wide[2] + p[WIDE_3] * e.wide[3] + p[WIDE_4] * e.wide[4] - 999999. * ret.dead);
         }
         void evaluation_level_2(const Status &last, Status &ret)
         {
@@ -215,12 +206,7 @@ namespace moenew
             {
                 ret.dead = true;
             }
-            ret.rating += (0.
-                + like
-                + p[ATTACK] * ret.attack
-                + p[COMBO] * (ret.combo + atk->get_combo(ret.combo))
-                - 999999. * ret.dead
-            );
+            ret.rating += (0. + like + p[ATTACK] * ret.attack + p[COMBO] * (ret.combo + atk->get_combo(ret.combo)) - 999999. * ret.dead);
         }
         void evaluation_level_3(const Status &last, Status &ret)
         {
@@ -236,6 +222,16 @@ namespace moenew
                 ret.attack_since = 0;
             }
             // tbd
+        }
+        std::vector<std::function<void(const Status &, Status &)>> evaluations;
+        Evaluation()
+        {
+            evaluations.push_back([this](const Status &a, Status &b)
+                                  { return evaluation_level_1(a, b); });
+            evaluations.push_back([this](const Status &a, Status &b)
+                                  { return evaluation_level_2(a, b); });
+            evaluations.push_back([this](const Status &a, Status &b)
+                                  { return evaluation_level_3(a, b); });
         }
     };
 }
