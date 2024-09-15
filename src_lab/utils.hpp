@@ -1,6 +1,8 @@
 #pragma once
 #include <chrono>
 #include <thread>
+#include <string>
+#include <cstddef>
 #include "const.h"
 namespace moenew
 {
@@ -100,7 +102,7 @@ namespace moenew
             return 'X';
         }
     }
-    inline constexpr std::string type_to_string(const Piece &p)
+    inline const std::string type_to_string(const Piece &p)
     {
         switch (p)
         {
@@ -122,7 +124,7 @@ namespace moenew
             return "X";
         }
     }
-    inline constexpr std::string type_to_string(const int &p)
+    inline const std::string type_to_string(const int &p)
     {
         switch (p)
         {
@@ -144,7 +146,7 @@ namespace moenew
             return "X";
         }
     }
-    inline constexpr std::string type_to_string(const std::size_t &p)
+    inline const std::string type_to_string(const std::size_t &p)
     {
         switch (p)
         {

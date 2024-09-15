@@ -50,7 +50,7 @@ namespace moenew
 			next.pop_front();
 			return temp;
 		}
-		Piece peek()
+		Piece peek() const
 		{
 			return next.front();
 		}

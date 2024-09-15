@@ -6,6 +6,7 @@ namespace moenew
 {
 	using rng_range = std::uniform_int_distribution<>;
 	using random = std::mt19937;
+	inline constexpr int BEAM_WIDTH = 64;
 	inline constexpr int BOARD_WIDTH = 10;
 	inline constexpr int BOARD_HEIGHT = 40;
 	inline constexpr int DEFAULT_X = 3;
