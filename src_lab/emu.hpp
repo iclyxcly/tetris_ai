@@ -8,36 +8,36 @@
 
 namespace moenew
 {
+    struct AttackTable
+    {
+        int clear_1;
+        int clear_2;
+        int clear_3;
+        int clear_4;
+        int aspin_1;
+        int aspin_2;
+        int aspin_3;
+        int aspin_4;
+        int b2b;
+        int pc;
+        double messiness;
+        int combo[21];
+        int get_combo(int c) const
+        {
+            if (c > 20)
+            {
+                return combo[20];
+            }
+            if (c < 0)
+            {
+                return combo[0];
+            }
+            return combo[c];
+        }
+    };
     class Emulation
     {
     public:
-        struct AttackTable
-        {
-            int clear_1;
-            int clear_2;
-            int clear_3;
-            int clear_4;
-            int aspin_1;
-            int aspin_2;
-            int aspin_3;
-            int aspin_4;
-            int b2b;
-            int pc;
-            double messiness;
-            int combo[21];
-            int get_combo(int c) const
-            {
-                if (c > 20)
-                {
-                    return combo[20];
-                }
-                if (c < 0)
-                {
-                    return combo[0];
-                }
-                return combo[c];
-            }
-        };
         static void cycle(Evaluation::Status &status, const MoveData &data, const AttackTable &atk)
         {
             auto active = status.next.pop();

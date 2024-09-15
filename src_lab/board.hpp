@@ -16,7 +16,7 @@ namespace moenew
 			h = BOARD_HEIGHT;
 			y_max = 0;
 			cnt = 0;
-			std::memset(board, 0, sizeof(board));
+			std::memset(field, 0, sizeof(field));
 		}
 		Board(int w, int h)
 		{
@@ -24,7 +24,7 @@ namespace moenew
 			this->h = h;
 			y_max = 0;
 			cnt = 0;
-			std::memset(board, 0, sizeof(board));
+			std::memset(field, 0, sizeof(field));
 		}
 		std::string print(int top) const
 		{
@@ -42,22 +42,22 @@ namespace moenew
 		}
 		void set(int x, int y)
 		{
-			board[y] ^= loc_x.of(x);
+			field[y] ^= loc_x.of(x);
 			tidy();
 		}
 		bool get(int x, int y) const
 		{
-			return board[y] & loc_x.of(x);
+			return field[y] & loc_x.of(x);
 		}
 		bool line(int y) const
 		{
 			static int width = w - 1;
 			static auto &req = loc_c.of(width);
-			return (board[y] & req) == req;
+			return (field[y] & req) == req;
 		}
 		void clear()
 		{
-			std::memset(board, 0, sizeof(board));
+			std::memset(field, 0, sizeof(field));
 			y_max = 0;
 			cnt = 0;
 		}
@@ -78,7 +78,7 @@ namespace moenew
 		void tidy()
 		{
 			int y = h - 1;
-			while (y > 0 && board[y] == 0)
+			while (y > 0 && field[y] == 0)
 			{
 				y--;
 			}
@@ -86,9 +86,9 @@ namespace moenew
 			cnt = 0;
 			for (; y >= 0; y--)
 			{
-				if (board[y] != 0)
+				if (field[y] != 0)
 				{
-					cnt += std::popcount(loc_c.of(w) & board[y]);
+					cnt += std::popcount(loc_c.of(w) & field[y]);
 				}
 			}
 		}
@@ -97,11 +97,11 @@ namespace moenew
 			auto data = loc_c.of(w - 1) & ~loc_x.of(i);
 			for (int y = y_max; y >= 0; y--)
 			{
-				board[y + amt] = board[y];
+				field[y + amt] = field[y];
 			}
 			for (int y = 0; y < amt; y++)
 			{
-				board[y] = data;
+				field[y] = data;
 			}
 			tidy();
 		}
@@ -109,16 +109,16 @@ namespace moenew
 		{
 			for (int i = y; i < y_max && i < h - 1; i++)
 			{
-				board[i] = board[i + 1];
+				field[i] = field[i + 1];
 			}
-			board[y_max] = 0;
+			field[y_max] = 0;
 			--y_max;
 		}
 		void paste(const uint32_t data[4], const int y, const int start, const int end)
 		{
 			for (int i = start; i < end; i++)
 			{
-				board[y + i] |= data[i];
+				field[y + i] |= data[i];
 			}
 		}
 		bool integrate(const uint32_t data[4], const int &y)
@@ -129,7 +129,7 @@ namespace moenew
 				{
 					continue;
 				}
-				if (board[i + y] & data[i])
+				if (field[i + y] & data[i])
 				{
 					return false;
 				}
@@ -140,6 +140,6 @@ namespace moenew
 		int cnt;
 		int w;
 		int h;
-		uint64_t board[BOARD_HEIGHT];
+		uint64_t field[BOARD_HEIGHT];
 	};
 }

@@ -1,8 +1,9 @@
 # tetris_ai
  
 todo
-multithread
-pc search (?)
-
-tofix
-allspin_value on left/right border issue
+3 level evaluation
+multithread (will implement on src_lab)
+node impl
+beaming change from width^depth to (width * width) / width
+tree impl
+pc search (?) heard somebdy said it's backward search
