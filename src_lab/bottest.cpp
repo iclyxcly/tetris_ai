@@ -1,4 +1,5 @@
 #include "engine.hpp"
+#include "movegen.hpp"
 #include <random>
 #include <stdio.h>
 #include <queue>
@@ -15,7 +16,7 @@ int main(void)
     std::uniform_int_distribution<> piece_dis(2, 5);
     int count = 0;
     int total_atk = 0;
-    int total = 0;
+    int total_clear = 0;
     uint8_t extra = 0;
     int total_recv = 0;
     Engine engine;
@@ -32,9 +33,8 @@ int main(void)
     atk.pc = 10;
     atk.b2b = 1;
     memset(atk.combo, 0, sizeof(atk.combo));
-    while (true)
+    while (++count != 10000)
     {
-        ++count;
         status.next.fill();
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
@@ -43,11 +43,72 @@ int main(void)
         {
             status.next.swap();
         }
-        printf("count: %d\n", count);
-        printf("x: %d, y: %d, r: %d\n", result.get_x(), result.get_y(), result.get_r());
+        status.allspin = MoveGen::immobile_global(result, status.next.peek(), status.board);
         status.board.paste(cache_get(status.next.pop(), result.get_r(), result.get_x()), result.get_y());
-        status.board.flush();
+        int clear = 0;
+        int attack = 0;
+        total_clear += clear = status.board.flush();
+        switch (clear)
+        {
+        case 0:
+            status.combo = 0;
+            break;
+        case 1:
+            if (status.allspin)
+            {
+                attack += atk.aspin_1 + status.b2b;
+                status.b2b = true;
+            }
+            else
+            {
+                attack += atk.clear_1;
+                status.b2b = false;
+            }
+            attack += atk.get_combo(++status.combo);
+            break;
+        case 2:
+            if (status.allspin)
+            {
+                attack += atk.aspin_2 + status.b2b;
+                status.b2b = true;
+            }
+            else
+            {
+                attack += atk.clear_2;
+                status.b2b = false;
+            }
+            attack += atk.get_combo(++status.combo);
+            break;
+        case 3:
+            if (status.allspin)
+            {
+                attack += atk.aspin_3 + status.b2b;
+                status.b2b = true;
+            }
+            else
+            {
+                attack += atk.clear_3;
+                status.b2b = false;
+            }
+            attack += atk.get_combo(++status.combo);
+            break;
+        case 4:
+            attack += atk.clear_4 + status.b2b;
+            status.b2b = true;
+            attack += atk.get_combo(++status.combo);
+            break;
+        }
+        if (status.board.y_max == 0)
+        {
+            attack = atk.pc;
+        }
+        total_atk += attack;
+        printf("APP: %.2f\n", (double)total_atk / count);
         std::cout << status.board.print(22);
+        if (attack)
+        {
+            Sleep(200);
+        }
         const auto *cache_next = cache_get(status.next.peek(), DEFAULT_R, DEFAULT_X);
         if (!status.board.integrate(cache_next, DEFAULT_Y))
         {

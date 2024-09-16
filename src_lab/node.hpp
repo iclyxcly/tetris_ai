@@ -123,7 +123,6 @@ namespace moenew
 
         NodeResult finalize()
         {
-            trim();
             while (!row_result.empty())
             {
                 task.push(row_result.top());
