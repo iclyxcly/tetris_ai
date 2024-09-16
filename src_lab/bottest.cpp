@@ -31,20 +31,20 @@ int main(void)
     atk.pc = 10;
     atk.b2b = 1;
     memset(atk.combo, 0, sizeof(atk.combo));
-    while (true)
+    while (++count != 100)
     {
         status.next.fill();
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
         auto result = engine.start();
-        if (result.first)
+        if (result.change_hold)
         {
             status.next.swap();
         }
-        printf("x: %d, y: %d, r: %d\n", result.second.get_x(), result.second.get_y(), result.second.get_r());
-        status.board.paste(cache_get(status.next.pop(), result.second.get_r(), result.second.get_x()), result.second.get_y());
+        printf("x: %d, y: %d, r: %d\n", result.get_x(), result.get_y(), result.get_r());
+        status.board.paste(cache_get(status.next.pop(), result.get_r(), result.get_x()), result.get_y());
+        status.board.flush();
         std::cout << status.board.print(22);
-        Sleep(1000);
     }
     return 0;
 }

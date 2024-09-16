@@ -10,11 +10,17 @@
 
 namespace moenew
 {
+    struct Decision : public MoveData
+    {
+        bool change_hold;
+        Decision() = default;
+        Decision(const MoveData &data, bool change_hold) : MoveData(data), change_hold(change_hold) {}
+    };
     struct Node
     {
         int version;
-        MoveData decision;
-        bool change_hold : 1;
+        Decision decision;
+        bool change_hold;
         Evaluation::Status status;
         std::shared_ptr<Node> parent;
         double acc;
@@ -46,7 +52,7 @@ namespace moenew
 
         struct NodeResult
         {
-            MoveData decision;
+            Decision decision;
             bool change_hold;
             double rating = std::numeric_limits<double>::lowest();
         };
@@ -57,15 +63,13 @@ namespace moenew
         double ratio;
         std::queue<nodeptr> row_task;
         std::queue<nodeptr> task;
-        std::vector<nodeptr> storage;
         NodeResult result;
 
-        void insert_child(const Evaluation::Status &status, const nodeptr &parent, const MoveData &move, bool &hold)
+        void insert_child(const Evaluation::Status &status, const nodeptr &parent, const Decision &decision)
         {
             auto child = std::make_shared<Node>();
             child->acc = parent->acc + status.rating;
-            child->decision = move;
-            child->change_hold = hold;
+            child->decision = decision;
             child->parent = parent;
             child->status = status;
             child->version = parent->version + 1;
@@ -84,28 +88,28 @@ namespace moenew
     public:
         NodeManager() {};
 
-        NodeManager(const MoveData &loc, const Evaluation::Status &status, double ratio)
+        NodeManager(const Decision decision, const Evaluation::Status &status, double ratio)
             : ratio(ratio)
         {
-            create_root(loc, status, ratio);
+            create_root(decision, status, ratio);
         }
 
-        void create_root(const MoveData &loc, const Evaluation::Status &status, double ratio)
+        void create_root(const Decision decision, const Evaluation::Status &status, double ratio)
         {
             root = std::make_shared<Node>();
             root->acc = 0;
-            root->decision = loc;
+            root->decision = decision;
             root->parent = nullptr;
             root->status = status;
             root->version = 0;
             task.push(root);
         }
 
-        void try_insert(const Evaluation::Status &status, const nodeptr &parent, const MoveData &move, bool &hold)
+        void try_insert(const Evaluation::Status &status, const nodeptr &parent, const Decision &decision)
         {
             if (row_result.size() < BEAM_WIDTH)
             {
-                insert_child(status, parent, move, hold);
+                insert_child(status, parent, decision);
                 return;
             }
             
@@ -117,7 +121,7 @@ namespace moenew
                 return;
             }
 
-            insert_child(status, parent, move, hold);
+            insert_child(status, parent, decision);
             trim();
         }
 
@@ -127,7 +131,6 @@ namespace moenew
             while (!row_result.empty())
             {
                 task.push(row_result.top());
-                storage.push_back(row_result.top());
                 if (row_result.size() == 1)
                 {
                     auto data = row_result.top()->get();
@@ -160,7 +163,6 @@ namespace moenew
             max_acc = std::numeric_limits<double>::lowest();
             row_task = std::queue<nodeptr>();
             task = std::queue<nodeptr>();
-            storage.clear();
             result = NodeResult();
         }
     };

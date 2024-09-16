@@ -12,10 +12,11 @@ namespace moenew
     class Engine
     {
     private:
-        using nodeset = std::pair<Evaluation::Status, MoveData>;
+        using nodeset = std::pair<Evaluation::Status, Decision>;
         Evaluation eval_engine;
         NodeManager beam;
         bool can_hold;
+        int total;
         struct RatingCompare
         {
             bool operator()(nodeset &left, nodeset &right)
@@ -58,7 +59,7 @@ namespace moenew
                     new_stat.board.paste(cache_get(search.type, r, x), y);
                     new_stat.allspin = search.immobile(landpoint);
                     new_stat.clear = new_stat.board.flush();
-                    set.emplace_back(std::make_pair(new_stat, landpoint));
+                    set.emplace_back(std::make_pair(new_stat, Decision(landpoint, false)));
                 }
             }
             if (can_hold && next.swap())
@@ -75,10 +76,11 @@ namespace moenew
                         new_stat.board.paste(cache_get(search.type, r, x), y);
                         new_stat.allspin = search.immobile(landpoint);
                         new_stat.clear = new_stat.board.flush();
-                        set.emplace_back(std::make_pair(new_stat, landpoint));
+                        set.emplace_back(std::make_pair(new_stat, Decision(landpoint, true)));
                     }
                 }
             }
+            total += set.size();
             for (auto &func : eval_engine.evaluations)
             {
                 for (auto &new_data : set)
@@ -89,12 +91,13 @@ namespace moenew
             }
             for (auto &new_data : set)
             {
-                beam.try_insert(new_data.first, sptr, new_data.second, new_data.first.next.held);
+                beam.try_insert(new_data.first, sptr, new_data.second);
             }
             beam.finalize();
         }
         void expand_all()
         {
+            beam.prepare();
             auto &queue = beam.get_task();
             while (!queue.empty())
             {
@@ -115,7 +118,7 @@ namespace moenew
                         new_stat.board.paste(cache_get(search.type, r, x), y);
                         new_stat.allspin = search.immobile(landpoint);
                         new_stat.clear = new_stat.board.flush();
-                        set.emplace_back(std::make_pair(new_stat, landpoint));
+                        set.emplace_back(std::make_pair(new_stat, Decision(landpoint, false)));
                     }
                 }
                 if (can_hold && next.swap())
@@ -132,10 +135,11 @@ namespace moenew
                             new_stat.board.paste(cache_get(search.type, r, x), y);
                             new_stat.allspin = search.immobile(landpoint);
                             new_stat.clear = new_stat.board.flush();
-                            set.emplace_back(std::make_pair(new_stat, landpoint));
+                            set.emplace_back(std::make_pair(new_stat, Decision(landpoint, true)));
                         }
                     }
                 }
+            total += set.size();
                 for (auto &func : eval_engine.evaluations)
                 {
                     for (auto &new_data : set)
@@ -146,7 +150,7 @@ namespace moenew
                 }
                 for (auto &new_data : set)
                 {
-                    beam.try_insert(new_data.first, sptr, new_data.second, new_data.first.next.held);
+                    beam.try_insert(new_data.first, sptr, new_data.second);
                 }
             }
             beam.finalize();
@@ -172,20 +176,22 @@ namespace moenew
         }
         void submit_form(MoveData &data, Evaluation::Status &status, bool can_hold)
         {
+            total = 0;
             this->can_hold = can_hold;
             beam.reset();
-            beam.create_root(data, status, eval_engine.p.param[Evaluation::RATIO]);
+            beam.create_root(Decision(data, can_hold), status, eval_engine.p.param[Evaluation::RATIO]);
             assert(beam.prepare());
             expand_first();
         }
-        std::pair<bool, MoveData> start()
+        Decision start()
         {
             auto now = std::chrono::high_resolution_clock::now();
             while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - now).count() < 100)
             {
                 expand_all();
             }
-            return std::make_pair(beam.finalize().change_hold, beam.finalize().decision);
+            printf("Total: %d\n", total);
+            return beam.finalize().decision;
         }
     };
 }
