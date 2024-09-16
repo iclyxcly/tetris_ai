@@ -118,8 +118,13 @@ namespace moenew
 		{
 			for (int i = 0; i < 4; i++)
 			{
+				if (y + i < 0)
+				{
+					continue;
+				}
 				field[y + i] |= data[i];
 			}
+			tidy();
 		}
 		bool integrate(const uint32_t data[4], const int &y) const
 		{

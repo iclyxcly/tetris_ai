@@ -14,15 +14,16 @@ namespace moenew
     {
         int version;
         MoveData decision;
+        bool change_hold : 1;
         Evaluation::Status status;
         std::shared_ptr<Node> parent;
         double acc;
 
-        MoveData get() const
+        Node get() const
         {
             if (version == 1)
             {
-                return decision;
+                return *this;
             }
             else
             {
@@ -46,6 +47,7 @@ namespace moenew
         struct NodeResult
         {
             MoveData decision;
+            bool change_hold;
             double rating = std::numeric_limits<double>::lowest();
         };
 
@@ -58,11 +60,12 @@ namespace moenew
         std::vector<nodeptr> storage;
         NodeResult result;
 
-        void insert_child(const Evaluation::Status &status, const nodeptr &parent, const MoveData &move)
+        void insert_child(const Evaluation::Status &status, const nodeptr &parent, const MoveData &move, bool &hold)
         {
             auto child = std::make_shared<Node>();
             child->acc = parent->acc + status.rating;
             child->decision = move;
+            child->change_hold = hold;
             child->parent = parent;
             child->status = status;
             child->version = parent->version + 1;
@@ -98,8 +101,14 @@ namespace moenew
             task.push(root);
         }
 
-        void try_insert(const Evaluation::Status &status, const nodeptr &parent, const MoveData &move)
+        void try_insert(const Evaluation::Status &status, const nodeptr &parent, const MoveData &move, bool &hold)
         {
+            if (row_result.size() < BEAM_WIDTH)
+            {
+                insert_child(status, parent, move, hold);
+                return;
+            }
+            
             double parentAcc = parent->acc;
             double rowResultAcc = row_result.top()->acc;
 
@@ -108,7 +117,7 @@ namespace moenew
                 return;
             }
 
-            insert_child(status, parent, move);
+            insert_child(status, parent, move, hold);
             trim();
         }
 
@@ -121,8 +130,10 @@ namespace moenew
                 storage.push_back(row_result.top());
                 if (row_result.size() == 1)
                 {
-                    result.decision = row_result.top()->get();
-                    result.rating = row_result.top()->acc;
+                    auto data = row_result.top()->get();
+                    result.decision = data.decision;
+                    result.change_hold = data.change_hold;
+                    result.rating = data.acc;
                 }
                 row_result.pop();
             }
@@ -140,6 +151,17 @@ namespace moenew
         auto &get_task()
         {
             return row_task;
+        }
+
+        void reset()
+        {
+            root.reset();
+            row_result = std::priority_queue<nodeptr, std::vector<nodeptr>, NodeCompare>();
+            max_acc = std::numeric_limits<double>::lowest();
+            row_task = std::queue<nodeptr>();
+            task = std::queue<nodeptr>();
+            storage.clear();
+            result = NodeResult();
         }
     };
 }

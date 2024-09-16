@@ -64,6 +64,18 @@ namespace moenew
 			data &= ~(0x07 << 14);
 			data |= (status & 0x07) << 14;
 		}
+		constexpr void init()
+		{
+			data = 0;
+			set_x(DEFAULT_X);
+			set_y(DEFAULT_Y);
+			set_r(DEFAULT_R);
+			set_status(Others);
+		}
+		constexpr MoveData()
+		{
+			init();
+		}
 	};
 	class Minos
 	{
