@@ -51,9 +51,7 @@ namespace moenew
 		}
 		bool line(int y) const
 		{
-			static int width = w - 1;
-			static auto &req = loc_c.of(width);
-			return (field[y] & req) == req;
+			return (field[y] & loc_c.of(w - 1)) == loc_c.of(w - 1);
 		}
 		void clear()
 		{
@@ -72,12 +70,12 @@ namespace moenew
 					trim(y);
 				}
 			}
-			tidy();
+			cnt -= clear * (w - 1);
 			return clear;
 		}
 		void tidy()
 		{
-			int y = h - 1;
+			int y = h;
 			while (y > 0 && field[y - 1] == 0)
 			{
 				y--;

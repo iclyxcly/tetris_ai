@@ -195,6 +195,34 @@ namespace moenew
 		{
 			return !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
 		}
+		static bool immobile_global(const MoveData &mino, const Piece &type, const Board &board)
+		{
+			const Minocache *data = &mino_cache[type];
+			const int *up = up_offset[type];
+			const int *down = down_offset[type];
+			const int *left = left_offset[type];
+			const int *right = right_offset[type];
+			auto integrate = [&board, &data](const int8_t &x, const int8_t &y, const int8_t &r) -> bool {
+				const auto *rows = data->get(r, x);
+				return board.integrate(rows, y);
+			};
+			auto test_up = [&integrate](const MoveData &mino) -> bool {
+				return integrate(mino.get_x(), mino.get_y() + 1, mino.get_r());
+			};
+			auto test_down = [&integrate, &down](const MoveData &mino) -> bool {
+				int y = mino.get_y() - 1;
+				return y >= down[mino.get_r()] && integrate(mino.get_x(), y, mino.get_r());
+			};
+			auto test_left = [&integrate, &left](const MoveData &mino) -> bool {
+				int x = mino.get_x() - 1;
+				return x >= left[mino.get_r()] && integrate(x, mino.get_y(), mino.get_r());
+			};
+			auto test_right = [&integrate, &right, &board](const MoveData &mino) -> bool {
+				int x = mino.get_x() + 1;
+				return x <= board.w - right[mino.get_r()] - 4 && integrate(x, mino.get_y(), mino.get_r());
+			};
+			return !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
+		}
 		bool allspin(const MoveData &mino) const
 		{
 			return mino.get_status() == Rotate && !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
@@ -241,7 +269,7 @@ namespace moenew
 				search.pop();
 			}
 		}
-		void init(Board &target, MoveData &loc, Piece type)
+		void init(Board &target, MoveData loc, Piece type)
 		{
 			this->target = target;
 			this->type = type;
@@ -256,7 +284,7 @@ namespace moenew
 			landpoints.reserve(max_landpoints);
 			result.reserve(max_landpoints);
 		}
-		MoveGen(Board &target, MoveData &loc, Piece type)
+		MoveGen(Board &target, MoveData loc, Piece type)
 		{
 			init(target, loc, type);
 		}

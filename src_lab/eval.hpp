@@ -127,7 +127,7 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            ret.rating = (0. - 1 * board.y_max - 1 * e.col_trans - 1 * e.row_trans - 1 * e.hole_count - 1 * e.hole_line + 0 * e.wide[2] + 0 * e.wide[3] + 0 * e.wide[4] - 999999. * ret.dead);
+            ret.rating = (0. - 1 * board.y_max - 0 * e.col_trans - 1 * e.row_trans - 0 * e.hole_count - 0 * e.hole_line + 0 * e.wide[2] + 0 * e.wide[3] + 0 * e.wide[4] - 999999. * ret.dead);
         }
         void evaluation_level_2(const Status &last, Status &ret)
         {
@@ -144,52 +144,52 @@ namespace moenew
             case 1:
                 if (ret.allspin)
                 {
-                    ret.attack = atk.aspin_1 + atk.b2b;
+                    ret.attack = atk.aspin_1 + ret.b2b;
                     ret.b2b = true;
-                    like += p[ASPIN_1];
+                    like += 1;
                 }
                 else
                 {
                     ret.attack = atk.clear_1;
                     ret.b2b = false;
-                    like += p[CLEAR_1];
+                    like += -1;
                 }
                 ret.attack += atk.get_combo(++ret.combo);
                 break;
             case 2:
                 if (ret.allspin)
                 {
-                    ret.attack = atk.aspin_2 + atk.b2b;
+                    ret.attack = atk.aspin_2 + ret.b2b;
                     ret.b2b = true;
-                    like += p[ASPIN_2];
+                    like += 2;
                 }
                 else
                 {
                     ret.attack = atk.clear_2;
                     ret.b2b = false;
-                    like += p[CLEAR_2];
+                    like += -2;
                 }
                 ret.attack += atk.get_combo(++ret.combo);
                 break;
             case 3:
                 if (ret.allspin)
                 {
-                    ret.attack = atk.aspin_3 + atk.b2b;
+                    ret.attack = atk.aspin_3 + ret.b2b;
                     ret.b2b = true;
-                    like += p[ASPIN_3];
+                    like += 3;
                 }
                 else
                 {
                     ret.attack = atk.clear_3;
                     ret.b2b = false;
-                    like += p[CLEAR_3];
+                    like += -3;
                 }
                 ret.attack += atk.get_combo(++ret.combo);
                 break;
             case 4:
-                ret.attack = atk.clear_4 + atk.b2b;
+                ret.attack = atk.clear_4 + ret.b2b;
                 ret.b2b = true;
-                like += p[CLEAR_4];
+                like += 4;
                 ret.attack += atk.get_combo(++ret.combo);
                 break;
             }
@@ -212,7 +212,7 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            ret.rating += (0. + like + p[ATTACK] * ret.attack + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999. * ret.dead);
+            ret.rating += (0. + 5 * like + 5 * ret.attack + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999. * ret.dead);
         }
         void evaluation_level_3(const Status &last, Status &ret)
         {

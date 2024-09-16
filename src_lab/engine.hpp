@@ -19,6 +19,7 @@ namespace moenew
         bool can_hold;
         int total;
         int depth;
+        std::atomic<int> max_set_size{0};
         struct RatingCompare
         {
             bool operator()(Nodeset &left, Nodeset &right)
@@ -26,12 +27,19 @@ namespace moenew
                 return left.first.rating < right.first.rating;
             }
         };
+        static MoveData gen_loc()
+        {
+            static MoveData data;
+            if (data.data == 0)
+            {
+                data.set_x(DEFAULT_X);
+                data.set_y(DEFAULT_Y);
+                data.set_r(DEFAULT_R);
+            }
+            return data;
+        }
         void try_early_prune(std::vector<Nodeset> &set)
         {
-            if (set.empty())
-            {
-                return;
-            }
             std::sort(set.begin(), set.end(), RatingCompare());
             double max = set.end()->first.rating;
             double min = set.begin()->first.rating;
@@ -41,52 +49,40 @@ namespace moenew
                 set.erase(set.begin());
             }
         }
-        void expand_first()
+        void process_expansion(std::vector<Nodeset> &set, const Node *data, MoveGen &search, const Evaluation::Status &template_stat, bool is_swap)
         {
-            auto &queue = beam.get_task();
-            auto sptr = queue.front();
+            for (const auto &landpoint : search.result)
+            {
+                auto new_stat = template_stat;
+                auto x = landpoint.get_x();
+                auto y = landpoint.get_y();
+                auto r = landpoint.get_r();
+                new_stat.board.paste(cache_get(search.type, r, x), y);
+                new_stat.allspin = search.immobile(landpoint);
+                new_stat.clear = new_stat.board.flush();
+                set.emplace_back(std::make_pair(new_stat, Decision(landpoint, is_swap)));
+            }
+        }
+        void expand_node(const nodeptr &sptr, bool first)
+        {
             auto *data = sptr.get();
-            queue.pop();
             auto next = data->status.next;
             std::vector<Nodeset> set;
+            set.reserve(max_set_size);
             {
-                MoveGen search(data->status.board, data->decision, next.peek());
+                MoveGen search(data->status.board, first ? data->decision : gen_loc(), next.peek());
                 search.start();
-                for (const auto &landpoint : search.result)
-                {
-                    auto new_stat = data->status;
-                    new_stat.next.pop();
-                    auto x = landpoint.get_x();
-                    auto y = landpoint.get_y();
-                    auto r = landpoint.get_r();
-                    new_stat.board.paste(cache_get(search.type, r, x), y);
-                    new_stat.allspin = search.immobile(landpoint);
-                    new_stat.clear = new_stat.board.flush();
-                    set.emplace_back(std::make_pair(new_stat, Decision(landpoint, false)));
-                }
+                auto template_stat = data->status;
+                template_stat.next.pop();
+                process_expansion(set, data, search, template_stat, false);
             }
             if (can_hold && next.swap())
             {
-                {
-                    Decision new_decision;
-                    new_decision.set_x(DEFAULT_X);
-                    new_decision.set_y(DEFAULT_Y);
-                    new_decision.set_r(DEFAULT_R);
-                    MoveGen search(data->status.board, new_decision, next.pop());
-                    search.start();
-                    for (const auto &landpoint : search.result)
-                    {
-                        auto new_stat = data->status;
-                        new_stat.next = next;
-                        auto x = landpoint.get_x();
-                        auto y = landpoint.get_y();
-                        auto r = landpoint.get_r();
-                        new_stat.board.paste(cache_get(search.type, r, x), y);
-                        new_stat.allspin = search.immobile(landpoint);
-                        new_stat.clear = new_stat.board.flush();
-                        set.emplace_back(std::make_pair(new_stat, Decision(landpoint, true)));
-                    }
-                }
+                MoveGen search(data->status.board, gen_loc(), next.pop());
+                search.start();
+                auto template_stat = data->status;
+                template_stat.next = next;
+                process_expansion(set, data, search, template_stat, true);
             }
             total += set.size();
             for (auto &func : eval_engine.evaluations)
@@ -101,80 +97,16 @@ namespace moenew
             {
                 beam.try_insert(new_data.first, sptr, new_data.second);
             }
-            beam.finalize();
-            ++depth;
+            max_set_size = std::max(max_set_size.load(), (int)set.size());
         }
-        void expand_all()
+        void expand(bool first = false)
         {
             beam.prepare();
             auto &queue = beam.get_task();
             while (!queue.empty())
             {
-                std::vector<Nodeset> set;
-                auto sptr = queue.front();
-                auto *data = sptr.get();
+                expand_node(queue.front(), first);
                 queue.pop();
-                auto next = data->status.next;
-                if (next.next.empty())
-                {
-                    continue;
-                }
-                {
-                    Decision new_decision;
-                    new_decision.set_x(DEFAULT_X);
-                    new_decision.set_y(DEFAULT_Y);
-                    new_decision.set_r(DEFAULT_R);
-                    MoveGen search(data->status.board, new_decision, next.peek());
-                    search.start();
-                    for (const auto &landpoint : search.result)
-                    {
-                        auto new_stat = data->status;
-                        new_stat.next.pop();
-                        auto x = landpoint.get_x();
-                        auto y = landpoint.get_y();
-                        auto r = landpoint.get_r();
-                        new_stat.board.paste(cache_get(search.type, r, x), y);
-                        new_stat.allspin = search.immobile(landpoint);
-                        new_stat.clear = new_stat.board.flush();
-                        set.emplace_back(std::make_pair(new_stat, Decision(landpoint, false)));
-                    }
-                }
-                if (can_hold && next.swap())
-                {
-                    {
-                        Decision new_decision;
-                        new_decision.set_x(DEFAULT_X);
-                        new_decision.set_y(DEFAULT_Y);
-                        new_decision.set_r(DEFAULT_R);
-                        MoveGen search(data->status.board, new_decision, next.pop());
-                        search.start();
-                        for (const auto &landpoint : search.result)
-                        {
-                            auto new_stat = data->status;
-                            new_stat.next = next;
-                            auto x = landpoint.get_x();
-                            auto y = landpoint.get_y();
-                            auto r = landpoint.get_r();
-                            new_stat.board.paste(cache_get(search.type, r, x), y);
-                            new_stat.allspin = search.immobile(landpoint);
-                            new_stat.clear = new_stat.board.flush();
-                            set.emplace_back(std::make_pair(new_stat, Decision(landpoint, true)));
-                        }
-                    }
-                }
-                total += set.size();
-                for (auto &func : eval_engine.evaluations)
-                {
-                    for (auto &new_data : set)
-                    {
-                        func(data->status, new_data.first);
-                    }
-                    try_early_prune(set);
-                }
-                for (auto &new_data : set)
-                {
-                    beam.try_insert(new_data.first, sptr, new_data.second);
-                }
             }
             beam.finalize();
             ++depth;
@@ -205,17 +137,18 @@ namespace moenew
             this->can_hold = can_hold;
             beam.reset();
             beam.create_root(Decision(data, can_hold), status, eval_engine.p.param[Evaluation::RATIO]);
-            assert(beam.prepare());
-            expand_first();
+            expand(true);
         }
         Decision start()
         {
-            auto now = std::chrono::high_resolution_clock::now();
-            while (depth != 10)
+            using namespace std::chrono;
+            auto now = high_resolution_clock::now();
+            while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
             {
-                expand_all();
+                expand();
             }
             printf("Total: %d\n", total);
+            printf("Depth: %d\n", depth);
             return beam.finalize().decision;
         }
     };
