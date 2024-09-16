@@ -8,6 +8,7 @@ using namespace moenew;
 
 int main(void)
 {
+    srand(time(nullptr));
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> line_dis(2, 3);
@@ -31,8 +32,9 @@ int main(void)
     atk.pc = 10;
     atk.b2b = 1;
     memset(atk.combo, 0, sizeof(atk.combo));
-    while (++count != 100)
+    while (true)
     {
+        ++count;
         status.next.fill();
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
@@ -41,10 +43,17 @@ int main(void)
         {
             status.next.swap();
         }
+        printf("count: %d\n", count);
         printf("x: %d, y: %d, r: %d\n", result.get_x(), result.get_y(), result.get_r());
         status.board.paste(cache_get(status.next.pop(), result.get_r(), result.get_x()), result.get_y());
         status.board.flush();
         std::cout << status.board.print(22);
+        const auto *cache_next = cache_get(status.next.peek(), DEFAULT_R, DEFAULT_X);
+        if (!status.board.integrate(cache_next, DEFAULT_Y))
+        {
+            printf("dead\n");
+            break;
+        }
     }
     return 0;
 }
