@@ -78,13 +78,15 @@ namespace moenew
 
         void trim()
         {
-            while (row_result.size() > BEAM_WIDTH)
+            while (row_result.size() > beam_width)
             {
                 row_result.pop();
             }
         }
 
     public:
+        std::size_t beam_width = 200;
+        
         NodeManager() {};
 
         NodeManager(const Decision decision, const Evaluation::Status &status, double ratio)
@@ -106,7 +108,7 @@ namespace moenew
 
         void try_insert(const Evaluation::Status &status, const nodeptr &parent, const Decision &decision)
         {
-            if (row_result.size() < BEAM_WIDTH)
+            if (row_result.size() < beam_width)
             {
                 insert_child(status, parent, decision);
                 return;
