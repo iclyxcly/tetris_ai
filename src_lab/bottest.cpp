@@ -33,18 +33,23 @@ int main(void)
     atk.pc = 10;
     atk.b2b = 1;
     memset(atk.combo, 0, sizeof(atk.combo));
+    auto now = std::chrono::high_resolution_clock::now();
+    Next global_next;
     while (++count != 10000)
     {
+        global_next.fill();
+        status.next.next = global_next.get(5);
+        status.next.hold = global_next.hold;
         status.next.fill();
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
         auto result = engine.start();
         if (result.change_hold)
         {
-            status.next.swap();
+            global_next.swap();
         }
-        status.allspin = MoveGen::immobile_global(result, status.next.peek(), status.board);
-        status.board.paste(cache_get(status.next.pop(), result.get_r(), result.get_x()), result.get_y());
+        status.allspin = MoveGen::immobile_global(result, global_next.peek(), status.board);
+        status.board.paste(cache_get(global_next.pop(), result.get_r(), result.get_x()), result.get_y());
         int clear = 0;
         int attack = 0;
         total_clear += clear = status.board.flush();
@@ -105,16 +110,15 @@ int main(void)
         total_atk += attack;
         printf("APP: %.2f\n", (double)total_atk / count);
         std::cout << status.board.print(22);
-        if (attack)
-        {
-            Sleep(200);
-        }
-        const auto *cache_next = cache_get(status.next.peek(), DEFAULT_R, DEFAULT_X);
+        Sleep(100);
+        const auto *cache_next = cache_get(global_next.peek(), DEFAULT_R, DEFAULT_X);
         if (!status.board.integrate(cache_next, DEFAULT_Y))
         {
             printf("dead\n");
             break;
         }
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    printf("speed: %f pps\n", static_cast<double>(count) / (static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(end - now).count()) / 1000));
     return 0;
 }

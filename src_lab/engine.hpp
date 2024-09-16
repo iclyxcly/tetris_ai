@@ -17,9 +17,8 @@ namespace moenew
         Evaluation eval_engine;
         NodeManager beam;
         bool can_hold;
-        int total;
-        int depth;
-        std::atomic<int> max_set_size{0};
+        std::atomic<int> max_set_size{0}, total{0}, depth{0};
+        std::recursive_mutex mutex;
         struct RatingCompare
         {
             bool operator()(Nodeset &left, Nodeset &right)
@@ -67,6 +66,10 @@ namespace moenew
         {
             auto *data = sptr.get();
             auto next = data->status.next;
+            if (next.next.empty())
+            {
+                return;
+            }
             std::vector<Nodeset> set;
             set.reserve(max_set_size);
             {
@@ -99,17 +102,115 @@ namespace moenew
             }
             max_set_size = std::max(max_set_size.load(), (int)set.size());
         }
+
+        void expand_node_threaded(const nodeptr &sptr)
+        {
+            auto *data = sptr.get();
+            auto next = data->status.next;
+            if (next.next.empty())
+            {
+                return;
+            }
+            std::vector<Nodeset> set;
+            set.reserve(max_set_size);
+            {
+                MoveGen search(data->status.board, gen_loc(), next.peek());
+                search.start();
+                auto template_stat = data->status;
+                template_stat.next.pop();
+                process_expansion(set, data, search, template_stat, false);
+            }
+            if (can_hold && next.swap())
+            {
+                MoveGen search(data->status.board, gen_loc(), next.pop());
+                search.start();
+                auto template_stat = data->status;
+                template_stat.next = next;
+                process_expansion(set, data, search, template_stat, true);
+            }
+            for (auto &func : eval_engine.evaluations)
+            {
+                for (auto &new_data : set)
+                {
+                    func(data->status, new_data.first);
+                }
+                try_early_prune(set);
+            }
+            mutex.lock();
+            for (auto &new_data : set)
+            {
+                beam.try_insert(new_data.first, sptr, new_data.second);
+            }
+            mutex.unlock();
+            total += set.size();
+            max_set_size = std::max(max_set_size.load(), (int)set.size());
+        }
+
         void expand(bool first = false)
         {
-            beam.prepare();
             auto &queue = beam.get_task();
             while (!queue.empty())
             {
                 expand_node(queue.front(), first);
                 queue.pop();
             }
-            beam.finalize();
-            ++depth;
+        }
+
+        void expand_threaded()
+        {
+            static std::size_t thread_count = std::thread::hardware_concurrency();
+            auto &queue = beam.get_task();
+
+            if (queue.size() < thread_count)
+            {
+                expand();
+                return;
+            }
+
+            std::vector<std::queue<nodeptr>> chunked_queue(thread_count);
+            std::vector<std::thread> threads;
+
+            // Distribute nodes into chunks
+            std::size_t chunk_size = queue.size() / thread_count;
+            for (std::size_t i = 0; i < thread_count; ++i)
+            {
+                for (std::size_t j = 0; j < chunk_size; ++j)
+                {
+                    chunked_queue[i].push(queue.front());
+                    queue.pop();
+                }
+            }
+
+            // Handle any remaining nodes
+            while (!queue.empty())
+            {
+                chunked_queue.back().push(queue.front());
+                queue.pop();
+            }
+
+            std::atomic<std::size_t> remaining_chunks{chunked_queue.size()};
+
+            // Start worker threads
+            for (auto &chunk : chunked_queue)
+            {
+                threads.emplace_back([this, &chunk, &remaining_chunks]()
+                                     {
+            while (!chunk.empty())
+            {
+                expand_node_threaded(chunk.front());
+                chunk.pop();
+            }
+            --remaining_chunks; });
+            }
+
+            // Wait for all threads to complete
+            for (auto &thread : threads)
+            {
+                if (thread.joinable())
+                {
+                    thread.join();
+                }
+            }
         }
 
     public:
@@ -145,10 +246,22 @@ namespace moenew
             auto now = high_resolution_clock::now();
             while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
             {
-                expand();
+                beam.prepare();
+                expand_threaded();
+                beam.finalize();
+                ++depth;
             }
-            printf("Total: %d\n", total);
-            printf("Depth: %d\n", depth);
+            printf("Beam: %d\n", total.load());
+            printf("Depth: %d\n", depth.load());
+            printf("Width: %d\n", beam.beam_width);
+            if (depth.load() > 12)
+            {
+                beam.beam_width += 10;
+            }
+            else if (depth.load() < 10)
+            {
+                beam.beam_width -= 10;
+            }
             return beam.finalize().decision;
         }
     };

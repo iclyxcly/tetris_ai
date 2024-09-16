@@ -65,6 +65,15 @@ namespace moenew
 		{
 			next.insert(next.end(), src.begin(), src.end());
 		}
+		std::deque<Piece> get(int n)
+		{
+			std::deque<Piece> temp;
+			for (int i = 0; i < n; ++i)
+			{
+				temp.push_back(next[i]);
+			}
+			return temp;
+		}
 		std::string join()
 		{
 			std::string temp;
