@@ -66,7 +66,7 @@ namespace moenew
             }
         };
         Playstyle p;
-        AttackTable *atk;
+        AttackTable atk;
         // Level 1: Evaluate the board
         // Level 2: Evaluate line clear, consequences of accepting garbage
         // Level 3: Evaluate allspin setups, wasted, held minos, and other misc stuff
@@ -124,7 +124,7 @@ namespace moenew
             {
                 ret.dead = true;
             }
-            ret.rating = (0. - p[HEIGHT] * board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE] * e.hole_line + p[WIDE_2] * e.wide[2] + p[WIDE_3] * e.wide[3] + p[WIDE_4] * e.wide[4] - 999999. * ret.dead);
+            ret.rating = (0. - board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE] * e.hole_line + p[WIDE_2] * e.wide[2] + p[WIDE_3] * e.wide[3] + p[WIDE_4] * e.wide[4] - 999999. * ret.dead);
         }
         void evaluation_level_2(const Status &last, Status &ret)
         {
@@ -134,65 +134,65 @@ namespace moenew
             {
             case 0:
                 like += ret.under_attack.estimate() * p[TANK_CLEAN];
-                ret.under_attack.accept(ret.board, atk->messiness);
+                ret.under_attack.accept(ret.board, atk.messiness);
                 ret.under_attack.decay();
                 ret.combo = 0;
                 break;
             case 1:
                 if (ret.allspin)
                 {
-                    ret.attack = atk->aspin_1 + atk->b2b;
+                    ret.attack = atk.aspin_1 + atk.b2b;
                     ret.b2b = true;
                     like += p[ASPIN_1];
                 }
                 else
                 {
-                    ret.attack = atk->clear_1;
+                    ret.attack = atk.clear_1;
                     ret.b2b = false;
                     like += p[CLEAR_1];
                 }
-                ret.attack += atk->get_combo(++ret.combo);
+                ret.attack += atk.get_combo(++ret.combo);
                 break;
             case 2:
                 if (ret.allspin)
                 {
-                    ret.attack = atk->aspin_2 + atk->b2b;
+                    ret.attack = atk.aspin_2 + atk.b2b;
                     ret.b2b = true;
                     like += p[ASPIN_2];
                 }
                 else
                 {
-                    ret.attack = atk->clear_2;
+                    ret.attack = atk.clear_2;
                     ret.b2b = false;
                     like += p[CLEAR_2];
                 }
-                ret.attack += atk->get_combo(++ret.combo);
+                ret.attack += atk.get_combo(++ret.combo);
                 break;
             case 3:
                 if (ret.allspin)
                 {
-                    ret.attack = atk->aspin_3 + atk->b2b;
+                    ret.attack = atk.aspin_3 + atk.b2b;
                     ret.b2b = true;
                     like += p[ASPIN_3];
                 }
                 else
                 {
-                    ret.attack = atk->clear_3;
+                    ret.attack = atk.clear_3;
                     ret.b2b = false;
                     like += p[CLEAR_3];
                 }
-                ret.attack += atk->get_combo(++ret.combo);
+                ret.attack += atk.get_combo(++ret.combo);
                 break;
             case 4:
-                ret.attack = atk->clear_4 + atk->b2b;
+                ret.attack = atk.clear_4 + atk.b2b;
                 ret.b2b = true;
                 like += p[CLEAR_4];
-                ret.attack += atk->get_combo(++ret.combo);
+                ret.attack += atk.get_combo(++ret.combo);
                 break;
             }
             if (ret.board.y_max == 0)
             {
-                ret.attack = atk->pc;
+                ret.attack = atk.pc;
                 like += 99999;
             }
             ret.send_attack = ret.attack;
@@ -206,7 +206,7 @@ namespace moenew
             {
                 ret.dead = true;
             }
-            ret.rating += (0. + like + p[ATTACK] * ret.attack + p[COMBO] * (ret.combo + atk->get_combo(ret.combo)) - 999999. * ret.dead);
+            ret.rating += (0. + like + p[ATTACK] * ret.attack + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999. * ret.dead);
         }
         void evaluation_level_3(const Status &last, Status &ret)
         {
