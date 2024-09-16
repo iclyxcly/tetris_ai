@@ -7,6 +7,7 @@
 #include <atomic>
 #include <memory>
 #include <cassert>
+#include <iostream>
 
 namespace moenew
 {
@@ -46,7 +47,7 @@ namespace moenew
         {
             bool operator()(const nodeptr &a, const nodeptr &b) const
             {
-                return a->acc < b->acc;
+                return a->acc > b->acc;
             }
         };
 
@@ -59,7 +60,6 @@ namespace moenew
 
         nodeptr root;
         std::priority_queue<nodeptr, std::vector<nodeptr>, NodeCompare> row_result;
-        std::atomic<double> max_acc{std::numeric_limits<double>::lowest()};
         double ratio;
         std::queue<nodeptr> row_task;
         std::queue<nodeptr> task;
@@ -74,7 +74,6 @@ namespace moenew
             child->status = status;
             child->version = parent->version + 1;
             row_result.push(child);
-            max_acc = std::max(max_acc.load(), child->acc);
         }
 
         void trim()
@@ -113,10 +112,7 @@ namespace moenew
                 return;
             }
             
-            double parentAcc = parent->acc;
-            double rowResultAcc = row_result.top()->acc;
-
-            if (((parentAcc + status.rating - rowResultAcc) / (max_acc - rowResultAcc)) < ratio)
+            if (parent->acc + status.rating < row_result.top()->acc)
             {
                 return;
             }
@@ -147,7 +143,6 @@ namespace moenew
         {
             row_task = std::move(task);
             task = std::queue<nodeptr>();
-            max_acc = std::numeric_limits<double>::lowest();
             return !row_task.empty();
         }
 
@@ -156,11 +151,15 @@ namespace moenew
             return row_task;
         }
 
+        bool check_task()
+        {
+            return !task.empty();
+        }
+
         void reset()
         {
             root.reset();
             row_result = std::priority_queue<nodeptr, std::vector<nodeptr>, NodeCompare>();
-            max_acc = std::numeric_limits<double>::lowest();
             row_task = std::queue<nodeptr>();
             task = std::queue<nodeptr>();
             result = NodeResult();

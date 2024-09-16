@@ -78,7 +78,7 @@ namespace moenew
 		void tidy()
 		{
 			int y = h - 1;
-			while (y > 0 && field[y] == 0)
+			while (y > 0 && field[y - 1] == 0)
 			{
 				y--;
 			}

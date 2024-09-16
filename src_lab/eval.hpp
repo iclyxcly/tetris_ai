@@ -22,7 +22,7 @@ namespace moenew
             bool allspin : 1;
             bool dead : 1;
             bool b2b : 1;
-            Pending under_attack;
+            //Pending under_attack;
             Next next;
             Board board;
         };
@@ -119,12 +119,15 @@ namespace moenew
                     e.col_trans += std::popcount(board.field[y] ^ board.field[y - 1]);
                 }
             }
-            const uint32_t *mino = cache_get(ret.next.peek(), DEFAULT_R, DEFAULT_X);
-            if (ret.board.integrate(mino, DEFAULT_Y))
+            if (!ret.next.next.empty())
             {
-                ret.dead = true;
+                const uint32_t *mino = cache_get(ret.next.peek(), DEFAULT_R, DEFAULT_X);
+                if (!ret.board.integrate(mino, DEFAULT_Y))
+                {
+                    ret.dead = true;
+                }
             }
-            ret.rating = (0. - board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE] * e.hole_line + p[WIDE_2] * e.wide[2] + p[WIDE_3] * e.wide[3] + p[WIDE_4] * e.wide[4] - 999999. * ret.dead);
+            ret.rating = (0. - 1 * board.y_max - 1 * e.col_trans - 1 * e.row_trans - 1 * e.hole_count - 1 * e.hole_line + 0 * e.wide[2] + 0 * e.wide[3] + 0 * e.wide[4] - 999999. * ret.dead);
         }
         void evaluation_level_2(const Status &last, Status &ret)
         {
@@ -133,9 +136,9 @@ namespace moenew
             switch (ret.clear)
             {
             case 0:
-                like += ret.under_attack.estimate() * p[TANK_CLEAN];
-                ret.under_attack.accept(ret.board, atk.messiness);
-                ret.under_attack.decay();
+                //like += ret.under_attack.estimate() * p[TANK_CLEAN];
+                //ret.under_attack.accept(ret.board, atk.messiness);
+                //ret.under_attack.decay();
                 ret.combo = 0;
                 break;
             case 1:
@@ -196,15 +199,18 @@ namespace moenew
                 like += 99999;
             }
             ret.send_attack = ret.attack;
-            ret.under_attack.cancel(ret.send_attack);
+            //ret.under_attack.cancel(ret.send_attack);
             if (ret.attack != ret.send_attack)
             {
                 like += (ret.attack - ret.send_attack) * p[CANCEL];
             }
-            const uint32_t *mino = cache_get(ret.next.peek(), DEFAULT_R, DEFAULT_X);
-            if (ret.board.integrate(mino, DEFAULT_Y))
+            if (!ret.next.next.empty())
             {
-                ret.dead = true;
+                const uint32_t *mino = cache_get(ret.next.peek(), DEFAULT_R, DEFAULT_X);
+                if (!ret.board.integrate(mino, DEFAULT_Y))
+                {
+                    ret.dead = true;
+                }
             }
             ret.rating += (0. + like + p[ATTACK] * ret.attack + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999. * ret.dead);
         }
