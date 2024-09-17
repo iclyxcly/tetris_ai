@@ -40,8 +40,8 @@ namespace moenew
         void try_early_prune(std::vector<Nodeset> &set)
         {
             std::sort(set.begin(), set.end(), RatingCompare());
-            double max = set.end()->first.rating;
-            double min = set.begin()->first.rating;
+            double max = set.back().first.rating;
+            double min = set.front().first.rating;
             double range = max - min;
             while (!set.empty() && (set.front().first.rating - min) / range < eval_engine.p[Evaluation::RATIO])
             {
@@ -87,7 +87,6 @@ namespace moenew
                 template_stat.next = next;
                 process_expansion(set, data, search, template_stat, true);
             }
-            total += set.size();
             for (auto &func : eval_engine.evaluations)
             {
                 for (auto &new_data : set)
@@ -142,7 +141,6 @@ namespace moenew
                 beam.try_insert(new_data.first, sptr, new_data.second);
             }
             mutex.unlock();
-            total += set.size();
             max_set_size = std::max(max_set_size.load(), (int)set.size());
         }
 
@@ -170,7 +168,6 @@ namespace moenew
             std::vector<std::queue<nodeptr>> chunked_queue(thread_count);
             std::vector<std::thread> threads;
 
-            // Distribute nodes into chunks
             std::size_t chunk_size = queue.size() / thread_count;
             for (std::size_t i = 0; i < thread_count; ++i)
             {
@@ -181,29 +178,23 @@ namespace moenew
                 }
             }
 
-            // Handle any remaining nodes
             while (!queue.empty())
             {
                 chunked_queue.back().push(queue.front());
                 queue.pop();
             }
 
-            std::atomic<std::size_t> remaining_chunks{chunked_queue.size()};
-
-            // Start worker threads
             for (auto &chunk : chunked_queue)
             {
-                threads.emplace_back([this, &chunk, &remaining_chunks]()
+                threads.emplace_back([this, &chunk]()
                                      {
             while (!chunk.empty())
             {
                 expand_node_threaded(chunk.front());
                 chunk.pop();
-            }
-            --remaining_chunks; });
+            } });
             }
 
-            // Wait for all threads to complete
             for (auto &thread : threads)
             {
                 if (thread.joinable())
@@ -217,7 +208,7 @@ namespace moenew
         Engine() {};
         MoveData get_mino_draft()
         {
-            return MoveData();
+            return gen_loc();
         }
         Evaluation::Status get_board_status()
         {
@@ -227,11 +218,11 @@ namespace moenew
         {
             return eval_engine.p;
         }
-        AttackTable &get_attack_table()
+        Evaluation::AttackTable &get_attack_table()
         {
             return eval_engine.atk;
         }
-        void submit_form(MoveData &data, Evaluation::Status &status, bool can_hold)
+        void submit_form(MoveData data, Evaluation::Status &status, bool can_hold)
         {
             total = 0;
             depth = 0;
@@ -247,22 +238,24 @@ namespace moenew
             while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
             {
                 beam.prepare();
+                total += beam.get_task().size();
                 expand_threaded();
                 beam.finalize();
                 ++depth;
             }
-            printf("Beam: %d\n", total.load());
-            printf("Depth: %d\n", depth.load());
-            printf("Width: %d\n", beam.beam_width);
+            // printf("Beam: %d\n", total.load());
+            // printf("Depth: %d\n", depth.load());
+            // printf("Width: %d\n", beam.beam_width);
             if (depth.load() > 12)
             {
-                beam.beam_width += 10;
+                beam.beam_width += (depth.load() - 12) * (depth.load() - 12);
             }
             else if (depth.load() < 10)
             {
-                beam.beam_width -= 10;
+                beam.beam_width -= (10 - depth.load()) * (10 - depth.load());
+                beam.beam_width = std::max<std::size_t>(beam.beam_width, 64);
             }
-            return beam.finalize().decision;
+            return beam.get_result().decision;
         }
     };
 }

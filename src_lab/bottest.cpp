@@ -1,5 +1,6 @@
 #include "engine.hpp"
 #include "movegen.hpp"
+#include "emu.hpp"
 #include <random>
 #include <stdio.h>
 #include <queue>
@@ -17,12 +18,13 @@ int main(void)
     int count = 0;
     int total_atk = 0;
     int total_clear = 0;
-    uint8_t extra = 0;
     int total_recv = 0;
+    int max_spike = 0;
     Engine engine;
     auto status = engine.get_board_status();
     auto &p = engine.get_param();
     auto &atk = engine.get_attack_table();
+    atk.messiness = 0.05;
     atk.aspin_1 = 2;
     atk.aspin_2 = 4;
     atk.aspin_3 = 6;
@@ -32,11 +34,66 @@ int main(void)
     atk.clear_4 = 4;
     atk.pc = 10;
     atk.b2b = 1;
-    memset(atk.combo, 0, sizeof(atk.combo));
+    int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+    memcpy(atk.combo, combo_table, sizeof(atk.combo));
     auto now = std::chrono::high_resolution_clock::now();
     Next global_next;
+    struct ExtraAttack
+    {
+        int attack;
+        int lifespan;
+    };
+    struct 
+    {
+        std::deque<ExtraAttack> send;
+        void decay()
+        {
+            for (auto &i : send)
+            {
+                i.lifespan--;
+            }
+            while (!send.empty() && send.front().lifespan < 0)
+            {
+                send.pop_front();
+            }
+        }
+        void opponent_fight(int &attack)
+        {
+            while (!send.empty() && attack)
+            {
+                if (send.front().attack >= attack)
+                {
+                    send.front().attack -= attack;
+                    attack = 0;
+                }
+                else
+                {
+                    attack -= send.front().attack;
+                    send.pop_front();
+                }
+            }
+        }
+        void insert(int attack, int lifespan)
+        {
+            if (attack == 0)
+            {
+                return;
+            }
+            send.push_back({attack, lifespan});
+        }
+    } extra_attack;
     while (++count != 10000)
     {
+        if (count % 2 == 0)
+        {
+            int line = (rand() % 4) + 2;
+            total_recv += line;
+            extra_attack.opponent_fight(line);
+            if (line)
+            {
+                status.under_attack.push(line, 1);
+            }
+        }
         global_next.fill();
         status.next.next = global_next.get(5);
         status.next.hold = global_next.hold;
@@ -57,6 +114,8 @@ int main(void)
         {
         case 0:
             status.combo = 0;
+            status.under_attack.accept(status.board, atk.messiness);
+            status.under_attack.decay();
             break;
         case 1:
             if (status.allspin)
@@ -107,10 +166,25 @@ int main(void)
         {
             attack = atk.pc;
         }
+        status.attack = attack;
+        status.send_attack = attack;
+        status.under_attack.cancel(status.send_attack);
+        extra_attack.decay();
+        extra_attack.insert(attack, 1);
         total_atk += attack;
-        printf("APP: %.2f\n", (double)total_atk / count);
+        printf("APP: %.2f, Count: %d, Opponent APP: %.2f, Max Spike: %d\n", static_cast<double>(total_atk) / static_cast<double>(count), count, static_cast<double>(total_recv) / static_cast<double>(count), max_spike);
         std::cout << status.board.print(22);
-        Sleep(100);
+        if (attack)
+        {
+            status.cumulative_attack += attack;
+            status.attack_since = 0;
+            Sleep(100);
+        }
+        else {
+            max_spike = std::max(max_spike, status.cumulative_attack);
+            status.cumulative_attack = 0;
+            ++status.attack_since;
+        }
         const auto *cache_next = cache_get(global_next.peek(), DEFAULT_R, DEFAULT_X);
         if (!status.board.integrate(cache_next, DEFAULT_Y))
         {

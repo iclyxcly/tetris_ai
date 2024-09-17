@@ -17,6 +17,7 @@ void print(std::string msg)
 int main()
 {
     using namespace moenew;
+    srand(time(nullptr));
     Pending pending;
     Board board;
     pending.push(2, 1);

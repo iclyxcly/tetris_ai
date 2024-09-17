@@ -6,6 +6,21 @@ namespace moenew
 {
 	class Pending
 	{
+	private:
+		struct Random
+		{
+		private:
+			uint64_t state;
+		public:
+			Random(uint64_t seed) : state(seed) {}
+			uint64_t next()
+			{
+				state ^= state >> 12;
+				state ^= state << 25;
+				state ^= state >> 27;
+				return state * 2685821657736338717ull;
+			}
+		};
 	public:
 		struct PendingLine
 		{
@@ -14,7 +29,7 @@ namespace moenew
 			PendingLine(int amt, int delay) : amt(amt), delay(delay) {}
 		};
 		std::deque<PendingLine> lines;
-		random rng;
+		Random rng;
 		void push(const int amt, const int delay)
 		{
 			lines.emplace_back(amt, delay);
@@ -61,18 +76,16 @@ namespace moenew
 		}
 		void accept(Board &src, const double &mess)
 		{
-			static rng_range cheese(0, src.w - 1);
-			static rng_range mess_(0, 99);
 			while (!lines.empty() && lines[0].delay <= 0)
 			{
-				int index = cheese(rng);
+				int index = rng.next() % src.w;
 				int acc = 0;
 				for (int i = 0; i < lines[0].amt; i++)
 				{
 					++acc;
-					if (mess_(rng) < mess * 100)
+					if (rng.next() % 100 < mess * 100)
 					{
-						index = cheese(rng);
+						index = rng.next() % src.w;
 					}
 					src.rise(1, index);
 				}
@@ -87,11 +100,8 @@ namespace moenew
 		{
 			return lines.size();
 		}
-		Pending()
-		{
-			rng.seed(std::random_device()());
-		}
-		Pending(random &rng) : rng(rng) {}
-		Pending(int seed) : rng(seed) {}
+		Pending() : rng(rand()) {}
+		Pending(Random &rng) : rng(rng) {}
+		Pending(uint64_t seed) : rng(seed) {}
 	};
 }

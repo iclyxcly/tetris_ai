@@ -123,7 +123,7 @@ namespace moenew
             trim();
         }
 
-        NodeResult finalize()
+        void finalize()
         {
             while (!row_result.empty())
             {
@@ -137,14 +137,17 @@ namespace moenew
                 }
                 row_result.pop();
             }
+        }
+
+        NodeResult get_result()
+        {
             return result;
         }
 
-        bool prepare()
+        void prepare()
         {
             row_task = std::move(task);
             task = std::queue<nodeptr>();
-            return !row_task.empty();
         }
 
         auto &get_task()
