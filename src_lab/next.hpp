@@ -17,12 +17,18 @@ namespace moenew
 			hold = X;
 			fill();
 		}
+		void reset()
+		{
+			next.clear();
+			hold = X;
+			held = false;
+		}
 		void fill(int max = 28)
 		{
 			if (next.size() >= max)
 				return;
 			std::deque<Piece> mix = {S, L, Z, I, T, O, J};
-			static random rng;
+			static std::mt19937 rng(std::random_device{}());
 			while (next.size() < max)
 			{
 				std::shuffle(mix.begin(), mix.end(), rng);

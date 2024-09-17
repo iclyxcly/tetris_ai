@@ -3,13 +3,40 @@
 #include "next.hpp"
 #include "mino.hpp"
 #include "pending.hpp"
-#include "emu.hpp"
+#include "minotemplate.h"
 
 namespace moenew
 {
     class Evaluation
     {
     public:
+        struct AttackTable
+        {
+            int clear_1;
+            int clear_2;
+            int clear_3;
+            int clear_4;
+            int aspin_1;
+            int aspin_2;
+            int aspin_3;
+            int aspin_4;
+            int b2b;
+            int pc;
+            double messiness;
+            int combo[21];
+            int get_combo(int c) const
+            {
+                if (c > 20)
+                {
+                    return combo[20];
+                }
+                if (c < 0)
+                {
+                    return combo[0];
+                }
+                return combo[c];
+            }
+        };
         struct Status
         {
             double rating;
@@ -22,9 +49,25 @@ namespace moenew
             bool allspin : 1;
             bool dead : 1;
             bool b2b : 1;
-            //Pending under_attack;
+            Pending under_attack;
             Next next;
             Board board;
+            void reset()
+            {
+                rating = 0;
+                clear = 0;
+                combo = 0;
+                attack = 0;
+                send_attack = 0;
+                cumulative_attack = 0;
+                attack_since = 0;
+                allspin = false;
+                dead = false;
+                b2b = false;
+                under_attack.lines.clear();
+                next.reset();
+                board.clear();
+            }
         };
         enum Param
         {
@@ -35,7 +78,6 @@ namespace moenew
             ASPIN_1,
             ASPIN_2,
             ASPIN_3,
-            ASPIN_SLOT,
             B2B,
             COMBO,
             ATTACK,
@@ -50,6 +92,21 @@ namespace moenew
             WIDE_3,
             WIDE_4,
             BUILD_ATTACK,
+            SPIKE,
+            WASTE_S,
+            WASTE_L,
+            WASTE_Z,
+            WASTE_I,
+            WASTE_T,
+            WASTE_O,
+            WASTE_J,
+            HOLD_S,
+            HOLD_L,
+            HOLD_Z,
+            HOLD_I,
+            HOLD_T,
+            HOLD_O,
+            HOLD_J,
             RATIO,
             END_OF_PARAM
         };
@@ -110,7 +167,6 @@ namespace moenew
                 {
                     e.wide[wide_max]++;
                 }
-                e.wide[wide_max]++;
                 if (y - 1 >= 0)
                 {
                     int check = e.hole_count;
@@ -127,7 +183,8 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            ret.rating = (0. - 0.1 * board.y_max - 0 * e.col_trans - 1 * e.row_trans - 0 * e.hole_count - 0 * e.hole_line + 0 * e.wide[2] + 0 * e.wide[3] + 0 * e.wide[4] - 999999. * ret.dead);
+            //(0. - 0.1 * board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE]
+            ret.rating = (0. - 0.5 * board.y_max - 0 * e.col_trans - 0.5 * e.row_trans - 0 * e.hole_count - 0 * e.hole_line + 1 * e.wide[2] + 1 * e.wide[3] + 1 * e.wide[4] - 999999. * ret.dead);
         }
         void evaluation_level_2(const Status &last, Status &ret)
         {
@@ -136,9 +193,9 @@ namespace moenew
             switch (ret.clear)
             {
             case 0:
-                //like += ret.under_attack.estimate() * p[TANK_CLEAN];
-                //ret.under_attack.accept(ret.board, atk.messiness);
-                //ret.under_attack.decay();
+                like += ret.under_attack.estimate() * p[TANK_CLEAN];
+                ret.under_attack.accept(ret.board, atk.messiness);
+                ret.under_attack.decay();
                 ret.combo = 0;
                 break;
             case 1:
@@ -146,7 +203,7 @@ namespace moenew
                 {
                     ret.attack = atk.aspin_1 + ret.b2b;
                     ret.b2b = true;
-                    like += 1;
+                    like += p[ASPIN_1];
                 }
                 else
                 {
@@ -161,7 +218,7 @@ namespace moenew
                 {
                     ret.attack = atk.aspin_2 + ret.b2b;
                     ret.b2b = true;
-                    like += 1;
+                    like += p[ASPIN_2];
                 }
                 else
                 {
@@ -176,7 +233,7 @@ namespace moenew
                 {
                     ret.attack = atk.aspin_3 + ret.b2b;
                     ret.b2b = true;
-                    like += 1;
+                    like += p[ASPIN_3];
                 }
                 else
                 {
@@ -199,7 +256,7 @@ namespace moenew
                 like += 99999;
             }
             ret.send_attack = ret.attack;
-            //ret.under_attack.cancel(ret.send_attack);
+            ret.under_attack.cancel(ret.send_attack);
             if (ret.attack != ret.send_attack)
             {
                 like += (ret.attack - ret.send_attack) * p[CANCEL];
@@ -212,7 +269,7 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            ret.rating += (0. + 1 * like + 5 * ret.attack + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999. * ret.dead);
+            ret.rating += (0. + like + 0 * ret.attack + p[B2B] * ret.b2b + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999. * ret.dead);
         }
         void evaluation_level_3(const Status &last, Status &ret)
         {
@@ -227,7 +284,11 @@ namespace moenew
                 ret.cumulative_attack += ret.attack;
                 ret.attack_since = 0;
             }
-            // tbd
+            if (ret.attack_since < last.attack_since)
+            {
+                like += p[BUILD_ATTACK] * (last.attack_since - ret.attack_since) * ret.attack;
+            }
+            ret.rating += 0. + like + 3 * (ret.cumulative_attack * ret.attack);
         }
         std::vector<std::function<void(const Status &, Status &)>> evaluations;
         Evaluation()

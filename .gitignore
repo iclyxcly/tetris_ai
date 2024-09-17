@@ -74,3 +74,5 @@ src_lab/boardtest
 src_lab/nexttest
 src_lab/pendingtest
 src_lab/bottest
+src_lab/key.json
+src_lab/main
