@@ -60,7 +60,21 @@ int main()
         board_copy.paste(data, i.get_y());
         std::cout << board_copy.print(10);
     }
-    printf("coords: %lu\n", movegen.coords.size());
+    int size = 0;
+    for (int r = 0; r < 4; r++)
+    {
+        for (int x = -2; x < 32; x++)
+        {
+            for (int y = -2; y < 40; y++)
+            {
+                if (!movegen.coords.test(r, x, y))
+                {
+                    ++size;
+                }
+            }
+        }
+    }
+    printf("coords: %lu\n", size);
     printf("nodes: %lu\n", movegen.result.size());
     printf("cps: %d\n", runs);
     printf("nps: %d\n", total);

@@ -158,19 +158,19 @@ private:
 		return translated_path;
 	}
 
-	// void read_config()
-	// {
-	// 	FILE* file = fopen("best_param.txt", "r");
-	// 	if (file == nullptr) {
-	// 		utils::println(utils::ERR, " -> Failed to open best_param.txt");
-	// 		return;
-	// 	}
-	// 	for (int i = 0; i < END_OF_PARAM; ++i)
-	// 	{
-	// 		fscanf(file, "%lf\n", &param.weight[i]);
-	// 	}
-	// 	fclose(file);
-	// }
+	void read_config(Evaluation::Playstyle &param)
+	{
+		FILE* file = fopen("best_param.txt", "r");
+		if (file == nullptr) {
+			utils::println(utils::ERR, " -> Failed to open best_param.txt");
+			return;
+		}
+		for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
+		{
+			fscanf(file, "%lf\n", &param[i]);
+		}
+		fclose(file);
+	}
 
 	void data_safeshift(json &data, std::string target)
 	{
@@ -377,7 +377,7 @@ private:
 		{
 			status.under_attack.push(total, last_delay);
 		}
-		// read_config();
+		read_config(engine.get_param());
 		status.b2b = data["b2b"];
 		status.combo = data["combo"];
 		auto &atk = engine.get_attack_table();
@@ -391,18 +391,18 @@ private:
 		atk.clear_4 = 4;
 		atk.pc = 10;
 		atk.b2b = 1;
+		atk.multiplier = 1;
 		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
 		memcpy(atk.combo, combo_table, sizeof(atk.combo));
 		engine.submit_form(engine.get_mino_draft(), status, data["canHold"]);
-		auto result = engine.start();
+		auto result = engine.start_threaded();
 		if (result.change_hold)
 		{
 			status.next.swap();
 		}
 		PathGen pathgen(status.board, engine.get_mino_draft(), result, status.next.peek());
 		auto path_str = (result.change_hold ? "v" : "") + pathgen.build();
-		cycle(status, result, atk);
-		if (status.dead)
+		if (!cycle(status, result, atk))
 		{
 			return;
 		}

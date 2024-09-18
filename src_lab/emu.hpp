@@ -9,7 +9,7 @@
 
 namespace moenew
 {
-    void cycle(Evaluation::Status &status, MoveData &data, Evaluation::AttackTable &atk)
+    bool cycle(Evaluation::Status &status, MoveData &data, Evaluation::AttackTable &atk)
     {
         auto active = status.next.pop();
         const uint32_t *mino = cache_get(active, data.get_r(), data.get_x());
@@ -74,6 +74,7 @@ namespace moenew
         {
             status.attack = atk.pc;
         }
+        status.attack *= atk.multiplier;
         status.send_attack = status.attack;
         if (!status.attack)
         {
@@ -87,9 +88,6 @@ namespace moenew
         }
         status.under_attack.cancel(status.send_attack);
         const uint32_t *next = cache_get(status.next.peek(), DEFAULT_R, DEFAULT_X);
-        if (!status.board.integrate(next, DEFAULT_Y))
-        {
-            status.dead = true;
-        }
+        return status.board.integrate(next, DEFAULT_Y);
     }
 }

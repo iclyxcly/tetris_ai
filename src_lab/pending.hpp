@@ -30,6 +30,10 @@ namespace moenew
 		};
 		std::deque<PendingLine> lines;
 		Random rng;
+		void rngify()
+		{
+			rng = Random(rand());
+		}
 		void push(const int amt, const int delay)
 		{
 			lines.emplace_back(amt, delay);
@@ -41,7 +45,7 @@ namespace moenew
 				line.delay--;
 			}
 		}
-		int estimate()
+		int estimate() const
 		{
 			int ret = 0;
 			for (auto &line : lines)
@@ -52,6 +56,20 @@ namespace moenew
 				}
 			}
 			return ret;
+		}
+		double estimate_mess() const
+		{
+			double ret = 0;
+			int cnt = 0;
+			for (auto &line : lines)
+			{
+				if (line.delay <= 0)
+				{
+					ret += line.amt;
+					cnt++;
+				}
+			}
+			return cnt == 0 ? 0 : ret / cnt;
 		}
 		int total()
 		{

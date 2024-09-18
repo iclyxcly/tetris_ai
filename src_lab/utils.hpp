@@ -37,7 +37,7 @@ namespace moenew
             return X;
         }
     }
-    inline constexpr char type_to_char(const Piece &p)
+    inline constexpr char type_to_char(Piece p)
     {
         switch (p)
         {
