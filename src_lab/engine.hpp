@@ -17,7 +17,7 @@ namespace moenew
         Evaluation eval_engine;
         NodeManager beam;
         bool can_hold;
-        std::atomic<int> max_set_size{0}, total{0}, depth{0};
+        std::atomic<int> max_set_size{0}, total{0}, beam_total{0}, depth{0};
         std::recursive_mutex mutex;
         struct RatingCompare
         {
@@ -36,17 +36,6 @@ namespace moenew
                 data.set_r(DEFAULT_R);
             }
             return data;
-        }
-        void try_early_prune(std::vector<Nodeset> &set)
-        {
-            std::sort(set.begin(), set.end(), RatingCompare());
-            double max = set.back().first.rating;
-            double min = set.front().first.rating;
-            double range = max - min;
-            while (!set.empty() && (set.front().first.rating - min) / range < eval_engine.p[Evaluation::RATIO])
-            {
-                set.erase(set.begin());
-            }
         }
         void process_expansion(std::vector<Nodeset> &set, const Node *data, MoveGen &search, const Evaluation::Status &template_stat, bool is_swap)
         {
@@ -87,13 +76,13 @@ namespace moenew
                 template_stat.next = next;
                 process_expansion(set, data, search, template_stat, true);
             }
+            total += set.size();
             for (auto &func : eval_engine.evaluations)
             {
                 for (auto &new_data : set)
                 {
                     func(data->status, new_data.first);
                 }
-                try_early_prune(set);
             }
             for (auto &new_data : set)
             {
@@ -127,13 +116,13 @@ namespace moenew
                 template_stat.next = next;
                 process_expansion(set, data, search, template_stat, true);
             }
+            total += set.size();
             for (auto &func : eval_engine.evaluations)
             {
                 for (auto &new_data : set)
                 {
                     func(data->status, new_data.first);
                 }
-                try_early_prune(set);
             }
             mutex.lock();
             for (auto &new_data : set)
@@ -224,11 +213,12 @@ namespace moenew
         }
         void submit_form(MoveData data, Evaluation::Status &status, bool can_hold)
         {
+            beam_total = 0;
             total = 0;
             depth = 0;
             this->can_hold = can_hold;
             beam.reset();
-            beam.create_root(Decision(data, can_hold), status, eval_engine.p.param[Evaluation::RATIO]);
+            beam.create_root(Decision(data, can_hold), status);
             expand(true);
         }
         Decision start()
@@ -238,22 +228,59 @@ namespace moenew
             while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
             {
                 beam.prepare();
-                total += beam.get_task().size();
+                beam_total += beam.get_task().size();
+                expand();
+                beam.finalize();
+                ++depth;
+            }
+            printf("Total: %d, Beam Total: %d, Depth: %d, Rate: %.2f\n", total.load(), beam_total.load(), depth.load(), beam.rate);
+            if (depth.load() > 12)
+            {
+                beam.rate += 0.1;
+            }
+            else if (depth.load() < 10)
+            {
+                beam.rate -= 0.01;
+                beam.rate = std::max(beam.rate, 0.05);
+            }
+            return beam.get_result().decision;
+        }
+        Decision start_threaded()
+        {
+            using namespace std::chrono;
+            auto now = high_resolution_clock::now();
+            while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
+            {
+                beam.prepare();
+                beam_total += beam.get_task().size();
                 expand_threaded();
                 beam.finalize();
                 ++depth;
             }
-            // printf("Beam: %d\n", total.load());
-            // printf("Depth: %d\n", depth.load());
-            // printf("Width: %d\n", beam.beam_width);
+            printf("Total: %d, Beam Total: %d, Depth: %d, Rate: %.2f\n", total.load(), beam_total.load(), depth.load(), beam.rate);
             if (depth.load() > 12)
             {
-                beam.beam_width += (depth.load() - 12) * (depth.load() - 12);
+                beam.rate += 0.1;
             }
             else if (depth.load() < 10)
             {
-                beam.beam_width -= (10 - depth.load()) * (10 - depth.load());
-                beam.beam_width = std::max<std::size_t>(beam.beam_width, 64);
+                beam.rate -= 0.01;
+                beam.rate = std::max(beam.rate, 0.05);
+            }
+            return beam.get_result().decision;
+        }
+        Decision start_pso()
+        {
+            using namespace std::chrono;
+            beam.rate = 0;
+            auto now = high_resolution_clock::now();
+            while (total.load() < 200000 && beam.check_task())
+            {
+                beam.prepare();
+                beam_total += beam.get_task().size();
+                expand();
+                beam.finalize();
+                ++depth;
             }
             return beam.get_result().decision;
         }

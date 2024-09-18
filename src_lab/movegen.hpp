@@ -6,11 +6,38 @@
 #include <vector>
 namespace moenew
 {
-	std::atomic<std::size_t> max_coords(0);
 	std::atomic<std::size_t> max_landpoints(0);
+	class CoordTruthTable
+	{
+	public:
+		uint32_t data[4][42];
+		constexpr CoordTruthTable()
+		{
+			for (int r = 0; r < 4; r++)
+			{
+				for (int y = 0; y < 42; y++)
+				{
+					data[r][y] = false;
+				}
+			}
+		}
+		bool test(const int &r, const int &x, const int &y)
+		{
+			if ((data[r][y + 2] >> (x + 2)) & 1)
+			{
+				return false;
+			}
+			else
+			{
+				data[r][y + 2] |= 1 << (x + 2);
+				return true;
+			}
+		}
+	};
 	class MoveGen
 	{
 	public:
+		bool allow_search = true;
 		Board target;
 		const Minocache *data;
 		const int *up;
@@ -20,7 +47,7 @@ namespace moenew
 		Piece type;
 		std::queue<MoveData> search;
 		std::vector<MoveData> result;
-		std::vector<int16_t> coords;
+		CoordTruthTable coords;
 		std::vector<uint64_t> landpoints;
 		constexpr uint64_t landpoint_hashify(const MoveData &mino, const uint32_t data[4]) const
 		{
@@ -38,9 +65,8 @@ namespace moenew
 		bool try_push_coord(const MoveData &mino)
 		{
 			auto hash = mino.hash();
-			if (std::find(coords.rbegin(), coords.rend(), hash) == coords.rend())
+			if (coords.test(mino.get_r(), mino.get_x(), mino.get_y()))
 			{
-				coords.push_back(hash);
 				search.push(mino);
 				return true;
 			}
@@ -262,6 +288,10 @@ namespace moenew
 		}
 		void start()
 		{
+			if (!allow_search)
+			{
+				return;
+			}
 			while (!search.empty())
 			{
 				expand(search.front());
@@ -270,6 +300,15 @@ namespace moenew
 		}
 		void init(Board &target, MoveData loc, Piece type)
 		{
+			if (target.y_max >= loc.get_y())
+			{
+				auto *rows = cache_get(type, loc.get_r(), loc.get_x());
+				if (!target.integrate(rows, loc.get_y()))
+				{
+					allow_search = false;
+					return;
+				}
+			}
 			this->target = target;
 			this->type = type;
 			data = &mino_cache[type];
@@ -279,7 +318,6 @@ namespace moenew
 			right = right_offset[type];
 			search.emplace(loc);
 			search.front().set_y(std::min(search.front().get_y(), target.y_max));
-			coords.reserve(max_coords);
 			landpoints.reserve(max_landpoints);
 			result.reserve(max_landpoints);
 		}
@@ -290,7 +328,6 @@ namespace moenew
 		MoveGen() {};
 		~MoveGen()
 		{
-			max_coords = std::max(max_coords.load(), coords.size());
 			max_landpoints = std::max(max_landpoints.load(), landpoints.size());
 		}
 	};

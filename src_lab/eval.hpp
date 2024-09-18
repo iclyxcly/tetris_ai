@@ -22,6 +22,7 @@ namespace moenew
             int aspin_4;
             int b2b;
             int pc;
+            double multiplier;
             double messiness;
             int combo[21];
             int get_combo(int c) const
@@ -78,6 +79,7 @@ namespace moenew
             ASPIN_1,
             ASPIN_2,
             ASPIN_3,
+            ASPIN_SLOT,
             B2B,
             COMBO,
             ATTACK,
@@ -93,21 +95,6 @@ namespace moenew
             WIDE_4,
             BUILD_ATTACK,
             SPIKE,
-            WASTE_S,
-            WASTE_L,
-            WASTE_Z,
-            WASTE_I,
-            WASTE_T,
-            WASTE_O,
-            WASTE_J,
-            HOLD_S,
-            HOLD_L,
-            HOLD_Z,
-            HOLD_I,
-            HOLD_T,
-            HOLD_O,
-            HOLD_J,
-            RATIO,
             END_OF_PARAM
         };
         struct Playstyle
@@ -120,10 +107,398 @@ namespace moenew
             Playstyle()
             {
                 memset(param, 0, sizeof(param));
+                param[COL_TRANS] = 1;
+                param[ROW_TRANS] = 1;
+                param[HOLE_COUNT] = -1;
+                param[HOLE_LINE] = 1;
+                param[WIDE_2] = 1;
+                param[WIDE_3] = 1;
+                param[WIDE_4] = 1;
+                param[BUILD_ATTACK] = 1;
+                param[SPIKE] = 5;
+            }
+            bool operator==(const Playstyle &rhs) const
+            {
+                return memcmp(param, rhs.param, sizeof(param)) == 0;
             }
         };
         Playstyle p;
         AttackTable atk;
+        void find_every_spin(const Board &board, uint32_t &val)
+        {
+            for (int y = board.y_max; y >= std::max<int>(0, board.y_max - 4); --y)
+            {
+                uint32_t rowm1 = board.field[y - 1];
+                uint32_t row0 = board.field[y];
+                uint32_t row1 = board.field[y + 1];
+                uint32_t row2 = board.field[y + 2];
+                uint32_t row3 = board.field[y + 3];
+                uint32_t row4 = board.field[y + 4];
+                uint8_t count0 = std::popcount(board.field[y]);
+                uint8_t count1 = std::popcount(board.field[y + 1]);
+                uint8_t count2 = std::popcount(board.field[y + 2]);
+                for (int x = 0; x < board.w; ++x)
+                {
+                    int xm1 = x - 1;
+                    int x1 = x + 1;
+                    int x2 = x + 2;
+                    int x3 = x + 3;
+                    int x4 = x + 4;
+                    if (x < board.w - 2)
+                    {
+                        // S spin
+                        if (~row0 & loc_x.of(x) && ~row0 & loc_x.of(x1) && ~row1 & loc_x.of(x1) && ~row1 & loc_x.of(x2))
+                        {
+                            // double/single
+                            if ((row0 & loc_x.of(x2) || (y == 0 || rowm1 & loc_x.of(x1))) && (row1 & loc_x.of(x) || (row2 & loc_x.of(x2) && (x == 0 || row0 & loc_x.of(xm1)))))
+                            {
+                                ++val;
+                                if (count0 == 8)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 8)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // S spin
+                        if (~row2 & loc_x.of(x) && ~row1 & loc_x.of(x) && ~row1 & loc_x.of(x1) && ~row0 & loc_x.of(x1))
+                        {
+                            // triple
+                            if (row0 & loc_x.of(x) && (row2 & loc_x.of(x1) || (row0 & loc_x.of(x2) && row3 & loc_x.of(x))))
+                            {
+                                ++val;
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 2)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // Z spin
+                        if (~row1 & loc_x.of(x) && ~row1 & loc_x.of(x1) && ~row0 & loc_x.of(x1) && ~row0 & loc_x.of(x2))
+                        {
+                            // double/single
+                            if ((row0 & loc_x.of(x) || (y == 0 || rowm1 & loc_x.of(x))) && (row1 & loc_x.of(x2) || (row2 & loc_x.of(x) && (x3 == board.w || row0 & loc_x.of(x3)))))
+                            {
+                                ++val;
+                                if (count0 == 8)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 8)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        if (~row2 & loc_x.of(x1) && ~row1 & loc_x.of(x1) && ~row1 & loc_x.of(x) && ~row0 & loc_x.of(x))
+                        {
+                            // triple
+                            if (row0 & loc_x.of(x1) && (row2 & loc_x.of(x) || ((x != 0 && row0 & loc_x.of(xm1)) && row3 & loc_x.of(x1))))
+                            {
+                                ++val;
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 2)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // L spin
+                        if (~row0 & loc_x.of(x) && ~row0 & loc_x.of(x1) && ~row0 & loc_x.of(x2) && ~row1 & loc_x.of(x2))
+                        {
+                            // double
+                            bool cond1 = row1 & loc_x.of(x1) && (x3 == board.w || row0 & loc_x.of(x3) || row1 & loc_x.of(x3));
+                            bool cond2 = (x3 == board.w || row1 & loc_x.of(x3)) && row1 & loc_x.of(x);
+                            bool cond3 = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1) || rowm1 & loc_x.of(x2);
+                            if (cond1 && cond2 && cond3)
+                            {
+                                ++val;
+                                if (count0 == 7)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // L spin
+                        if (~row0 & loc_x.of(x) && ~row1 & loc_x.of(x) && ~row1 & loc_x.of(x1) && ~row1 & loc_x.of(x2))
+                        {
+                            // double, 180 facing
+                            bool cond1 = (x == 0 || row1 & loc_x.of(xm1)) && row0 & loc_x.of(x1) && row2 & loc_x.of(x2);
+                            bool cond2 = x != 0 && row0 & loc_x.of(xm1) && row0 & loc_x.of(x1) && row2 & loc_x.of(x1);
+                            bool cond3 = (x == 0 || row1 & loc_x.of(xm1) || row0 & loc_x.of(xm1)) && row0 & loc_x.of(x1) && row2 & loc_x.of(x1);
+                            if (cond1 || cond2 || cond3)
+                            {
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 7)
+                                {
+                                    val += 2;
+                                }
+                            }
+                            if (cond1)
+                            {
+                                ++val;
+                            }
+                            if (cond2)
+                            {
+                                ++val;
+                            }
+                            if (cond3)
+                            {
+                                ++val;
+                            }
+                        }
+                        // L spin
+                        if (~row0 & loc_x.of(x) && ~row1 & loc_x.of(x) && ~row2 & loc_x.of(x) && ~row0 & loc_x.of(x1))
+                        {
+                            // triple
+                            bool cond1 = x != 0 || row0 & loc_x.of(xm1) || row1 & loc_x.of(xm1) || row2 & loc_x.of(xm1);
+                            bool cond2 = row1 & loc_x.of(x1) || (row3 & loc_x.of(x) && row0 & loc_x.of(x2));
+                            bool cond3 = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1);
+                            if (cond1 && cond2 && cond3)
+                            {
+                                ++val;
+                                if (count0 == 8)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // J spin
+                        if (~row0 & loc_x.of(x) && ~row0 & loc_x.of(x1) && ~row0 & loc_x.of(x2) && ~row1 & loc_x.of(x))
+                        {
+                            // double
+                            bool cond1 = row1 & loc_x.of(x1) && (x == 0 || row0 & loc_x.of(xm1) || row1 & loc_x.of(xm1));
+                            bool cond2 = (x == 0 || row1 & loc_x.of(xm1)) && row1 & loc_x.of(x2);
+                            bool cond3 = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1) || rowm1 & loc_x.of(x2);
+                            if (cond1 && cond2 && cond3)
+                            {
+                                ++val;
+                                if (count0 == 7)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // J spin
+                        if (~row1 & loc_x.of(x) && ~row1 & loc_x.of(x1) && ~row1 & loc_x.of(x2) && ~row0 & loc_x.of(x2))
+                        {
+                            // double, 180 facing
+                            bool cond1 = (x3 == board.w || row1 & loc_x.of(x3)) && row0 & loc_x.of(x1) && row2 & loc_x.of(x);
+                            bool cond2 = x3 != board.w && row0 & loc_x.of(x3) && row0 & loc_x.of(x1) && row2 & loc_x.of(x1);
+                            bool cond3 = (x3 == board.w || row1 & loc_x.of(x3) || row0 & loc_x.of(x3)) && row0 & loc_x.of(x1) && row2 & loc_x.of(x1);
+                            if (cond1 || cond2 || cond3)
+                            {
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 7)
+                                {
+                                    val += 2;
+                                }
+                            }
+                            if (cond1)
+                            {
+                                ++val;
+                            }
+                            if (cond2)
+                            {
+                                ++val;
+                            }
+                            if (cond3)
+                            {
+                                ++val;
+                            }
+                        }
+                        // J spin
+                        if (~row0 & loc_x.of(x) && ~row0 & loc_x.of(x1) && ~row1 & loc_x.of(x1) && ~row2 & loc_x.of(x1))
+                        {
+                            // triple
+                            bool cond1 = row0 & loc_x.of(x2) || row1 & loc_x.of(x2) || row2 & loc_x.of(x2);
+                            bool cond2 = row1 & loc_x.of(x);
+                            bool cond3 = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1);
+                            if (cond1 && cond2 && cond3)
+                            {
+                                ++val;
+                                if (count0 == 8)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                {
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // T spin
+                        if (~row0 & loc_x.of(x1) && ~row1 & loc_x.of(x) && ~row1 & loc_x.of(x1) && ~row1 & loc_x.of(x2) && ~row2 & loc_x.of(x1))
+                        {
+                            // double
+                            if (row0 & loc_x.of(x) && row0 & loc_x.of(x2) && (row2 & loc_x.of(x) || row2 & loc_x.of(x2)))
+                            {
+                                ++val;
+                                if (count0 == 9)
+                                {
+                                    val += 2;
+                                }
+                                if (count1 == 7)
+                                {
+                                    val += 2;
+                                }
+                                if (count2 == 9)
+                                { // imperial cross?
+                                    val += 2;
+                                }
+                            }
+                        }
+                        // T spin
+                        if (~row0 & loc_x.of(x1) && ~row1 & loc_x.of(x1) && ~row2 & loc_x.of(x1))
+                        {
+                            if ((~row1 & loc_x.of(x) && row1 & loc_x.of(x2)) || (row1 & loc_x.of(x) && ~row1 & loc_x.of(x2)))
+                            {
+                                // triple
+                                if (row0 & loc_x.of(x) && row0 & loc_x.of(x2) && row2 & loc_x.of(x) && row2 & loc_x.of(x2))
+                                {
+                                    ++val;
+                                    if (count0 == 9)
+                                    {
+                                        val += 2;
+                                    }
+                                    if (count1 == 8)
+                                    {
+                                        val += 2;
+                                    }
+                                    if (count2 == 9)
+                                    {
+                                        val += 2;
+                                    }
+                                }
+                            }
+                        }
+                        // T spin
+                        if (~row0 & loc_x.of(x) && ~row0 & loc_x.of(x1) && ~row0 & loc_x.of(x2) && ~row1 & loc_x.of(x1))
+                        {
+                            // single (mini)
+                            bool cond1 = row1 & loc_x.of(x) && (x3 == board.w || row0 & loc_x.of(x3));
+                            bool cond2 = row1 & loc_x.of(x2) && (x == 0 || row0 & loc_x.of(xm1));
+                            bool cond3 = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1) || rowm1 & loc_x.of(x2);
+                            if ((cond1 || cond2) && cond3)
+                            {
+                                if (count0 == 7)
+                                {
+                                    val += 2;
+                                }
+                            }
+                            if (cond1)
+                            {
+                                ++val;
+                            }
+                            if (cond2)
+                            {
+                                ++val;
+                            }
+                        }
+                    }
+                    // I spin
+                    if (x < board.w - 3 && ~row0 & loc_x.of(x) && ~row0 & loc_x.of(x1) && ~row0 & loc_x.of(x2) && ~row0 & loc_x.of(x3))
+                    {
+                        // single
+                        bool up_cover = row1 & loc_x.of(x) || row1 & loc_x.of(x1) || row1 & loc_x.of(x2) || row1 & loc_x.of(x3);
+                        if ((x == 0 || row0 & loc_x.of(xm1)) && (x4 == board.w || row0 & loc_x.of(x4)) && up_cover)
+                        {
+                            ++val;
+                            if (count0 == 6)
+                            {
+                                val += 2;
+                            }
+                        }
+                    }
+                    if (~row0 & loc_x.of(x) && ~row1 & loc_x.of(x) && ~row2 & loc_x.of(x) && ~row3 & loc_x.of(x))
+                    {
+                        // triple
+                        bool left_cover = x == 0 || row0 & loc_x.of(xm1) || row1 & loc_x.of(xm1) || row2 & loc_x.of(xm1) || row3 & loc_x.of(xm1);
+                        bool right_cover = x1 == board.w || row0 & loc_x.of(x1) || row1 & loc_x.of(x1) || row2 & loc_x.of(x1) || row3 & loc_x.of(x1);
+                        if (row4 & loc_x.of(x) && left_cover && right_cover && (y == 0 || rowm1 & loc_x.of(x)))
+                        {
+                            ++val;
+                            if (count0 == 9)
+                            {
+                                val += 2;
+                            }
+                            if (count1 == 9)
+                            {
+                                val += 2;
+                            }
+                            if (count2 == 9)
+                            {
+                                val += 2;
+                            }
+                        }
+                    }
+                    // O spin
+                    if (~row0 & loc_x.of(x) && ~row0 & loc_x.of(x1) && ~row1 & loc_x.of(x) && ~row1 & loc_x.of(x1))
+                    {
+                        bool down_cover = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1);
+                        bool left_cover = x == 0 || row0 & loc_x.of(xm1) || row1 & loc_x.of(xm1);
+                        bool right_cover = x2 == board.w || (x2 < board.w && (row0 & loc_x.of(x2) || row1 & loc_x.of(x2)));
+                        bool up_cover = row2 & loc_x.of(x) || row2 & loc_x.of(x1);
+                        if (down_cover && left_cover && right_cover && up_cover)
+                        {
+                            ++val;
+                            if (count0 == 8)
+                            {
+                                val += 2;
+                            }
+                            if (count1 == 8)
+                            {
+                                val += 2;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         // Level 1: Evaluate the board
         // Level 2: Evaluate line clear, consequences of accepting garbage
         // Level 3: Evaluate allspin setups, wasted, held minos, and other misc stuff
@@ -183,8 +558,7 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            //(0. - 0.1 * board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE]
-            ret.rating = (0. - 0.5 * board.y_max - 0 * e.col_trans - 0.5 * e.row_trans - 0 * e.hole_count - 0 * e.hole_line + 1 * e.wide[2] + 1 * e.wide[3] + 1 * e.wide[4] - 999999. * ret.dead);
+            ret.rating = (0. - p[HEIGHT] * board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE] * e.hole_line + p[WIDE_2] * e.wide[2] + p[WIDE_3] * e.wide[3] + p[WIDE_4] * e.wide[4] - 999999 * ret.dead);
         }
         void evaluation_level_2(const Status &last, Status &ret)
         {
@@ -193,7 +567,7 @@ namespace moenew
             switch (ret.clear)
             {
             case 0:
-                like += ret.under_attack.estimate() * p[TANK_CLEAN];
+                like += (ret.under_attack.estimate_mess() - 4) * p[TANK_CLEAN];
                 ret.under_attack.accept(ret.board, atk.messiness);
                 ret.under_attack.decay();
                 ret.combo = 0;
@@ -255,6 +629,7 @@ namespace moenew
                 ret.attack = atk.pc;
                 like += 99999;
             }
+            ret.attack *= atk.multiplier;
             ret.send_attack = ret.attack;
             ret.under_attack.cancel(ret.send_attack);
             if (ret.attack != ret.send_attack)
@@ -269,7 +644,7 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            ret.rating += (0. + like + 0 * ret.attack + p[B2B] * ret.b2b + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999. * ret.dead);
+            ret.rating += (0. + like + p[ATTACK] * ret.attack + p[B2B] * ret.b2b + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999 * ret.dead);
         }
         void evaluation_level_3(const Status &last, Status &ret)
         {
@@ -288,7 +663,9 @@ namespace moenew
             {
                 like += p[BUILD_ATTACK] * (last.attack_since - ret.attack_since) * ret.attack;
             }
-            ret.rating += 0. + like + 3 * (ret.cumulative_attack * ret.attack);
+            uint32_t val = 0;
+            find_every_spin(ret.board, val);
+            ret.rating += 0. + like + p[SPIKE] * (ret.cumulative_attack * ret.attack) + p[ASPIN_SLOT] * val;
         }
         std::vector<std::function<void(const Status &, Status &)>> evaluations;
         Evaluation()

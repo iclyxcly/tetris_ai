@@ -1,7 +1,6 @@
 #include "engine.hpp"
 #include "movegen.hpp"
 #include "emu.hpp"
-#include <random>
 #include <stdio.h>
 #include <queue>
 #include <iostream>
@@ -11,10 +10,6 @@ using namespace moenew;
 int main(void)
 {
     srand(time(nullptr));
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> line_dis(2, 3);
-    std::uniform_int_distribution<> piece_dis(2, 5);
     int count = 0;
     int total_atk = 0;
     int total_clear = 0;
@@ -101,6 +96,7 @@ int main(void)
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
         auto result = engine.start();
+        status.under_attack.rngify();
         if (result.change_hold)
         {
             global_next.swap();
@@ -166,6 +162,7 @@ int main(void)
         {
             attack = atk.pc;
         }
+        status.clear = clear;
         status.attack = attack;
         status.send_attack = attack;
         status.under_attack.cancel(status.send_attack);
@@ -178,7 +175,6 @@ int main(void)
         {
             status.cumulative_attack += attack;
             status.attack_since = 0;
-            Sleep(100);
         }
         else {
             max_spike = std::max(max_spike, status.cumulative_attack);

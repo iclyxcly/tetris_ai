@@ -35,6 +35,15 @@ namespace moenew
 				next.insert(next.end(), mix.begin(), mix.end());
 			}
 		}
+		std::string to_string(int length = 5)
+		{
+			std::string temp;
+			for (int i = 0; i < length; ++i)
+			{
+				temp += type_to_char(next[i]);
+			}
+			return temp;
+		}
 		bool swap()
 		{
 			if (held || next.size() == 0 || hold == next[0])
