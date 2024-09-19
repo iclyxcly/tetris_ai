@@ -47,9 +47,9 @@ namespace moenew
             int send_attack;
             int cumulative_attack;
             int attack_since;
-            bool allspin : 1;
-            bool dead : 1;
-            bool b2b : 1;
+            bool allspin;
+            bool dead;
+            bool b2b;
             Pending under_attack;
             Next next;
             Board board;
@@ -95,6 +95,7 @@ namespace moenew
             WIDE_4,
             BUILD_ATTACK,
             SPIKE,
+            PENDING_LOCK,
             END_OF_PARAM
         };
         struct Playstyle
@@ -107,15 +108,15 @@ namespace moenew
             Playstyle()
             {
                 memset(param, 0, sizeof(param));
-                param[COL_TRANS] = 1;
-                param[ROW_TRANS] = 1;
-                param[HOLE_COUNT] = -1;
-                param[HOLE_LINE] = 1;
-                param[WIDE_2] = 1;
-                param[WIDE_3] = 1;
-                param[WIDE_4] = 1;
-                param[BUILD_ATTACK] = 1;
-                param[SPIKE] = 5;
+                // param[COL_TRANS] = 1;
+                // param[ROW_TRANS] = 1;
+                // param[HOLE_COUNT] = -1;
+                // param[HOLE_LINE] = 1;
+                // param[WIDE_2] = 1;
+                // param[WIDE_3] = 1;
+                // param[WIDE_4] = 1;
+                // param[BUILD_ATTACK] = 1;
+                // param[SPIKE] = 5;
             }
             bool operator==(const Playstyle &rhs) const
             {
@@ -124,19 +125,19 @@ namespace moenew
         };
         Playstyle p;
         AttackTable atk;
-        void find_every_spin(const Board &board, uint32_t &val)
+        void find_every_spin(const Board &board, int &val)
         {
             for (int y = board.y_max; y >= std::max<int>(0, board.y_max - 4); --y)
             {
-                uint32_t rowm1 = board.field[y - 1];
-                uint32_t row0 = board.field[y];
-                uint32_t row1 = board.field[y + 1];
-                uint32_t row2 = board.field[y + 2];
-                uint32_t row3 = board.field[y + 3];
-                uint32_t row4 = board.field[y + 4];
-                uint8_t count0 = std::popcount(board.field[y]);
-                uint8_t count1 = std::popcount(board.field[y + 1]);
-                uint8_t count2 = std::popcount(board.field[y + 2]);
+                int rowm1 = board.field[y - 1];
+                int row0 = board.field[y];
+                int row1 = board.field[y + 1];
+                int row2 = board.field[y + 2];
+                int row3 = board.field[y + 3];
+                int row4 = board.field[y + 4];
+                int count0 = std::popcount(board.field[y]);
+                int count1 = std::popcount(board.field[y + 1]);
+                int count2 = std::popcount(board.field[y + 2]);
                 for (int x = 0; x < board.w; ++x)
                 {
                     int xm1 = x - 1;
@@ -570,6 +571,10 @@ namespace moenew
                 like += (ret.under_attack.estimate_mess() - 4) * p[TANK_CLEAN];
                 ret.under_attack.accept(ret.board, atk.messiness);
                 ret.under_attack.decay();
+                if (!ret.under_attack.lines.empty())
+                {
+                    like += ret.under_attack.lines[0].delay == 0 ? (ret.under_attack.estimate() * (ret.under_attack.estimate() - last.combo)) * p[PENDING_LOCK] : 0;
+                }
                 ret.combo = 0;
                 break;
             case 1:
@@ -649,23 +654,23 @@ namespace moenew
         void evaluation_level_3(const Status &last, Status &ret)
         {
             double like = 0;
-            if (!ret.attack)
+            if (!ret.clear)
             {
                 ++ret.attack_since;
                 ret.cumulative_attack = 0;
             }
             else
             {
-                ret.cumulative_attack += ret.attack;
+                ret.cumulative_attack += ret.send_attack;
                 ret.attack_since = 0;
             }
             if (ret.attack_since < last.attack_since)
             {
-                like += p[BUILD_ATTACK] * (last.attack_since - ret.attack_since) * ret.attack;
+                like += p[BUILD_ATTACK] * (last.attack_since - ret.attack_since) * ret.send_attack;
             }
-            uint32_t val = 0;
+            int val = 0;
             find_every_spin(ret.board, val);
-            ret.rating += 0. + like + p[SPIKE] * (ret.cumulative_attack * ret.attack) + p[ASPIN_SLOT] * val;
+            ret.rating += 0. + like + p[SPIKE] * (ret.cumulative_attack * ret.send_attack) + p[ASPIN_SLOT] * val;
         }
         std::vector<std::function<void(const Status &, Status &)>> evaluations;
         Evaluation()

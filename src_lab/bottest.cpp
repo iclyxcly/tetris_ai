@@ -7,6 +7,21 @@
 #pragma warning(disable : 4996)
 using namespace moenew;
 
+void read_config(Evaluation::Playstyle &param)
+{
+    FILE *file = fopen("best_param.txt", "r");
+    if (file == nullptr)
+    {
+        utils::println(utils::ERR, " -> Failed to open best_param.txt");
+        return;
+    }
+    for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
+    {
+        fscanf(file, "%lf\n", &param[i]);
+    }
+    fclose(file);
+}
+
 int main(void)
 {
     srand(time(nullptr));
@@ -17,6 +32,7 @@ int main(void)
     int max_spike = 0;
     Engine engine;
     auto status = engine.get_board_status();
+    status.reset();
     auto &p = engine.get_param();
     auto &atk = engine.get_attack_table();
     atk.messiness = 0.05;
@@ -29,7 +45,9 @@ int main(void)
     atk.clear_4 = 4;
     atk.pc = 10;
     atk.b2b = 1;
+    atk.multiplier = 1;
     int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+    read_config(p);
     memcpy(atk.combo, combo_table, sizeof(atk.combo));
     auto now = std::chrono::high_resolution_clock::now();
     Next global_next;
@@ -38,7 +56,7 @@ int main(void)
         int attack;
         int lifespan;
     };
-    struct 
+    struct
     {
         std::deque<ExtraAttack> send;
         void decay()
@@ -77,11 +95,11 @@ int main(void)
             send.push_back({attack, lifespan});
         }
     } extra_attack;
-    while (++count != 10000)
+    while (++count != 100)
     {
-        if (count % 2 == 0)
+        if (count % ((rand() % 2) + 1) == 0)
         {
-            int line = (rand() % 4) + 2;
+            int line = (rand() % 3) + 1;
             total_recv += line;
             extra_attack.opponent_fight(line);
             if (line)
@@ -95,7 +113,7 @@ int main(void)
         status.next.fill();
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
-        auto result = engine.start();
+        auto result = engine.start_pso();
         status.under_attack.rngify();
         if (result.change_hold)
         {
@@ -176,7 +194,8 @@ int main(void)
             status.cumulative_attack += attack;
             status.attack_since = 0;
         }
-        else {
+        else
+        {
             max_spike = std::max(max_spike, status.cumulative_attack);
             status.cumulative_attack = 0;
             ++status.attack_since;

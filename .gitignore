@@ -79,3 +79,4 @@ src_lab/main
 src_lab/best_param.txt
 src_lab/pso
 src_lab/pso_data.bin
+src_lab/export_param.txt

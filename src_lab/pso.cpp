@@ -55,6 +55,7 @@ struct PSOConfig
         pso_config(Evaluation::CANCEL, x[Evaluation::CANCEL], 100, 5);
         pso_config(Evaluation::BUILD_ATTACK, x[Evaluation::BUILD_ATTACK], 100, 5);
         pso_config(Evaluation::SPIKE, x[Evaluation::SPIKE], 100, 5);
+        pso_config(Evaluation::PENDING_LOCK, x[Evaluation::PENDING_LOCK], 100, 5);
     }
 };
 constexpr int WIN_REQUIREMENT = 15;
@@ -105,10 +106,11 @@ struct TetrisPlayer
 
     bool run()
     {
-        // if (count % 15 == 0)
-        // {
-        //     engine.get_attack_table().multiplier += 0.1;
-        // }
+        if (count > 200)
+            if (count % 11 == 0)
+            {
+                engine.get_attack_table().multiplier += 0.1;
+            }
         real_next.fill();
         status.next.next = real_next.get(next);
         status.next.hold = real_next.hold;
@@ -207,9 +209,13 @@ struct PSOParticleData
         }
         calc_init();
     }
-    PSOParticleData(int id)
+    PSOParticleData(int id, Playstyle &param)
         : id(id), generation(0), ingame(false)
     {
+        for (int i = 0; i < 4; ++i)
+        {
+            pos[i] = param;
+        }
         if (id == 0)
         {
             return;
@@ -239,6 +245,20 @@ struct PSOSwarmManager
         for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
         {
             fprintf(file, "%lf\n", param[i]);
+        }
+        fclose(file);
+    }
+
+    void import_init(Playstyle &param)
+    {
+        FILE *file = fopen("import_param.txt", "r");
+        if (file == nullptr)
+        {
+            return;
+        }
+        for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
+        {
+            fscanf(file, "%lf", &param[i]);
         }
         fclose(file);
     }
@@ -306,9 +326,11 @@ struct PSOSwarmManager
 
     void init_pso(int count)
     {
+        Playstyle param;
+        import_init(param);
         for (int i = 0; i < count; ++i)
         {
-            PSOParticleData particle(generate_new_id());
+            PSOParticleData particle(generate_new_id(), param);
             particle.calc_init();
             swarm.push_back(new PSOParticleData(particle));
         }
@@ -601,4 +623,5 @@ int main(void)
         }
     }
     s_mgr.export_data();
+    exit(0);
 }

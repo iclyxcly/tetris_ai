@@ -39,18 +39,23 @@ namespace moenew
         }
         void process_expansion(std::vector<Nodeset> &set, const Node *data, MoveGen &search, const Evaluation::Status &template_stat, bool is_swap)
         {
+            set.reserve(set.size() + search.result.size());
+
             for (const auto &landpoint : search.result)
             {
                 auto new_stat = template_stat;
                 auto x = landpoint.get_x();
                 auto y = landpoint.get_y();
                 auto r = landpoint.get_r();
+
                 new_stat.board.paste(cache_get(search.type, r, x), y);
                 new_stat.allspin = search.immobile(landpoint);
                 new_stat.clear = new_stat.board.flush();
-                set.emplace_back(std::make_pair(new_stat, Decision(landpoint, is_swap)));
+
+                set.emplace_back(std::make_pair(std::move(new_stat), Decision(landpoint, is_swap)));
             }
         }
+
         void expand_node(const nodeptr &sptr, bool first)
         {
             auto *data = sptr.get();
@@ -272,9 +277,9 @@ namespace moenew
         Decision start_pso()
         {
             using namespace std::chrono;
-            beam.rate = 0;
+            beam.rate = 0.8;
             auto now = high_resolution_clock::now();
-            while (total.load() < 200000 && beam.check_task())
+            while (total.load() < 40000 && beam.check_task())
             {
                 beam.prepare();
                 beam_total += beam.get_task().size();
