@@ -11,6 +11,43 @@
 
 namespace moenew
 {
+    std::atomic<std::size_t> max_memory(0);
+    template <typename T>
+    class DirtyMemoryPool
+    {
+    private:
+        std::vector<std::shared_ptr<T>> pool;
+        std::atomic<std::size_t> acquire_index;
+    public:
+        DirtyMemoryPool()
+        {
+            for (std::size_t i = 0; i < max_memory; ++i)
+            {
+                pool.emplace_back(std::make_shared<T>());
+            }
+            acquire_index = 0;
+        }
+        ~DirtyMemoryPool()
+        {
+            max_memory = std::max(max_memory.load(), pool.size());
+        }
+        void reset()
+        {
+            acquire_index = 0;
+        }
+        std::shared_ptr<T> &acquire()
+        {
+            if (acquire_index + 1 >= pool.size())
+            {
+                pool.emplace_back(std::make_shared<T>());
+            }
+            return pool[acquire_index++];
+        }
+        std::size_t memory_usage()
+        {
+            return pool.size() * sizeof(T);
+        }
+    };
     struct Decision : public MoveData
     {
         bool change_hold;
@@ -22,14 +59,13 @@ namespace moenew
         int version;
         int trust;
         Decision decision;
-        bool change_hold;
         Evaluation::Status status;
         std::shared_ptr<Node> parent;
         double acc;
 
         Node get_first(int &trust)
         {
-            ++trust;
+            trust += version;
             this->trust += trust;
             if (version == 1)
             {
@@ -57,10 +93,9 @@ namespace moenew
         struct NodeResult
         {
             Decision decision;
-            bool change_hold;
             int trust = 0;
         };
-        nodeptr root;
+        DirtyMemoryPool<Node> node_pool;
         std::priority_queue<nodeptr, std::vector<nodeptr>, NodeCompare> row_result;
         std::queue<nodeptr> row_task;
         std::queue<nodeptr> task;
@@ -68,7 +103,7 @@ namespace moenew
 
         void insert_child(const Evaluation::Status &status, const nodeptr &parent, const Decision &decision)
         {
-            auto child = std::make_shared<Node>();
+            auto child = node_pool.acquire();
             child->trust = 0;
             child->acc = parent->acc + status.rating;
             child->decision = decision;
@@ -99,7 +134,7 @@ namespace moenew
 
         void create_root(const Decision decision, const Evaluation::Status &status)
         {
-            root = std::make_shared<Node>();
+            auto root = node_pool.acquire();
             root->trust = 0;
             root->acc = 0;
             root->decision = decision;
@@ -138,7 +173,6 @@ namespace moenew
                     if (trust > result.trust)
                     {
                         result.decision = data.decision;
-                        result.change_hold = data.change_hold;
                         result.trust = trust;
                     }
                 }
@@ -148,6 +182,7 @@ namespace moenew
 
         NodeResult get_result()
         {
+            node_pool.reset();
             return result;
         }
 
@@ -169,7 +204,7 @@ namespace moenew
 
         void reset()
         {
-            root.reset();
+            node_pool.reset();
             row_result = std::priority_queue<nodeptr, std::vector<nodeptr>, NodeCompare>();
             row_task = std::queue<nodeptr>();
             task = std::queue<nodeptr>();

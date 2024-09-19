@@ -9,7 +9,7 @@ if [ ! -f $1.cpp ]; then
 fi
 g++ -o $1 $1.cpp -Ofast -g -fno-inline -fprofile-generate -std=c++23 -lixwebsocket -lz -lssl -lcrypto
 ./$1
-g++ -o $1 $1.cpp -Ofast -fno-inline -g -fprofile-use -std=c++23 -lixwebsocket -lz -lssl -lcrypto
+g++ -o $1 $1.cpp -Ofast -fno-inline -g -fprofile-use -fprofile-correction -std=c++23 -lixwebsocket -lz -lssl -lcrypto
 rm -f $1.gcda
 valgrind --tool=callgrind --callgrind-out-file=callgrind.out ./$1
 kcachegrind callgrind.out
