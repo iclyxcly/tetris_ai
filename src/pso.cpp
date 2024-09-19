@@ -1,4 +1,6 @@
-#include "tetris_core.h"
+#include "engine.hpp"
+#include "movegen.hpp"
+#include "emu.hpp"
 #include <random>
 #include <stdio.h>
 #include <vector>
@@ -7,100 +9,67 @@
 #include <iostream>
 #include <atomic>
 
-using namespace TetrisAI;
-
-std::map<uint8_t, char> mino_to_char = {
-    {S, 'S'},
-    {Z, 'Z'},
-    {L, 'L'},
-    {J, 'J'},
-    {T, 'T'},
-    {O, 'O'},
-    {I, 'I'},
-    {EMPTY, ' '}};
-
+using namespace moenew;
+using Playstyle = Evaluation::Playstyle;
 struct PSOConfig
 {
     double w;
     double dest_w;
     double c1;
     double c2;
-    TetrisParam x_max, x_min, v_max;
+    Playstyle x_max, x_min, v_max;
     PSOConfig()
     {
         w = 0.9;
         dest_w = 0.4;
         c1 = 2;
         c2 = 1;
-        TetrisParam p;
+        Playstyle p;
         auto pso_config = [&](int index, double value, double offset, double velocity)
         {
-            x_max.weight[index] = value + offset;
-            x_min.weight[index] = value - offset;
-            v_max.weight[index] = velocity;
+            x_max[index] = value + offset;
+            x_min[index] = value - offset;
+            v_max[index] = velocity;
         };
-        auto &x = p.weight;
-        pso_config(ALLSPIN_1, x[ALLSPIN_1], 100, 5);
-        pso_config(ALLSPIN_2, x[ALLSPIN_2], 100, 5);
-        pso_config(ALLSPIN_3, x[ALLSPIN_3], 100, 5);
-        pso_config(ALLSPIN_SLOT, x[ALLSPIN_SLOT], 100, 5);
-        pso_config(COMBO, x[COMBO], 1000, 10);
-        pso_config(ATTACK, x[ATTACK], 1000, 10);
-        pso_config(CLEAR_1, x[CLEAR_1], 100, 5);
-        pso_config(CLEAR_2, x[CLEAR_2], 100, 5);
-        pso_config(CLEAR_3, x[CLEAR_3], 100, 5);
-        pso_config(CLEAR_4, x[CLEAR_4], 100, 5);
-        pso_config(B2B, x[B2B], 100, 5);
-        pso_config(ROOF, x[ROOF], 1000, 10);
-        pso_config(COL_TRANS, x[COL_TRANS], 1000, 10);
-        pso_config(ROW_TRANS, x[ROW_TRANS], 1000, 10);
-        pso_config(HOLE_COUNT, x[HOLE_COUNT], 1000, 10);
-        pso_config(HOLE_LINE, x[HOLE_LINE], 1000, 10);
-        pso_config(WIDE_2, x[WIDE_2], 100, 2);
-        pso_config(WIDE_3, x[WIDE_3], 100, 2);
-        pso_config(WIDE_4, x[WIDE_4], 100, 2);
-        pso_config(HIGH_WIDING, x[HIGH_WIDING], 100, 2);
-        pso_config(AGGREGATE_HEIGHT, x[AGGREGATE_HEIGHT], 100, 2);
-        pso_config(BUMPINESS, x[BUMPINESS], 100, 2);
-        pso_config(HOLD_I, x[HOLD_I], 10, 0.5);
-        pso_config(HOLD_SZO, x[HOLD_SZO], 10, 0.5);
-        pso_config(HOLD_LJT, x[HOLD_LJT], 10, 0.5);
-        pso_config(WASTE_I, x[WASTE_I], 10, 0.5);
-        pso_config(WASTE_SZO, x[WASTE_SZO], 10, 0.5);
-        pso_config(WASTE_LJT, x[WASTE_LJT], 10, 0.5);
-        pso_config(TANK, x[TANK], 100, 5);
-        pso_config(MID_GROUND, x[MID_GROUND], 1, 0.2);
-        pso_config(HIGH_GROUND, x[HIGH_GROUND], 1, 0.2);
-        pso_config(SEND, x[SEND], 1000, 10);
-        pso_config(CANCEL, x[CANCEL], 100, 5);
-        pso_config(SKIM, x[SKIM], 100, 5);
-        pso_config(APL, x[APL], 100, 5);
+        auto &x = p;
+        pso_config(Evaluation::ASPIN_1, x[Evaluation::ASPIN_1], 100, 5);
+        pso_config(Evaluation::ASPIN_2, x[Evaluation::ASPIN_2], 100, 5);
+        pso_config(Evaluation::ASPIN_3, x[Evaluation::ASPIN_3], 100, 5);
+        pso_config(Evaluation::ASPIN_SLOT, x[Evaluation::ASPIN_SLOT], 10, 1);
+        pso_config(Evaluation::COMBO, x[Evaluation::COMBO], 1000, 10);
+        pso_config(Evaluation::ATTACK, x[Evaluation::ATTACK], 1000, 10);
+        pso_config(Evaluation::CLEAR_1, x[Evaluation::CLEAR_1], 100, 5);
+        pso_config(Evaluation::CLEAR_2, x[Evaluation::CLEAR_2], 100, 5);
+        pso_config(Evaluation::CLEAR_3, x[Evaluation::CLEAR_3], 100, 5);
+        pso_config(Evaluation::CLEAR_4, x[Evaluation::CLEAR_4], 100, 5);
+        pso_config(Evaluation::B2B, x[Evaluation::B2B], 100, 5);
+        pso_config(Evaluation::HEIGHT, x[Evaluation::HEIGHT], 1000, 10);
+        pso_config(Evaluation::COL_TRANS, x[Evaluation::COL_TRANS], 1000, 10);
+        pso_config(Evaluation::ROW_TRANS, x[Evaluation::ROW_TRANS], 1000, 10);
+        pso_config(Evaluation::HOLE_COUNT, x[Evaluation::HOLE_COUNT], 1000, 10);
+        pso_config(Evaluation::HOLE_LINE, x[Evaluation::HOLE_LINE], 1000, 10);
+        pso_config(Evaluation::WIDE_2, x[Evaluation::WIDE_2], 1000, 10);
+        pso_config(Evaluation::WIDE_3, x[Evaluation::WIDE_3], 1000, 10);
+        pso_config(Evaluation::WIDE_4, x[Evaluation::WIDE_4], 1000, 10);
+        pso_config(Evaluation::TANK_CLEAN, x[Evaluation::TANK_CLEAN], 100, 5);
+        pso_config(Evaluation::CANCEL, x[Evaluation::CANCEL], 100, 5);
+        pso_config(Evaluation::BUILD_ATTACK, x[Evaluation::BUILD_ATTACK], 100, 5);
+        pso_config(Evaluation::SPIKE, x[Evaluation::SPIKE], 100, 5);
+        pso_config(Evaluation::PENDING_LOCK, x[Evaluation::PENDING_LOCK], 100, 5);
     }
 };
 constexpr int WIN_REQUIREMENT = 15;
 struct TetrisPlayer
 {
-    TetrisConfig &config;
-    TetrisNextManager next;
-    TetrisParam param;
-    TetrisStatus status;
-    TetrisMap map;
-    std::string last_path;
+    Playstyle param;
+    Engine engine;
+    Next real_next;
+    Evaluation::Status status;
+    int next;
     int count;
     int clear;
     int attack;
     int receive;
-    std::size_t last_nodes;
-
-    void push_next()
-    {
-        std::vector<uint8_t> nexts = {S, L, Z, I, T, O, J};
-        std::shuffle(nexts.begin(), nexts.end(), std::mt19937(std::random_device()()));
-        for (auto mino : nexts)
-        {
-            next.push(mino);
-        }
-    }
 
     void push_damage(uint8_t lines)
     {
@@ -108,33 +77,61 @@ struct TetrisPlayer
         {
             return;
         }
-        status.garbage.push_lines(lines, 1);
+        status.under_attack.push(lines, 1);
         receive += lines;
     }
 
-    TetrisPlayer(TetrisConfig &config, TetrisParam &param, std::mt19937 &gen)
-        : config(config), next(config), param(param), map(10, 40), count(0), clear(0), attack(0), receive(0)
+    TetrisPlayer(Playstyle &param)
+        : count(0), clear(0), attack(0), receive(0)
     {
-        status.init();
-        status.garbage = TetrisPendingLineManager(gen);
+        status.reset();
+        engine.get_param() = param;
+        this->param = param;
+        auto &atk = engine.get_attack_table();
+		atk.messiness = 0.05;
+		atk.aspin_1 = 2;
+		atk.aspin_2 = 4;
+		atk.aspin_3 = 6;
+		atk.clear_1 = 0;
+		atk.clear_2 = 1;
+		atk.clear_3 = 2;
+		atk.clear_4 = 4;
+		atk.pc = 10;
+		atk.b2b = 1;
+        atk.multiplier = 1;
+		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+		memcpy(atk.combo, combo_table, sizeof(atk.combo));
+        next = 5;
     }
 
     bool run()
     {
-        if (next.size() < 14)
+        if (count > 200)
+            if (count % 11 == 0)
+            {
+                engine.get_attack_table().multiplier += 0.1;
+            }
+        real_next.fill();
+        status.next.next = real_next.get(next);
+        status.next.hold = real_next.hold;
+        status.next.fill();
+        auto mino_loc = engine.get_mino_draft();
+        engine.submit_form(mino_loc, status, true);
+        auto result = engine.start_pso();
+        status.under_attack.rngify();
+        if (result.change_hold)
         {
-            push_next();
+            real_next.swap();
+            status.next.swap();
         }
-        next.next();
-        status.next = next;
-        TetrisTree tree(map, status, config, param);
-        last_path = tree.run();
-        TetrisGameEmulation emu;
-        emu.run(map, next, status, last_path, 1);
+        if (!cycle(status, result, engine.get_attack_table()))
+        {
+            status.dead = true;
+        }
+        real_next.pop();
         ++count;
         attack += status.attack;
         clear += status.clear;
-        last_nodes = tree.total_nodes;
         return !status.dead;
     }
 };
@@ -151,12 +148,12 @@ std::uniform_real_distribution<double> zdist(-1.0, 1.0);
 struct PSOParticleData
 {
     int id;
-    TetrisParam pos[4];
+    Playstyle pos[4];
     PSOConfig cfg;
     int generation;
     double highscore;
     bool ingame;
-    void inform_global_best(const TetrisParam &global_best)
+    void inform_global_best(const Playstyle &global_best)
     {
         pos[PSO_BEST_GLOBAL] = global_best;
         if (id == 0)
@@ -165,7 +162,7 @@ struct PSOParticleData
             pos[PSO_BEST_PERSONAL] = global_best;
         }
     }
-    void push_new_standard(const TetrisParam &best)
+    void push_new_standard(const Playstyle &best)
     {
         if (id != 0)
         {
@@ -185,12 +182,12 @@ struct PSOParticleData
         double r1 = dist(engine);
         double r2 = dist(engine);
 
-        for (int i = 0; i < END_OF_PARAM; ++i)
+        for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
         {
-            pos[PSO_VELOCITY].weight[i] = (cfg.w * pos[PSO_VELOCITY].weight[i]) + (cfg.c1 * r1 * (pos[PSO_BEST_PERSONAL].weight[i] - pos[PSO_CURRENT].weight[i])) + (cfg.c2 * r2 * (pos[PSO_BEST_GLOBAL].weight[i] - pos[PSO_CURRENT].weight[i]));
-            pos[PSO_VELOCITY].weight[i] = std::max(std::min(pos[PSO_VELOCITY].weight[i], cfg.v_max.weight[i]), -cfg.v_max.weight[i]);
-            pos[PSO_CURRENT].weight[i] += pos[PSO_VELOCITY].weight[i];
-            pos[PSO_CURRENT].weight[i] = std::max(std::min(pos[PSO_CURRENT].weight[i], cfg.x_max.weight[i]), cfg.x_min.weight[i]);
+            pos[PSO_VELOCITY][i] = (cfg.w * pos[PSO_VELOCITY][i]) + (cfg.c1 * r1 * (pos[PSO_BEST_PERSONAL][i] - pos[PSO_CURRENT][i])) + (cfg.c2 * r2 * (pos[PSO_BEST_GLOBAL][i] - pos[PSO_CURRENT][i]));
+            pos[PSO_VELOCITY][i] = std::max(std::min(pos[PSO_VELOCITY][i], cfg.v_max[i]), -cfg.v_max[i]);
+            pos[PSO_CURRENT][i] += pos[PSO_VELOCITY][i];
+            pos[PSO_CURRENT][i] = std::max(std::min(pos[PSO_CURRENT][i], cfg.x_max[i]), cfg.x_min[i]);
         }
         if (cfg.w > cfg.dest_w)
         {
@@ -212,17 +209,21 @@ struct PSOParticleData
         }
         calc_init();
     }
-    PSOParticleData(int id)
+    PSOParticleData(int id, Playstyle &param)
         : id(id), generation(0), ingame(false)
     {
+        for (int i = 0; i < 4; ++i)
+        {
+            pos[i] = param;
+        }
         if (id == 0)
         {
             return;
         }
-        for (int i = 0; i < END_OF_PARAM; ++i)
+        for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
         {
-            pos[PSO_VELOCITY].weight[i] = std::uniform_real_distribution<double>(-cfg.v_max.weight[i], cfg.v_max.weight[i])(engine);
-            pos[PSO_CURRENT].weight[i] = pos[PSO_CURRENT].weight[i] + pos[PSO_VELOCITY].weight[i];
+            pos[PSO_VELOCITY][i] = std::uniform_real_distribution<double>(-cfg.v_max[i], cfg.v_max[i])(engine);
+            pos[PSO_CURRENT][i] = pos[PSO_CURRENT][i] + pos[PSO_VELOCITY][i];
         }
     }
     PSOParticleData() : id(0), generation(0), ingame(false)
@@ -232,18 +233,32 @@ struct PSOParticleData
 struct PSOSwarmManager
 {
     std::vector<PSOParticleData *> swarm;
-    TetrisParam global_best;
+    Playstyle global_best;
 
-    void export_best(TetrisParam &param)
+    void export_best(Playstyle &param)
     {
         FILE *file = fopen("best_param.txt", "w");
         if (file == nullptr)
         {
             return;
         }
-        for (int i = 0; i < END_OF_PARAM; ++i)
+        for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
         {
-            fprintf(file, "%lf\n", param.weight[i]);
+            fprintf(file, "%lf\n", param[i]);
+        }
+        fclose(file);
+    }
+
+    void import_init(Playstyle &param)
+    {
+        FILE *file = fopen("import_param.txt", "r");
+        if (file == nullptr)
+        {
+            return;
+        }
+        for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
+        {
+            fscanf(file, "%lf", &param[i]);
         }
         fclose(file);
     }
@@ -268,9 +283,9 @@ struct PSOSwarmManager
         {
             return;
         }
-        for (int i = 0; i < END_OF_PARAM; ++i)
+        for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
         {
-            fprintf(file, "%lf\n", particle->pos[PSO_CURRENT].weight[i]);
+            fprintf(file, "%lf\n", particle->pos[PSO_CURRENT][i]);
         }
         fclose(file);
     }
@@ -282,7 +297,7 @@ struct PSOSwarmManager
         {
             return;
         }
-        fwrite(&global_best, sizeof(TetrisParam), 1, file);
+        fwrite(&global_best, sizeof(Playstyle), 1, file);
         for (auto &particle : swarm)
         {
             PSOParticleData particle_data = *particle;
@@ -299,7 +314,7 @@ struct PSOSwarmManager
         {
             return false;
         }
-        fread(&global_best, sizeof(TetrisParam), 1, file);
+        fread(&global_best, sizeof(Playstyle), 1, file);
         PSOParticleData particle;
         while (fread(&particle, sizeof(PSOParticleData), 1, file) == 1)
         {
@@ -311,9 +326,11 @@ struct PSOSwarmManager
 
     void init_pso(int count)
     {
+        Playstyle param;
+        import_init(param);
         for (int i = 0; i < count; ++i)
         {
-            PSOParticleData particle(generate_new_id());
+            PSOParticleData particle(generate_new_id(), param);
             particle.calc_init();
             swarm.push_back(new PSOParticleData(particle));
         }
@@ -409,9 +426,6 @@ struct PSOSwarmManager
 int main(void)
 {
     const std::size_t thread_count = (std::size_t)(std::thread::hardware_concurrency() - 1);
-    {
-        TetrisMinoManager mino("botris_srs.json");
-    }
     srand(time(nullptr));
     PSOSwarmManager s_mgr;
     if (!s_mgr.import_data())
@@ -420,18 +434,6 @@ int main(void)
     }
     std::recursive_mutex mtx;
     std::vector<std::thread> threads;
-    TetrisConfig config;
-    config.allow_D = true;
-    config.allow_d = true;
-    config.allow_LR = true;
-    config.allow_lr = true;
-    config.allow_x = false;
-    config.can_hold = true;
-    config.default_x = 3;
-    config.default_y = 17;
-    config.default_r = 0;
-    config.target_time = 100;
-
     std::atomic<std::size_t> view_index{0};
     std::atomic<bool> view{false};
     std::atomic<bool> force_win{false};
@@ -441,10 +443,6 @@ int main(void)
         threads.emplace_back(std::thread([&, i]()
                                          {
             std::size_t index = i + 1;
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::uniform_int_distribution<int> dis(0, 9);
-            std::uniform_int_distribution<int> mess_dis(0, 99);
             while (true)
             {
                 mtx.lock();
@@ -478,51 +476,42 @@ int main(void)
                     char box_1[3] = "[]";
 
                     out[0] = '\0';
-                    std::string nexts_1 = player_1.next.to_string();
-                    std::string nexts_2 = player_2.next.to_string();
+                    std::string nexts_1 = player_1.real_next.to_string();
+                    std::string nexts_2 = player_2.real_next.to_string();
                     nexts_1.resize(6);
                     nexts_2.resize(6);
-                    uint16_t up_1 = player_1.status.garbage.total_damage();
-                    uint16_t up_2 = player_2.status.garbage.total_damage();
-                    snprintf(out, sizeof out, "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, ID = %d, WIN = %d, NODE = %d, PATH = %s\n"
-                                              "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, ID = %d, WIN = %d, NODE = %d, PATH = %s\n",
-                             mino_to_char[player_1.next.hold], nexts_1.c_str(), up_1, player_1.status.combo, player_1.status.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0], player_1.last_nodes, player_1.last_path.c_str(),
-                             mino_to_char[player_2.next.hold], nexts_2.c_str(), up_2, player_2.status.combo, player_2.status.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1], player_2.last_nodes, player_2.last_path.c_str());
-                    TetrisMap map_copy1 = player_1.map;
-                    TetrisMap map_copy2 = player_2.map;
-                    {
-                        TetrisActive next_mino(config.default_x, config.default_y, config.default_r, player_1.next.queue.front());
-                        TetrisInstructor temporal_instruct(map_copy1, player_1.next.queue.front());
-                        temporal_instruct.dropless_attach(map_copy1, next_mino);
-                    }
-                    {
-                        TetrisActive next_mino(config.default_x, config.default_y, config.default_r, player_2.next.queue.front());
-                        TetrisInstructor temporal_instruct(map_copy2, player_2.next.queue.front());
-                        temporal_instruct.dropless_attach(map_copy2, next_mino);
-                    }
-                    for (int y = config.default_y + 4; y >= 0; --y)
+                    uint16_t up_1 = player_1.status.under_attack.total();
+                    uint16_t up_2 = player_2.status.under_attack.total();
+                    snprintf(out, sizeof out, "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, ID = %d, WIN = %d\n"
+                                              "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, ID = %d, WIN = %d\n",
+                             type_to_char((Piece)player_1.real_next.hold), nexts_1.c_str(), up_1, player_1.status.combo, player_1.status.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0],
+                             type_to_char((Piece)player_2.real_next.hold), nexts_2.c_str(), up_2, player_2.status.combo, player_2.status.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1]);
+                    Board map_copy1 = player_1.status.board;
+                    Board map_copy2 = player_2.status.board;
+                        map_copy1.paste(cache_get(player_1.status.next.peek(), DEFAULT_R, DEFAULT_X), DEFAULT_Y);
+                        map_copy2.paste(cache_get(player_2.status.next.peek(), DEFAULT_R, DEFAULT_X), DEFAULT_Y);
+                    for (int y = DEFAULT_Y + 4; y >= 0; --y)
                     {
                         snprintf(out + strlen(out), sizeof out - strlen(out), "%2d|", y);
                         for (int x = 0; x < 10; ++x)
                         {
-                            strcat(out, map_copy1.full(x, y) ? box_1 : box_0);
+                            strcat(out, map_copy1.get(x, y) ? box_1 : box_0);
                         }
                         snprintf(out + strlen(out), sizeof out - strlen(out), "|  %2d|", y);
                         for (int x = 0; x < 10; ++x)
                         {
-                            strcat(out, map_copy2.full(x, y) ? box_1 : box_0);
+                            strcat(out, map_copy2.get(x, y) ? box_1 : box_0);
                         }
                         strcat(out, "|\r\n");
                     }
                     printf("%s", out);
-                    //usleep(1000000);
                 };
                 static int max_count = 1000;
                 double b_stats = 0;
                 while (win[0] < WIN_REQUIREMENT && win[1] < WIN_REQUIREMENT && (std::abs(win[0] - win[1]) < 5 || win[1] > win[0]))
                 {
-                    TetrisPlayer player_1(config, match_result.first->pos[PSO_CURRENT], gen);
-                    TetrisPlayer player_2(config, match_result.second->pos[PSO_CURRENT], gen);
+                    TetrisPlayer player_1(match_result.first->pos[PSO_CURRENT]);
+                    TetrisPlayer player_2(match_result.second->pos[PSO_CURRENT]);
                     while (player_1.run() && player_2.run() && player_1.count < max_count)
                     {
                         if (player_1.status.send_attack > player_2.status.send_attack)
@@ -634,4 +623,5 @@ int main(void)
         }
     }
     s_mgr.export_data();
+    exit(0);
 }
