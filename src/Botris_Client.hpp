@@ -1,21 +1,23 @@
 #pragma once
-#include "tetris_core.h"
+#include "engine.hpp"
+#include "board.hpp"
+#include "next.hpp"
+#include "emu.hpp"
+#include "pathgen.hpp"
+#include "pending.hpp"
+#include "eval.hpp"
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
 #include <ixwebsocket/IXNetSystem.h>
 #include <ixwebsocket/IXWebSocket.h>
 #include <ixwebsocket/IXUserAgent.h>
+#include <mutex>
 #include "json.hpp"
 #include "utils.hpp"
 #include <boost/algorithm/string/join.hpp>
-#pragma comment(lib, "ixwebsocket.lib")
-#pragma comment(lib, "Crypt32.lib")
-#pragma comment(lib, "Secur32.lib")
-#pragma comment(lib, "Ws2_32.lib")
-#pragma warning(disable : 4996)
 
-using namespace TetrisAI;
+using namespace moenew;
 using json = nlohmann::json;
 
 namespace Payload
@@ -89,11 +91,11 @@ private:
 	std::string API_TOKEN;
 	std::string ROOM_KEY;
 	ix::WebSocket web_socket;
-	TetrisConfig config;
-	TetrisParam param;
-	TetrisStatus status;
+	Engine engine;
+	Evaluation::Status status;
 	Payload::SessionId session_id;
 	Payload::RoomData room_data;
+	std::recursive_mutex mutex;
 
 	uint8_t translate_mino(std::string mino)
 	{
@@ -114,7 +116,7 @@ private:
 		case 'I':
 			return I;
 		}
-		return EMPTY;
+		return X;
 	}
 
 	std::vector<std::string> translate_command(std::string &path)
@@ -156,16 +158,16 @@ private:
 		return translated_path;
 	}
 
-	void read_config()
+	void read_config(Evaluation::Playstyle &param)
 	{
 		FILE* file = fopen("best_param.txt", "r");
 		if (file == nullptr) {
 			utils::println(utils::ERR, " -> Failed to open best_param.txt");
 			return;
 		}
-		for (int i = 0; i < END_OF_PARAM; ++i)
+		for (int i = 0; i < Evaluation::END_OF_PARAM; ++i)
 		{
-			fscanf(file, "%lf\n", &param.weight[i]);
+			fscanf(file, "%lf\n", &param[i]);
 		}
 		fclose(file);
 	}
@@ -310,23 +312,20 @@ private:
 		int startsAt;
 		int_safeassign(data, startsAt, "startsAt");
 		utils::println(utils::INFO, " -> Round starts at: " + std::to_string(startsAt));
-		status.init();
+		status.reset();
 	}
 	void handle_msg_request_move(json data)
 	{
 		data_safeshift(data, "payload");
 		data_safeshift(data, "gameState");
-		config.allow_x = false;
-		config.allow_D = false;
-		config.allow_LR = false;
-		TetrisMap map(10, 25);
+		status.board.clear();
 		for (int i = 0; i < 24; ++i)
 		{
 			for (int j = 0; j < 10; ++j)
 			{
 				if (!data["board"][i][j].is_null())
 				{
-					map.mutate(j, i);
+					status.board.set(j, i);
 				}
 			}
 		}
@@ -337,26 +336,25 @@ private:
 		// 	}
 		// 	printf("\n");
 		// }
-		map.scan();
-		TetrisNextManager next_manager(config);
+		status.board.tidy();
+		status.next.reset();
 		for (auto &i : data["queue"])
 		{
-			next_manager.push(translate_mino(i));
+			status.next.next.push_back((Piece)translate_mino(i));
 		}
-		next_manager.active = TetrisActive(config.default_x, config.default_y, config.default_r, translate_mino(data["current"]["piece"]));
+		status.next.next.push_front((Piece)translate_mino(data["current"]["piece"]));
 		if (data["held"].is_null())
 		{
-			next_manager.hold = EMPTY;
+			status.next.hold = X;
 		}
 		else
 		{
-			next_manager.hold = translate_mino(data["held"]);
+			status.next.hold = (Piece)translate_mino(data["held"]);
 		}
-		config.can_hold = data["canHold"];
-		status.next = next_manager;
+		status.next.fill();
 		int last_delay = -1;
 		uint8_t total = 0;
-		status.garbage.pending.clear();
+		status.under_attack.lines.clear();
 		for (auto &i : data["garbageQueued"])
 		{
 			if (last_delay == -1)
@@ -366,7 +364,7 @@ private:
 			}
 			else if (i["delay"] != last_delay)
 			{
-				status.garbage.push_lines(total, last_delay);
+				status.under_attack.push(total, last_delay);
 				last_delay = i["delay"];
 				total = 1;
 			}
@@ -377,21 +375,38 @@ private:
 		}
 		if (total != 0)
 		{
-			status.garbage.push_lines(total, last_delay);
+			status.under_attack.push(total, last_delay);
 		}
-		read_config();
+		read_config(engine.get_param());
 		status.b2b = data["b2b"];
 		status.combo = data["combo"];
-		TetrisTree runner(map, status, config, param);
-		auto result = runner.run();
-		utils::println(utils::INFO, " -> Total nodes: " + std::to_string(runner.total_nodes));
-		TetrisGameEmulation emu;
-		emu.run(map, next_manager, status, result, 1);
-		if (status.dead)
+		auto &atk = engine.get_attack_table();
+		atk.messiness = 0.05;
+		atk.aspin_1 = 2;
+		atk.aspin_2 = 4;
+		atk.aspin_3 = 6;
+		atk.clear_1 = 0;
+		atk.clear_2 = 1;
+		atk.clear_3 = 2;
+		atk.clear_4 = 4;
+		atk.pc = 10;
+		atk.b2b = 1;
+		atk.multiplier = 1;
+		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+		memcpy(atk.combo, combo_table, sizeof(atk.combo));
+		engine.submit_form(engine.get_mino_draft(), status, data["canHold"]);
+		auto result = engine.start_threaded();
+		if (result.change_hold)
+		{
+			status.next.swap();
+		}
+		PathGen pathgen(status.board, engine.get_mino_draft(), result, status.next.peek());
+		auto path_str = (result.change_hold ? "v" : "") + pathgen.build();
+		if (!cycle(status, result, atk))
 		{
 			return;
 		}
-		auto path = translate_command(result);
+		auto path = translate_command(path_str);
 		ws_make_move(path);
 	}
 	void handle_msg_player_action(json data) {}
@@ -463,7 +478,7 @@ public:
 	void run()
 	{
 		get_secrets();
-		status.init();
+		status.reset();
 		ws_start();
 	}
 
