@@ -76,7 +76,8 @@ namespace moenew
         }
         status.attack *= atk.multiplier;
         status.send_attack = status.attack;
-        if (!status.attack)
+        status.under_attack.cancel(status.send_attack);
+        if (!status.clear)
         {
             ++status.attack_since;
             status.cumulative_attack = 0;
@@ -84,9 +85,8 @@ namespace moenew
         else
         {
             status.attack_since = 0;
-            status.cumulative_attack += status.attack;
+            status.cumulative_attack += status.send_attack;
         }
-        status.under_attack.cancel(status.send_attack);
         const uint32_t *next = cache_get(status.next.peek(), DEFAULT_R, DEFAULT_X);
         return status.board.integrate(next, DEFAULT_Y);
     }
