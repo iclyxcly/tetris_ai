@@ -56,6 +56,7 @@ struct PSOConfig
         pso_config(Evaluation::BUILD_ATTACK, x[Evaluation::BUILD_ATTACK], 100, 5);
         pso_config(Evaluation::SPIKE, x[Evaluation::SPIKE], 100, 5);
         pso_config(Evaluation::PENDING_LOCK, x[Evaluation::PENDING_LOCK], 100, 5);
+        pso_config(Evaluation::PENDING_HOLD, x[Evaluation::PENDING_HOLD], 100, 5);
     }
 };
 constexpr int WIN_REQUIREMENT = 15;
@@ -117,7 +118,7 @@ struct TetrisPlayer
         status.next.fill();
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
-        auto result = engine.start_pso();
+        auto result = engine.start_depth_thread();
         status.under_attack.rngify();
         if (result.change_hold)
         {
@@ -425,7 +426,7 @@ struct PSOSwarmManager
 
 int main(void)
 {
-    const std::size_t thread_count = (std::size_t)(std::thread::hardware_concurrency() - 1);
+    const std::size_t thread_count = std::thread::hardware_concurrency() - 1;
     srand(time(nullptr));
     PSOSwarmManager s_mgr;
     if (!s_mgr.import_data())
@@ -438,7 +439,7 @@ int main(void)
     std::atomic<bool> view{false};
     std::atomic<bool> force_win{false};
 
-    for (std::size_t i = 0; i < thread_count; ++i)
+    for (std::size_t i = 0; i < 2; ++i)
     {
         threads.emplace_back(std::thread([&, i]()
                                          {

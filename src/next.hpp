@@ -5,6 +5,36 @@
 #include <algorithm>
 namespace moenew
 {
+	class FakeNext
+	{
+		public:
+		std::deque<Piece> next;
+		FakeNext()
+		{
+			fill();
+		}
+		void reset()
+		{
+			next.clear();
+		}
+		void fill(int max = 28)
+		{
+			if (next.size() >= max)
+				return;
+			std::deque<Piece> mix = {S, L, Z, I, T, O, J};
+			static std::mt19937 rng(std::random_device{}());
+			while (next.size() < max)
+			{
+				std::shuffle(mix.begin(), mix.end(), rng);
+				next.insert(next.end(), mix.begin(), mix.end());
+			}
+		}
+		void pop()
+		{
+			next.pop_front();
+			fill();
+		}
+	};
 	class Next
 	{
 	public:
@@ -34,6 +64,10 @@ namespace moenew
 				std::shuffle(mix.begin(), mix.end(), rng);
 				next.insert(next.end(), mix.begin(), mix.end());
 			}
+		}
+		void fill(FakeNext &fake_next)
+		{
+			next.insert(next.end(), fake_next.next.begin(), fake_next.next.end());
 		}
 		std::string to_string(int length = 5)
 		{

@@ -82,3 +82,9 @@ src_lab/pso_data.bin
 src_lab/export_param.txt
 src/validate
 src/movegenbench
+src/original/main
+src/original/key.json
+src/original/best_param.txt
+src/chemistry_pvp
+src/chemistry.bin
+src/chemistry

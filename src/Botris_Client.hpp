@@ -93,6 +93,7 @@ private:
 	ix::WebSocket web_socket;
 	Engine engine;
 	Evaluation::Status status;
+	FakeNext next;
 	Payload::SessionId session_id;
 	Payload::RoomData room_data;
 	std::recursive_mutex mutex;
@@ -351,7 +352,7 @@ private:
 		{
 			status.next.hold = (Piece)translate_mino(data["held"]);
 		}
-		status.next.fill();
+		status.next.fill(next);
 		int last_delay = -1;
 		uint8_t total = 0;
 		status.under_attack.lines.clear();
@@ -377,6 +378,10 @@ private:
 		{
 			status.under_attack.push(total, last_delay);
 		}
+		for (auto &i : status.under_attack.lines)
+		{
+			printf("amt: %d, delay: %d\n", i.amt, i.delay);
+		}
 		read_config(engine.get_param());
 		status.b2b = data["b2b"];
 		status.combo = data["combo"];
@@ -395,7 +400,7 @@ private:
 		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
 		memcpy(atk.combo, combo_table, sizeof(atk.combo));
 		engine.submit_form(engine.get_mino_draft(), status, data["canHold"]);
-		auto result = engine.start_threaded();
+		auto result = engine.start_depth_thread();
 		if (result.change_hold)
 		{
 			status.next.swap();
@@ -408,6 +413,7 @@ private:
 		}
 		auto path = translate_command(path_str);
 		ws_make_move(path);
+		next.pop();
 	}
 	void handle_msg_player_action(json data) {}
 	void handle_msg_player_damage_received(json data) {}

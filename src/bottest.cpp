@@ -9,7 +9,7 @@ using namespace moenew;
 
 void read_config(Evaluation::Playstyle &param)
 {
-    FILE *file = fopen("best_param.txt", "r");
+    FILE *file = fopen("import_param.txt", "r");
     if (file == nullptr)
     {
         utils::println(utils::ERR, " -> Failed to open best_param.txt");
@@ -51,6 +51,7 @@ int main(void)
     memcpy(atk.combo, combo_table, sizeof(atk.combo));
     auto now = std::chrono::high_resolution_clock::now();
     Next global_next;
+    FakeNext fake_next;
     struct ExtraAttack
     {
         int attack;
@@ -95,11 +96,11 @@ int main(void)
             send.push_back({attack, lifespan});
         }
     } extra_attack;
-    while (++count != 100)
+    while (++count != 10000)
     {
-        if (count % ((rand() % 2) + 1) == 0)
+        if (count % ((rand() % 3) + 2) == 0)
         {
-            int line = (rand() % 3) + 1;
+            int line = (rand() % 5) + 2;
             total_recv += line;
             extra_attack.opponent_fight(line);
             if (line)
@@ -110,10 +111,10 @@ int main(void)
         global_next.fill();
         status.next.next = global_next.get(5);
         status.next.hold = global_next.hold;
-        status.next.fill();
+        status.next.fill(fake_next);
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
-        auto result = engine.start_pso();
+        auto result = engine.start_threaded();
         status.under_attack.rngify();
         if (result.change_hold)
         {
@@ -187,7 +188,7 @@ int main(void)
         extra_attack.decay();
         extra_attack.insert(attack, 1);
         total_atk += attack;
-        printf("APP: %.2f, Count: %d, Opponent APP: %.2f, Max Spike: %d\n", static_cast<double>(total_atk) / static_cast<double>(count), count, static_cast<double>(total_recv) / static_cast<double>(count), max_spike);
+        printf("APP: %.2f, Count: %d, Opponent APP: %.2f, Max Spike: %d, Memory: %.2fMB\n", static_cast<double>(total_atk) / static_cast<double>(count), count, static_cast<double>(total_recv) / static_cast<double>(count), max_spike, engine.memory_usage() / 1048576.0);
         std::cout << status.board.print(22);
         if (attack)
         {
@@ -206,6 +207,7 @@ int main(void)
             printf("dead\n");
             break;
         }
+        fake_next.pop();
     }
     auto end = std::chrono::high_resolution_clock::now();
     printf("speed: %f pps\n", static_cast<double>(count) / (static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(end - now).count()) / 1000));

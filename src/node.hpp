@@ -115,7 +115,7 @@ namespace moenew
 
         void trim(int version)
         {
-            while (row_result.size() > BEAM_WIDTH + (version * 100 * rate))
+            while (row_result.size() > std::max<std::size_t>(64, BEAM_WIDTH / (version + 1)))
             {
                 row_result.pop();
             }
@@ -123,13 +123,16 @@ namespace moenew
 
     public:
 
-        double rate = 1.0;
-
         NodeManager() {};
 
         NodeManager(const Decision decision, const Evaluation::Status &status)
         {
             create_root(decision, status);
+        }
+
+        std::size_t memory_usage()
+        {
+            return node_pool.memory_usage();
         }
 
         void create_root(const Decision decision, const Evaluation::Status &status)
@@ -146,7 +149,7 @@ namespace moenew
 
         void try_insert(const Evaluation::Status &status, const nodeptr &parent, const Decision &decision)
         {
-            if (row_result.size() < BEAM_WIDTH + (parent->version * 100 * rate))
+            if (row_result.size() < std::max<std::size_t>(64, BEAM_WIDTH / (parent->version + 1)))
             {
                 insert_child(status, parent, decision);
                 return;

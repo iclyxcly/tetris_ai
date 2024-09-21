@@ -96,6 +96,7 @@ namespace moenew
             BUILD_ATTACK,
             SPIKE,
             PENDING_LOCK,
+            PENDING_HOLD,
             END_OF_PARAM
         };
         struct Playstyle
@@ -125,7 +126,7 @@ namespace moenew
         };
         Playstyle p;
         AttackTable atk;
-        void find_every_spin(const Board &board, int &val)
+        static void find_every_spin(const Board &board, int &val)
         {
             for (int y = board.y_max; y >= std::max<int>(0, board.y_max - 4); --y)
             {
@@ -504,7 +505,7 @@ namespace moenew
         // Level 2: Evaluate line clear, consequences of accepting garbage
         // Level 3: Evaluate allspin setups, wasted, held minos, and other misc stuff
         // Pruning is done each time the decision is evaluated
-        void evaluation_level_1(const Status &last, Status &ret)
+        void evaluation_level_1(const Status &last, Status &ret, int depth)
         {
             struct
             {
@@ -561,7 +562,7 @@ namespace moenew
             }
             ret.rating = (0. - p[HEIGHT] * board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE] * e.hole_line + p[WIDE_2] * e.wide[2] + p[WIDE_3] * e.wide[3] + p[WIDE_4] * e.wide[4] - 999999 * ret.dead);
         }
-        void evaluation_level_2(const Status &last, Status &ret)
+        void evaluation_level_2(const Status &last, Status &ret, int depth)
         {
             double like = 0;
             ret.attack = 0;
@@ -637,6 +638,7 @@ namespace moenew
             ret.attack *= atk.multiplier;
             ret.send_attack = ret.attack;
             ret.under_attack.cancel(ret.send_attack);
+            like -= p[PENDING_HOLD] * ret.under_attack.total() * depth;
             if (ret.attack != ret.send_attack)
             {
                 like += (ret.attack - ret.send_attack) * p[CANCEL];
@@ -651,7 +653,7 @@ namespace moenew
             }
             ret.rating += (0. + like + p[ATTACK] * ret.attack + p[B2B] * ret.b2b + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999 * ret.dead);
         }
-        void evaluation_level_3(const Status &last, Status &ret)
+        void evaluation_level_3(const Status &last, Status &ret, int depth)
         {
             double like = 0;
             if (!ret.clear)
@@ -672,15 +674,15 @@ namespace moenew
             find_every_spin(ret.board, val);
             ret.rating += 0. + like + p[SPIKE] * (ret.cumulative_attack * ret.send_attack) + p[ASPIN_SLOT] * val;
         }
-        std::vector<std::function<void(const Status &, Status &)>> evaluations;
+        std::vector<std::function<void(const Status &, Status &, int)>> evaluations;
         Evaluation()
         {
-            evaluations.push_back([this](const Status &a, Status &b)
-                                  { return evaluation_level_1(a, b); });
-            evaluations.push_back([this](const Status &a, Status &b)
-                                  { return evaluation_level_2(a, b); });
-            evaluations.push_back([this](const Status &a, Status &b)
-                                  { return evaluation_level_3(a, b); });
+            evaluations.push_back([this](const Status &a, Status &b, int c)
+                                  { return evaluation_level_1(a, b, c); });
+            evaluations.push_back([this](const Status &a, Status &b, int c)
+                                  { return evaluation_level_2(a, b, c); });
+            evaluations.push_back([this](const Status &a, Status &b, int c)
+                                  { return evaluation_level_3(a, b, c); });
         }
     };
 }

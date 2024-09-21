@@ -86,7 +86,7 @@ namespace moenew
             {
                 for (auto &new_data : set)
                 {
-                    func(data->status, new_data.first);
+                    func(data->status, new_data.first, data->version + 1);
                 }
             }
             for (auto &new_data : set)
@@ -126,7 +126,7 @@ namespace moenew
             {
                 for (auto &new_data : set)
                 {
-                    func(data->status, new_data.first);
+                    func(data->status, new_data.first, data->version + 1);
                 }
             }
             mutex.lock();
@@ -238,16 +238,7 @@ namespace moenew
                 beam.finalize();
                 ++depth;
             }
-            printf("Total: %d, Beam Total: %d, Depth: %d, Rate: %.2f\n", total.load(), beam_total.load(), depth.load(), beam.rate);
-            if (depth.load() > 12)
-            {
-                beam.rate += 0.1;
-            }
-            else if (depth.load() < 10)
-            {
-                beam.rate -= 0.01;
-                beam.rate = std::max(beam.rate, 0.05);
-            }
+            printf("Total: %d, Beam Total: %d, Depth: %d\n", total.load(), beam_total.load(), depth.load());
             return beam.get_result().decision;
         }
         Decision start_threaded()
@@ -262,24 +253,14 @@ namespace moenew
                 beam.finalize();
                 ++depth;
             }
-            printf("Total: %d, Beam Total: %d, Depth: %d, Rate: %.2f\n", total.load(), beam_total.load(), depth.load(), beam.rate);
-            if (depth.load() > 12)
-            {
-                beam.rate += 0.1;
-            }
-            else if (depth.load() < 10)
-            {
-                beam.rate -= 0.01;
-                beam.rate = std::max(beam.rate, 0.05);
-            }
+            printf("Total: %d, Beam Total: %d, Depth: %d\n", total.load(), beam_total.load(), depth.load());
             return beam.get_result().decision;
         }
-        Decision start_pso()
+        Decision start_noded()
         {
             using namespace std::chrono;
-            beam.rate = 0.8;
             auto now = high_resolution_clock::now();
-            while (total.load() < 40000 && beam.check_task())
+            while (total.load() < 100000 && beam.check_task())
             {
                 beam.prepare();
                 beam_total += beam.get_task().size();
@@ -288,6 +269,56 @@ namespace moenew
                 ++depth;
             }
             return beam.get_result().decision;
+        }
+
+        Decision start_noded_thread()
+        {
+            using namespace std::chrono;
+            auto now = high_resolution_clock::now();
+            while (total.load() < 100000 && beam.check_task())
+            {
+                beam.prepare();
+                beam_total += beam.get_task().size();
+                expand_threaded();
+                beam.finalize();
+                ++depth;
+            }
+            return beam.get_result().decision;
+        }
+
+        Decision start_depth()
+        {
+            using namespace std::chrono;
+            auto now = high_resolution_clock::now();
+            while (depth.load() < 17 && beam.check_task())
+            {
+                beam.prepare();
+                beam_total += beam.get_task().size();
+                expand();
+                beam.finalize();
+                ++depth;
+            }
+            return beam.get_result().decision;
+        }
+
+        Decision start_depth_thread()
+        {
+            using namespace std::chrono;
+            auto now = high_resolution_clock::now();
+            while (depth.load() < 17 && beam.check_task())
+            {
+                beam.prepare();
+                beam_total += beam.get_task().size();
+                expand_threaded();
+                beam.finalize();
+                ++depth;
+            }
+            return beam.get_result().decision;
+        }
+
+        std::size_t memory_usage()
+        {
+            return beam.memory_usage();
         }
     };
 }
