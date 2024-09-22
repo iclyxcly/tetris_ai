@@ -88,12 +88,46 @@ class Botris_Client
 	using pfunc = void (Botris_Client::*)(json);
 
 private:
+	struct GameTimer
+	{
+		double initial_multiplier;
+		double final_multiplier;
+		std::chrono::steady_clock::time_point start;
+		std::chrono::steady_clock::time_point end;
+		int start_margin;
+		int end_margin;
+		void init(double i_mul, double f_mul, int s_margin, int e_margin) {
+			initial_multiplier = i_mul;
+			final_multiplier = f_mul;
+			start_margin = s_margin;
+			end_margin = e_margin;
+			start = std::chrono::steady_clock::now() + std::chrono::seconds(s_margin);
+			end = start + std::chrono::seconds(e_margin);
+		}
+		double get_multiplier()
+		{
+			auto now = std::chrono::steady_clock::now();
+			if (now < start)
+			{
+				return initial_multiplier;
+			}
+			else if (now < end)
+			{
+				auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
+				return initial_multiplier + (final_multiplier - initial_multiplier) * elapsed / end_margin;
+			}
+			else
+			{
+				return final_multiplier;
+			}
+		}
+	};
+	GameTimer timer;
 	std::string API_TOKEN;
 	std::string ROOM_KEY;
 	ix::WebSocket web_socket;
 	Engine engine;
 	Evaluation::Status status;
-	FakeNext next;
 	Payload::SessionId session_id;
 	Payload::RoomData room_data;
 	std::recursive_mutex mutex;
@@ -229,15 +263,17 @@ private:
 		data_safeshift(data, "payload");
 		data_safeshift(data, "roomData");
 		str_safeassign(data, room_data.id, "id");
-		double_safeassign(data, room_data.initialMultiplier, "initialMultiplier");
-		double_safeassign(data, room_data.finalMultiplier, "finalMultiplier");
-		int_safeassign(data, room_data.startMargin, "startMargin");
-		int_safeassign(data, room_data.endMargin, "endMargin");
 		bool_safeassign(data, room_data.gameOngoing, "gameOngoing");
 		bool_safeassign(data, room_data.roundOngoing, "roundOngoing");
 		int_safeassign(data, room_data.startedAt, "startedAt");
 		int_safeassign(data, room_data.endedAt, "endedAt");
+		data_safeshift(data, "settings");
+		double_safeassign(data, room_data.initialMultiplier, "initialMultiplier");
+		double_safeassign(data, room_data.finalMultiplier, "finalMultiplier");
+		int_safeassign(data, room_data.startMargin, "startMargin");
+		int_safeassign(data, room_data.endMargin, "endMargin");
 		utils::println(utils::INFO, " -> Room data updated");
+		timer.init(room_data.initialMultiplier, room_data.finalMultiplier, room_data.startMargin, room_data.endMargin);
 	}
 
 	void handle_msg_room_data(json data)
@@ -330,13 +366,6 @@ private:
 				}
 			}
 		}
-		// for (int i = 20; i >= 0; --i) {
-		// 	printf("%2d ", i);
-		// 	for (int j = 0; j < 10; ++j) {
-		// 		printf("%s", map.full(j, i) ? "[]" : "  ");
-		// 	}
-		// 	printf("\n");
-		// }
 		status.board.tidy();
 		status.next.reset();
 		for (auto &i : data["queue"])
@@ -352,7 +381,6 @@ private:
 		{
 			status.next.hold = (Piece)translate_mino(data["held"]);
 		}
-		status.next.fill(next);
 		int last_delay = -1;
 		uint8_t total = 0;
 		status.under_attack.lines.clear();
@@ -378,10 +406,6 @@ private:
 		{
 			status.under_attack.push(total, last_delay);
 		}
-		for (auto &i : status.under_attack.lines)
-		{
-			printf("amt: %d, delay: %d\n", i.amt, i.delay);
-		}
 		read_config(engine.get_param());
 		status.b2b = data["b2b"];
 		status.combo = data["combo"];
@@ -396,7 +420,7 @@ private:
 		atk.clear_4 = 4;
 		atk.pc = 10;
 		atk.b2b = 1;
-		atk.multiplier = 1;
+		atk.multiplier = timer.get_multiplier();
 		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
 		memcpy(atk.combo, combo_table, sizeof(atk.combo));
 		engine.submit_form(engine.get_mino_draft(), status, data["canHold"]);
@@ -413,7 +437,6 @@ private:
 		}
 		auto path = translate_command(path_str);
 		ws_make_move(path);
-		next.pop();
 	}
 	void handle_msg_player_action(json data) {}
 	void handle_msg_player_damage_received(json data) {}

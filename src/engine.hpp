@@ -16,6 +16,7 @@ namespace moenew
         using Nodeset = std::pair<Evaluation::Status, Decision>;
         Evaluation eval_engine;
         NodeManager beam;
+        FakeNext fake_next;
         bool can_hold;
         std::atomic<int> max_set_size{0}, total{0}, beam_total{0}, depth{0};
         std::recursive_mutex mutex;
@@ -216,8 +217,11 @@ namespace moenew
         {
             return eval_engine.atk;
         }
-        void submit_form(MoveData data, Evaluation::Status &status, bool can_hold)
+        void submit_form(MoveData data, Evaluation::Status status, bool can_hold)
         {
+            beam.next_length = status.next.next.size();
+            status.next.fill(fake_next);
+            fake_next.pop();
             beam_total = 0;
             total = 0;
             depth = 0;

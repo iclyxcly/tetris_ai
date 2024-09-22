@@ -115,7 +115,6 @@ struct TetrisPlayer
         real_next.fill();
         status.next.next = real_next.get(next);
         status.next.hold = real_next.hold;
-        status.next.fill();
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
         auto result = engine.start_depth_thread();

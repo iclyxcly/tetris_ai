@@ -14,7 +14,7 @@ using Playstyle = Evaluation::Playstyle;
 constexpr int CYCLE_MAX = 1000;
 struct Chemistry
 {
-    double precision = 10;
+    double precision = 1;
     int cycle = 0;
     int cycle_index = 0;
     Playstyle base;
@@ -71,6 +71,7 @@ struct TetrisPlayer
     FakeNext fake_next;
     Next real_next;
     Evaluation::Status status;
+    Random rand;
     int next_length;
     int count;
     int clear;
@@ -83,12 +84,13 @@ struct TetrisPlayer
         {
             return;
         }
-        status.under_attack.push(lines, 1);
+        bool push_1 = !status.under_attack.empty() || !(rand.next() % 3);
+        status.under_attack.push(lines, push_1);
         receive += lines;
     }
 
-    TetrisPlayer(Playstyle &param)
-        : count(0), clear(0), attack(0), receive(0)
+    TetrisPlayer(Playstyle &param, uint64_t &seed)
+        : count(0), clear(0), attack(0), receive(0), rand(seed)
     {
         status.reset();
         engine.get_param() = param;
@@ -193,7 +195,8 @@ bool test_case(Playstyle &p1, Playstyle &p2)
         for (int i = 0; i < min; ++i)
             threads.emplace_back([&p1, &p2, &win, &count, i, &view_index]
                                  {
-                TetrisPlayer player[2] = {p1, p2};
+                uint64_t seed = rand();
+                TetrisPlayer player[2] = {{p1,seed}, {p2, seed}};
                 while (player[0].run() && player[1].run())
                 {
                     auto &p1_send = player[0].status.send_attack;
