@@ -44,7 +44,7 @@ namespace moenew
 		const int *down;
 		const int *left;
 		const int *right;
-		Piece type;
+		char type;
 		std::queue<MoveData> search;
 		std::vector<MoveData> result;
 		CoordTruthTable coords;
@@ -221,7 +221,7 @@ namespace moenew
 		{
 			return !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
 		}
-		static bool immobile_global(const MoveData &mino, const Piece &type, const Board &board)
+		static bool immobile_global(const MoveData &mino, const char &type, const Board &board)
 		{
 			const Minocache *data = &mino_cache[type];
 			const int *up = up_offset[type];
@@ -298,7 +298,7 @@ namespace moenew
 				search.pop();
 			}
 		}
-		void init(Board &target, MoveData loc, Piece type)
+		void init(Board &target, MoveData loc, char type)
 		{
 			if (target.y_max >= loc.get_y())
 			{
@@ -321,7 +321,7 @@ namespace moenew
 			landpoints.reserve(max_landpoints);
 			result.reserve(max_landpoints);
 		}
-		MoveGen(Board &target, MoveData loc, Piece type)
+		MoveGen(Board &target, MoveData loc, char type)
 		{
 			init(target, loc, type);
 		}

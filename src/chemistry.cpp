@@ -68,7 +68,6 @@ struct Chemistry
 struct TetrisPlayer
 {
     Engine engine;
-    FakeNext fake_next;
     Next real_next;
     Evaluation::Status status;
     Random rand;
@@ -84,7 +83,7 @@ struct TetrisPlayer
         {
             return;
         }
-        bool push_1 = !status.under_attack.empty() || !(rand.next() % 3);
+        bool push_1 = !status.under_attack.empty() || !(rand.next() % 3) || status.clear != 0;
         status.under_attack.push(lines, push_1);
         receive += lines;
     }
@@ -121,7 +120,6 @@ struct TetrisPlayer
         real_next.fill();
         status.next.next = real_next.get(next_length);
         status.next.hold = real_next.hold;
-        status.next.fill(fake_next);
         auto mino_loc = engine.get_mino_draft();
         engine.submit_form(mino_loc, status, true);
         auto result = engine.start_depth_thread();
@@ -136,7 +134,6 @@ struct TetrisPlayer
             status.dead = true;
         }
         real_next.pop();
-        fake_next.pop();
         ++count;
         attack += status.attack;
         clear += status.clear;
@@ -159,8 +156,8 @@ void view(TetrisPlayer &p1, TetrisPlayer &p2, std::atomic<int> win[2])
     uint16_t up_2 = p2.status.under_attack.total();
     snprintf(out, sizeof out, "[TEST]: HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, WIN = %d\n"
                               "[BASE]: HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, WIN = %d\n",
-             type_to_char((Piece)p1.real_next.hold), nexts_1.c_str(), up_1, p1.status.combo, p1.status.b2b, (double)p1.attack / (double)p1.count, win[0].load(),
-             type_to_char((Piece)p2.real_next.hold), nexts_2.c_str(), up_2, p2.status.combo, p2.status.b2b, (double)p2.attack / (double)p2.count, win[1].load());
+             type_to_char(p1.real_next.hold), nexts_1.c_str(), up_1, p1.status.combo, p1.status.b2b, (double)p1.attack / (double)p1.count, win[0].load(),
+             type_to_char(p2.real_next.hold), nexts_2.c_str(), up_2, p2.status.combo, p2.status.b2b, (double)p2.attack / (double)p2.count, win[1].load());
     Board map_copy1 = p1.status.board;
     Board map_copy2 = p2.status.board;
     map_copy1.paste(cache_get(p1.status.next.peek(), DEFAULT_R, DEFAULT_X), DEFAULT_Y);

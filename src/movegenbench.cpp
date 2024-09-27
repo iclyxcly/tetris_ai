@@ -43,13 +43,13 @@ int main()
     int total = 0;
     do
     {
-        MoveGen movegen(board, mino, static_cast<Piece>(rand() % 7));
+        MoveGen movegen(board, mino, static_cast<char>(rand() % 7));
         movegen.start();
         ++runs;
         total += movegen.landpoints.size();
     } while (duration_cast<milliseconds>(high_resolution_clock::now() - now).count() < 1000);
     auto end = high_resolution_clock::now();
-    Piece type = static_cast<Piece>(rand() % 7);
+    char type = static_cast<char>(rand() % 7);
     MoveGen movegen(board, mino, type);
     movegen.start();
     for (auto &i : movegen.result)

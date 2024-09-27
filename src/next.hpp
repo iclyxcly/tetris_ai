@@ -8,7 +8,7 @@ namespace moenew
 	class FakeNext
 	{
 		public:
-		std::deque<Piece> next;
+		std::string next;
 		FakeNext()
 		{
 			fill();
@@ -21,17 +21,17 @@ namespace moenew
 		{
 			if (next.size() >= max)
 				return;
-			std::deque<Piece> mix = {S, L, Z, I, T, O, J};
+			std::string mix = {S, L, Z, I, T, O, J};
 			static std::mt19937 rng(std::random_device{}());
 			while (next.size() < max)
 			{
 				std::shuffle(mix.begin(), mix.end(), rng);
-				next.insert(next.end(), mix.begin(), mix.end());
+				next += mix;
 			}
 		}
 		void pop()
 		{
-			next.pop_front();
+			next.erase(next.begin());
 			fill();
 		}
 	};
@@ -39,14 +39,9 @@ namespace moenew
 	{
 	public:
 		Next() : hold(X) {}
-		std::deque<Piece> next;
-		Piece hold;
+		std::string next;
+		char hold;
 		bool held;
-		void init()
-		{
-			hold = X;
-			fill();
-		}
 		void reset()
 		{
 			next.clear();
@@ -57,17 +52,17 @@ namespace moenew
 		{
 			if (next.size() >= max)
 				return;
-			std::deque<Piece> mix = {S, L, Z, I, T, O, J};
+			std::string mix = {S, L, Z, I, T, O, J};
 			static std::mt19937 rng(std::random_device{}());
 			while (next.size() < max)
 			{
 				std::shuffle(mix.begin(), mix.end(), rng);
-				next.insert(next.end(), mix.begin(), mix.end());
+				next += mix;
 			}
 		}
 		void fill(FakeNext &fake_next)
 		{
-			next.insert(next.end(), fake_next.next.begin(), fake_next.next.end());
+			next += fake_next.next;
 		}
 		std::string to_string(int length = 5)
 		{
@@ -86,7 +81,7 @@ namespace moenew
 			if (hold == X)
 			{
 				hold = next.front();
-				next.pop_front();
+				next.erase(next.begin());
 				return true;
 			}
 			else
@@ -95,42 +90,28 @@ namespace moenew
 				return true;
 			}
 		}
-		Piece pop()
+		char pop()
 		{
-			Piece temp = next.front();
-			next.pop_front();
+			char temp = next.front();
+			next.erase(next.begin());
 			held = false;
 			return temp;
 		}
-		Piece peek() const
+		char peek() const
 		{
 			return next.front();
 		}
-		void push(Piece &src)
+		void push(char &src)
 		{
 			next.push_back(src);
 		}
-		void push(std::deque<Piece> &src)
+		void push(std::string &src)
 		{
-			next.insert(next.end(), src.begin(), src.end());
+			next += src;
 		}
-		std::deque<Piece> get(int n)
+		std::string get(int n)
 		{
-			std::deque<Piece> temp;
-			for (int i = 0; i < n; ++i)
-			{
-				temp.push_back(next[i]);
-			}
-			return temp;
-		}
-		std::string join()
-		{
-			std::string temp;
-			for (auto &i : next)
-			{
-				temp += type_to_char(i);
-			}
-			return temp;
+			return next.substr(0, n);
 		}
 	};
 }

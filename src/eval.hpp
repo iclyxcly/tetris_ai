@@ -128,7 +128,7 @@ namespace moenew
         AttackTable atk;
         static void find_every_spin(const Board &board, int &val)
         {
-            for (int y = board.y_max; y >= std::max<int>(0, board.y_max - 4); --y)
+            for (int y = board.y_max - 1; y >= std::max<int>(0, board.y_max - 4); --y)
             {
                 int rowm1 = board.field[y - 1];
                 int row0 = board.field[y];
@@ -136,9 +136,9 @@ namespace moenew
                 int row2 = board.field[y + 2];
                 int row3 = board.field[y + 3];
                 int row4 = board.field[y + 4];
-                int count0 = std::popcount(board.field[y]);
-                int count1 = std::popcount(board.field[y + 1]);
-                int count2 = std::popcount(board.field[y + 2]);
+                int count0 = __builtin_popcount(board.field[y]);
+                int count1 = __builtin_popcount(board.field[y + 1]);
+                int count2 = __builtin_popcount(board.field[y + 2]);
                 for (int x = 0; x < board.w; ++x)
                 {
                     int xm1 = x - 1;
@@ -540,16 +540,16 @@ namespace moenew
                         e.row_trans += board.get(x, y) != board.get(x + 1, y);
                     }
                 }
-                if (std::popcount(board.field[y]) == board.w - wide_max)
+                if (__builtin_popcount(board.field[y]) == board.w - wide_max)
                 {
                     e.wide[wide_max]++;
                 }
                 if (y - 1 >= 0)
                 {
                     int check = e.hole_count;
-                    e.hole_count += std::popcount(board.field[y] & ~board.field[y - 1]);
+                    e.hole_count += __builtin_popcount(board.field[y] & ~board.field[y - 1]);
                     e.hole_line += check != e.hole_count;
-                    e.col_trans += std::popcount(board.field[y] ^ board.field[y - 1]);
+                    e.col_trans += __builtin_popcount(board.field[y] ^ board.field[y - 1]);
                 }
             }
             if (!ret.next.next.empty())
@@ -569,12 +569,12 @@ namespace moenew
             switch (ret.clear)
             {
             case 0:
-                like += (ret.under_attack.estimate_mess() - 4) * p[TANK_CLEAN];
-                ret.under_attack.accept(ret.board, atk.messiness);
-                ret.under_attack.decay();
                 if (!ret.under_attack.lines.empty())
                 {
-                    like += ret.under_attack.lines[0].delay == 0 ? (ret.under_attack.estimate() * (ret.under_attack.estimate() - last.combo)) * p[PENDING_LOCK] : 0;
+                    like += (ret.under_attack.estimate_mess() - 4) * p[TANK_CLEAN];
+                    ret.under_attack.accept(ret.board, atk.messiness);
+                    ret.under_attack.decay();
+                    like += !(ret.under_attack.lines[0] & 1) ? (ret.under_attack.estimate() * (ret.under_attack.estimate() - last.combo)) * p[PENDING_LOCK] : 0;
                 }
                 ret.combo = 0;
                 break;

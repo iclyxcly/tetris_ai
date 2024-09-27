@@ -484,8 +484,8 @@ int main(void)
                     uint16_t up_2 = player_2.status.under_attack.total();
                     snprintf(out, sizeof out, "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, ID = %d, WIN = %d\n"
                                               "HOLD = %c NEXT = %s UP = %d COMBO = %d B2B = %d, APP = %3.2f, ID = %d, WIN = %d\n",
-                             type_to_char((Piece)player_1.real_next.hold), nexts_1.c_str(), up_1, player_1.status.combo, player_1.status.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0],
-                             type_to_char((Piece)player_2.real_next.hold), nexts_2.c_str(), up_2, player_2.status.combo, player_2.status.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1]);
+                             type_to_char(player_1.real_next.hold), nexts_1.c_str(), up_1, player_1.status.combo, player_1.status.b2b, (double)player_1.attack / (double)player_1.count, match_result.first->id, win[0],
+                             type_to_char(player_2.real_next.hold), nexts_2.c_str(), up_2, player_2.status.combo, player_2.status.b2b, (double)player_2.attack / (double)player_2.count, match_result.second->id, win[1]);
                     Board map_copy1 = player_1.status.board;
                     Board map_copy2 = player_2.status.board;
                         map_copy1.paste(cache_get(player_1.status.next.peek(), DEFAULT_R, DEFAULT_X), DEFAULT_Y);

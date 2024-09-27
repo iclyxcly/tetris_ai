@@ -368,18 +368,18 @@ private:
 		}
 		status.board.tidy();
 		status.next.reset();
+		status.next.next = translate_mino(data["current"]["piece"]);
 		for (auto &i : data["queue"])
 		{
-			status.next.next.push_back((Piece)translate_mino(i));
+			status.next.next += translate_mino(i);
 		}
-		status.next.next.push_front((Piece)translate_mino(data["current"]["piece"]));
 		if (data["held"].is_null())
 		{
 			status.next.hold = X;
 		}
 		else
 		{
-			status.next.hold = (Piece)translate_mino(data["held"]);
+			status.next.hold = translate_mino(data["held"]);
 		}
 		int last_delay = -1;
 		uint8_t total = 0;
@@ -410,19 +410,7 @@ private:
 		status.b2b = data["b2b"];
 		status.combo = data["combo"];
 		auto &atk = engine.get_attack_table();
-		atk.messiness = 0.05;
-		atk.aspin_1 = 2;
-		atk.aspin_2 = 4;
-		atk.aspin_3 = 6;
-		atk.clear_1 = 0;
-		atk.clear_2 = 1;
-		atk.clear_3 = 2;
-		atk.clear_4 = 4;
-		atk.pc = 10;
-		atk.b2b = 1;
 		atk.multiplier = timer.get_multiplier();
-		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
-		memcpy(atk.combo, combo_table, sizeof(atk.combo));
 		engine.submit_form(engine.get_mino_draft(), status, data["canHold"]);
 		auto result = engine.start_depth_thread();
 		if (result.change_hold)
@@ -501,6 +489,19 @@ private:
 			else if (msg->type == ix::WebSocketMessageType::Error)
 				handle_ws_connection_error(msg->errorInfo.reason); });
 		web_socket.start();
+		auto &atk = engine.get_attack_table();
+		atk.messiness = 0.05;
+		atk.aspin_1 = 2;
+		atk.aspin_2 = 4;
+		atk.aspin_3 = 6;
+		atk.clear_1 = 0;
+		atk.clear_2 = 1;
+		atk.clear_3 = 2;
+		atk.clear_4 = 4;
+		atk.pc = 10;
+		atk.b2b = 1;
+		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+		memcpy(atk.combo, combo_table, sizeof(atk.combo));
 	}
 
 public:

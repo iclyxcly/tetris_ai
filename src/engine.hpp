@@ -219,7 +219,6 @@ namespace moenew
         }
         void submit_form(MoveData data, Evaluation::Status status, bool can_hold)
         {
-            beam.next_length = status.next.next.size();
             status.next.fill(fake_next);
             fake_next.pop();
             beam_total = 0;

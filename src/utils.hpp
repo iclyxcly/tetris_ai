@@ -15,7 +15,7 @@ namespace moenew
     {
         return t >= min && t <= max;
     }
-    inline constexpr Piece char_to_type(const char &c)
+    inline constexpr char char_to_type(const char &c)
     {
         switch (c)
         {
@@ -37,7 +37,7 @@ namespace moenew
             return X;
         }
     }
-    inline constexpr char type_to_char(Piece p)
+    inline constexpr char type_to_char(char p)
     {
         switch (p)
         {
@@ -103,7 +103,7 @@ namespace moenew
             return 'X';
         }
     }
-    inline const std::string type_to_string(const Piece &p)
+    inline const std::string type_to_string(const char &p)
     {
         switch (p)
         {

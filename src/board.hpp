@@ -86,7 +86,7 @@ namespace moenew
 			{
 				if (field[y] != 0)
 				{
-					cnt += std::popcount(loc_c.of(w) & field[y]);
+					cnt += __builtin_popcount(loc_c.of(w) & field[y]);
 				}
 			}
 		}

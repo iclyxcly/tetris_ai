@@ -22,7 +22,7 @@ namespace moenew
 		const int *down;
 		const int *left;
 		const int *right;
-		Piece type;
+		char type;
 		MoveData mino_target;
 		MoveDataEx path_result;
 		std::queue<MoveDataEx> search;
@@ -111,6 +111,36 @@ namespace moenew
 		{
 			mino.set_x(mino.get_x() + 1);
 			return mino.get_x() <= target.w - right[mino.get_r()] - 4 && integrate(mino.get_x(), mino.get_y(), mino.get_r());
+		}
+		bool try_sonic_down(MoveDataEx &mino) const
+		{
+			int ret = 0;
+			do
+			{
+				ret++;
+			} while (try_down(mino));
+			mino.set_y(mino.get_y() + 1);
+			return ret;
+		}
+		bool try_sonic_left(MoveDataEx &mino) const
+		{
+			int ret = 0;
+			do
+			{
+				ret++;
+			} while (try_left(mino));
+			mino.set_x(mino.get_x() + 1);
+			return ret;
+		}
+		bool try_sonic_right(MoveDataEx &mino) const
+		{
+			int ret = 0;
+			do
+			{
+				ret++;
+			} while (try_right(mino));
+			mino.set_x(mino.get_x() - 1);
+			return ret;
 		}
 		bool try_cw(MoveDataEx &mino) const
 		{
@@ -205,6 +235,57 @@ namespace moenew
 		void expand(MoveDataEx &node)
 		{
 			MoveDataEx copy = node;
+			if (try_sonic_down(copy))
+			{
+				if (mino_target.get_x() == 3 && mino_target.get_r() == 0)
+					copy.path += std::string(node.get_y() - copy.get_y(), 'd');
+				else
+					copy.path.push_back('D');
+				try_push_coord(copy);
+			}
+			copy = node;
+			if (try_sonic_left(copy))
+			{
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('L');
+				try_push_coord(copy);
+			}
+			copy = node;
+			if (try_sonic_right(copy))
+			{
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('r');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('l');
+				copy.path.push_back('R');
+				try_push_coord(copy);
+			}
+			copy = node;
 			if (try_down(copy))
 			{
 				copy.path.push_back('d');
@@ -245,7 +326,7 @@ namespace moenew
 			}
 			return path_result.path;
 		}
-		void init(Board &target, MoveData loc, MoveData move_target, Piece type)
+		void init(Board &target, MoveData loc, MoveData move_target, char type)
 		{
 			this->target = target;
 			this->type = type;
@@ -257,7 +338,7 @@ namespace moenew
 			mino_target = move_target;
 			search.emplace(loc);
 		}
-		PathGen(Board &target, MoveData loc, MoveData move_target, Piece type)
+		PathGen(Board &target, MoveData loc, MoveData move_target, char type)
 		{
 			init(target, loc, move_target, type);
 		}

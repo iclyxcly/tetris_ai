@@ -22,13 +22,7 @@ namespace moenew
 	class Pending
 	{
 	public:
-		struct PendingLine
-		{
-			int amt;
-			int delay;
-			PendingLine(int amt, int delay) : amt(amt), delay(delay) {}
-		};
-		std::deque<PendingLine> lines;
+		std::string lines;
 		Random rng;
 		void rngify()
 		{
@@ -40,25 +34,24 @@ namespace moenew
 			{
 				return;
 			}
-			lines.emplace_back(amt, delay);
+			char data;
+			char line = amt;
+			if (amt > 126)
+			{
+				line = 126;
+			}
+			data = line << 1;
+			data |= delay > 0;
+			lines += data;
 		}
 		void decay()
 		{
-			if (lines.empty())
-			{
-				return;
-			}
 			for (auto &line : lines)
 			{
-				line.delay--;
-			}
-		}
-		void decay_rem()
-		{
-			decay();
-			while (!lines.empty() && lines[0].delay <= 0)
-			{
-				lines.pop_front();
+				if (line & 1)
+				{
+					line--;
+				}
 			}
 		}
 		int estimate() const
@@ -66,9 +59,9 @@ namespace moenew
 			int ret = 0;
 			for (const auto &line : lines)
 			{
-				if (line.delay <= 0)
+				if (!(line & 1))
 				{
-					ret += line.amt;
+					ret += line >> 1;
 				}
 			}
 			return ret;
@@ -79,9 +72,9 @@ namespace moenew
 			int cnt = 0;
 			for (const auto &line : lines)
 			{
-				if (line.delay <= 0)
+				if (!(line & 1))
 				{
-					ret += line.amt;
+					ret += line >> 1;
 					cnt++;
 				}
 			}
@@ -93,32 +86,32 @@ namespace moenew
 			{
 				return 0;
 			}
-			return std::accumulate(lines.begin(), lines.end(), 0, [](int acc, PendingLine &line)
-								   { return acc + line.amt; });
+			return std::accumulate(lines.begin(), lines.end(), 0, [](int acc, char line)
+								   { return acc + (line >> 1); });
 		}
 		void cancel(int &amt)
 		{
 			while (amt > 0 && !lines.empty())
 			{
-				if (lines[0].amt <= amt)
+				if (lines[0] >> 1 > amt)
 				{
-					amt -= lines[0].amt;
-					lines.pop_front();
+					lines[0] -= amt << 1;
+					amt = 0;
 				}
 				else
 				{
-					lines[0].amt -= amt;
-					amt = 0;
+					amt -= lines[0] >> 1;
+					lines.erase(lines.begin());
 				}
 			}
 		}
 		void accept(Board &src, const double &mess)
 		{
-			while (!lines.empty() && lines[0].delay <= 0)
+			while (!lines.empty() && !(lines[0] & 1))
 			{
 				int index = rng.next() % src.w;
 				int acc = 0;
-				for (int i = 0; i < lines[0].amt; i++)
+				for (int i = 0; i < lines[0] >> 1; i++)
 				{
 					++acc;
 					if (rng.next() % 100 < mess * 100)
@@ -127,7 +120,7 @@ namespace moenew
 					}
 					src.rise(1, index);
 				}
-				lines.pop_front();
+				lines.erase(lines.begin());
 			}
 		}
 		bool empty() const

@@ -88,3 +88,6 @@ src/original/best_param.txt
 src/chemistry_pvp
 src/chemistry.bin
 src/chemistry
+src/trace_data.bin
+src/trace
+src/perf.txt
