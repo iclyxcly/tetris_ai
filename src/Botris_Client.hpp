@@ -421,7 +421,7 @@ private:
 		auto path_str = (result.change_hold ? "v" : "") + pathgen.build();
 		if (!cycle(status, result, atk))
 		{
-			return;
+			Sleep(4500);
 		}
 		auto path = translate_command(path_str);
 		ws_make_move(path);

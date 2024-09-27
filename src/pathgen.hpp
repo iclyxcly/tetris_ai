@@ -235,54 +235,81 @@ namespace moenew
 		void expand(MoveDataEx &node)
 		{
 			MoveDataEx copy = node;
-			if (try_sonic_down(copy))
-			{
-				if (mino_target.get_x() == 3 && mino_target.get_r() == 0)
-					copy.path += std::string(node.get_y() - copy.get_y(), 'd');
-				else
-					copy.path.push_back('D');
-				try_push_coord(copy);
-			}
-			copy = node;
 			if (try_sonic_left(copy))
 			{
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('L');
+				if (copy.get_status() == Others)
+				{
+					copy.path.push_back('L');
+				}
+				else
+				{
+					copy.set_status(Others);
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('L');
+				}
 				try_push_coord(copy);
 			}
 			copy = node;
 			if (try_sonic_right(copy))
 			{
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('r');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('l');
-				copy.path.push_back('R');
+				if (copy.get_status() == Others)
+				{
+					copy.path.push_back('R');
+				}
+				else
+				{
+					copy.set_status(Others);
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('l');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('r');
+					copy.path.push_back('R');
+				}
+				try_push_coord(copy);
+			}
+			copy = node;
+			if (try_cw(copy))
+			{
+				copy.path.push_back('c');
+				try_push_coord(copy);
+			}
+			copy = node;
+			if (try_ccw(copy))
+			{
+				copy.path.push_back('z');
+				try_push_coord(copy);
+			}
+			node.set_status(Others);
+			copy = node;
+			if (try_sonic_down(copy))
+			{
+				copy.path += std::string(5, 'd');
+				copy.path.push_back('D');
 				try_push_coord(copy);
 			}
 			copy = node;
@@ -301,18 +328,6 @@ namespace moenew
 			if (try_right(copy))
 			{
 				copy.path.push_back('r');
-				try_push_coord(copy);
-			}
-			copy = node;
-			if (try_cw(copy))
-			{
-				copy.path.push_back('c');
-				try_push_coord(copy);
-			}
-			copy = node;
-			if (try_ccw(copy))
-			{
-				copy.path.push_back('z');
 				try_push_coord(copy);
 			}
 			harddrop(node);
@@ -336,6 +351,7 @@ namespace moenew
 			left = left_offset[type];
 			right = right_offset[type];
 			mino_target = move_target;
+			loc.set_status(LR);
 			search.emplace(loc);
 		}
 		PathGen(Board &target, MoveData loc, MoveData move_target, char type)
