@@ -15,7 +15,6 @@ namespace moenew
 			w = BOARD_WIDTH;
 			h = BOARD_HEIGHT;
 			y_max = 0;
-			cnt = 0;
 			std::memset(field, 0, sizeof(field));
 		}
 		Board(int w, int h)
@@ -23,7 +22,6 @@ namespace moenew
 			this->w = w;
 			this->h = h;
 			y_max = 0;
-			cnt = 0;
 			std::memset(field, 0, sizeof(field));
 		}
 		std::string print(int top) const
@@ -57,7 +55,6 @@ namespace moenew
 		{
 			std::memset(field, 0, sizeof(field));
 			y_max = 0;
-			cnt = 0;
 		}
 		int flush()
 		{
@@ -70,7 +67,6 @@ namespace moenew
 					trim(y);
 				}
 			}
-			cnt -= clear * (w - 1);
 			return clear;
 		}
 		void tidy()
@@ -81,14 +77,6 @@ namespace moenew
 				y--;
 			}
 			y_max = y;
-			cnt = 0;
-			for (; y >= 0; y--)
-			{
-				if (field[y] != 0)
-				{
-					cnt += __builtin_popcount(loc_c.of(w) & field[y]);
-				}
-			}
 		}
 		void rise(int amt, int i)
 		{
@@ -139,10 +127,18 @@ namespace moenew
 			}
 			return true;
 		}
-		int8_t y_max;
-		int cnt;
-		int w;
-		int h;
-		uint64_t field[BOARD_HEIGHT];
+		uint8_t get_safe() const
+		{
+			uint8_t safe = DEFAULT_Y;
+			while (safe > 0 && !get(DEFAULT_X, safe - 1) && !get(DEFAULT_X + 1, safe - 1) && !get(DEFAULT_X + 2, safe - 1) && !get(DEFAULT_X + 3, safe - 1))
+			{
+				--safe;
+			}
+			return DEFAULT_Y - safe;
+		}
+		uint8_t y_max : 5;
+		uint8_t w : 5;
+		uint8_t h : 5;
+		uint16_t field[BOARD_HEIGHT];
 	};
 }

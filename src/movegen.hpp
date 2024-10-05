@@ -317,7 +317,7 @@ namespace moenew
 			left = left_offset[type];
 			right = right_offset[type];
 			search.emplace(loc);
-			search.front().set_y(std::min(search.front().get_y(), target.y_max));
+			search.front().set_y(std::min<int>(search.front().get_y(), target.y_max));
 			landpoints.reserve(max_landpoints);
 			result.reserve(max_landpoints);
 		}
