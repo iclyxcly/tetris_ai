@@ -18,7 +18,7 @@ namespace moenew
         NodeManager beam;
         FakeNext fake_next;
         bool can_hold;
-        std::atomic<int> max_set_size{0}, total{0}, beam_total{0}, depth{0};
+        int max_set_size{0}, total{0}, depth{0};
         std::recursive_mutex mutex;
         struct RatingCompare
         {
@@ -82,7 +82,6 @@ namespace moenew
                 template_stat.next = next;
                 process_expansion(set, data, search, template_stat, true);
             }
-            total += set.size();
             for (auto &func : eval_engine.evaluations)
             {
                 for (auto &new_data : set)
@@ -94,7 +93,8 @@ namespace moenew
             {
                 beam.try_insert(new_data.first, sptr, new_data.second);
             }
-            max_set_size = std::max(max_set_size.load(), (int)set.size());
+            total += set.size();
+            max_set_size = std::max(max_set_size, (int)set.size());
         }
 
         void expand_node_threaded(const nodeptr &sptr)
@@ -122,7 +122,6 @@ namespace moenew
                 template_stat.next = next;
                 process_expansion(set, data, search, template_stat, true);
             }
-            total += set.size();
             for (auto &func : eval_engine.evaluations)
             {
                 for (auto &new_data : set)
@@ -131,12 +130,13 @@ namespace moenew
                 }
             }
             mutex.lock();
+            total += set.size();
             for (auto &new_data : set)
             {
                 beam.try_insert(new_data.first, sptr, new_data.second);
             }
+            max_set_size = std::max(max_set_size, (int)set.size());
             mutex.unlock();
-            max_set_size = std::max(max_set_size.load(), (int)set.size());
         }
 
         void expand(bool first = false)
@@ -221,7 +221,6 @@ namespace moenew
         {
             status.next.fill(fake_next);
             fake_next.pop();
-            beam_total = 0;
             total = 0;
             depth = 0;
             this->can_hold = can_hold;
@@ -236,12 +235,11 @@ namespace moenew
             while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand();
                 beam.finalize();
                 ++depth;
             }
-            printf("Total: %d, Beam Total: %d, Depth: %d\n", total.load(), beam_total.load(), depth.load());
+            printf("Total: %d, Depth: %d\n", total, depth);
             return beam.get_result().decision;
         }
         Decision start_threaded()
@@ -251,22 +249,20 @@ namespace moenew
             while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand_threaded();
                 beam.finalize();
                 ++depth;
             }
-            printf("Total: %d, Beam Total: %d, Depth: %d\n", total.load(), beam_total.load(), depth.load());
+            printf("Total: %d, Depth: %d\n", total, depth);
             return beam.get_result().decision;
         }
         Decision start_noded()
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (total.load() < 100000 && beam.check_task())
+            while (total < 100000 && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand();
                 beam.finalize();
                 ++depth;
@@ -278,10 +274,9 @@ namespace moenew
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (total.load() < 100000 && beam.check_task())
+            while (total < 100000 && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand_threaded();
                 beam.finalize();
                 ++depth;
@@ -293,10 +288,9 @@ namespace moenew
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (depth.load() < 17 && beam.check_task())
+            while (depth < 17 && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand();
                 beam.finalize();
                 ++depth;
@@ -308,10 +302,9 @@ namespace moenew
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (depth.load() < 17 && beam.check_task())
+            while (depth < 17 && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand_threaded();
                 beam.finalize();
                 ++depth;

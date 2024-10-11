@@ -60,7 +60,7 @@ struct PSOConfig
         pso_config(Evaluation::CLEAR_4, 800, 40);
     }
 };
-constexpr int MAX_MATCH = 100;
+constexpr int MAX_MATCH = 55;
 constexpr int MATCH_AREA = 4;
 struct TetrisPlayer
 {
@@ -167,9 +167,15 @@ struct PSOParticleData
     int ingame;
     double rating;
     double best;
-    void inform_global_best(const Playstyle &global_best)
+    void inform_global_best(const PSOParticleData &best)
     {
-        pos[PSO_BEST_GLOBAL] = global_best;
+        pos[PSO_BEST_GLOBAL] = best.pos[PSO_BEST_PERSONAL];
+        if (id == 0)
+        {
+            pos[PSO_CURRENT] = best.pos[PSO_BEST_PERSONAL];
+            pos[PSO_BEST_PERSONAL] = best.pos[PSO_BEST_PERSONAL];
+            this->best = best.best;
+        }
     }
     void calc_init()
     {
@@ -196,7 +202,7 @@ struct PSOParticleData
     {
         if (rating > best)
         {
-            best = rating   ;
+            best = rating;
             pos[PSO_BEST_PERSONAL] = pos[PSO_CURRENT];
         }
         else 
@@ -265,7 +271,6 @@ struct PSOSwarmManager
 
     void import_init(Playstyle &param)
     {
-        return;
         FILE *file = fopen("import_param.txt", "r");
         if (file == nullptr)
         {
@@ -429,7 +434,7 @@ struct PSOSwarmManager
             global_best = best.pos[PSO_BEST_PERSONAL];
             for (auto &particle : swarm)
             {
-                particle->inform_global_best(global_best);
+                particle->inform_global_best(best);
             }
             export_best(global_best);
         }
