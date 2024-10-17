@@ -288,7 +288,7 @@ namespace moenew
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (depth < 17 && beam.check_task())
+            while (depth < 11 && beam.check_task())
             {
                 beam.prepare();
                 expand();
@@ -302,7 +302,7 @@ namespace moenew
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (depth < 17 && beam.check_task())
+            while (depth < 11 && beam.check_task())
             {
                 beam.prepare();
                 expand_threaded();

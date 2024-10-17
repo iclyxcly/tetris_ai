@@ -127,14 +127,14 @@ namespace moenew
 			}
 			return true;
 		}
-		uint8_t get_safe() const
+		uint8_t get_safe(int offset) const
 		{
-			uint8_t safe = DEFAULT_Y;
+			uint8_t safe = DEFAULT_Y - offset; 
 			while (safe > 0 && !get(DEFAULT_X, safe - 1) && !get(DEFAULT_X + 1, safe - 1) && !get(DEFAULT_X + 2, safe - 1) && !get(DEFAULT_X + 3, safe - 1))
 			{
 				--safe;
 			}
-			return DEFAULT_Y - safe;
+			return (DEFAULT_Y - offset) - safe;
 		}
 		uint8_t y_max : 5;
 		uint8_t w : 5;

@@ -115,7 +115,7 @@ namespace moenew
 
         void trim(int version)
         {
-            while (row_result.size() > std::max<std::size_t>(64, BEAM_WIDTH / (version + 1)))
+            while (row_result.size() > BEAM_WIDTH)
             {
                 row_result.pop();
             }
@@ -149,7 +149,7 @@ namespace moenew
 
         void try_insert(const Evaluation::Status &status, const nodeptr &parent, const Decision &decision)
         {
-            if (row_result.size() < std::max<std::size_t>(64, BEAM_WIDTH / (parent->version + 1)))
+            if (row_result.size() < BEAM_WIDTH)
             {
                 insert_child(status, parent, decision);
                 return;

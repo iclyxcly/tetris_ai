@@ -536,8 +536,16 @@ namespace moenew
             {
                 int wide_max = 0;
                 int wide_count = 0;
+                int check = e.hole_count;
                 for (int x = 0; x < board.w; x++)
                 {
+                    bool left = x == 0 || board.get(x - 1, y);
+                    bool right = x + 1 >= board.w || board.get(x + 1, y);
+                    bool up = y == 0 || board.get(x, y - 1);
+                    if (left && right && up && !board.get(x, y))
+                    {
+                        e.hole_count++;
+                    }
                     if (board.get(x, y))
                     {
                         if (e.aggregate_height_arr[x] == 0)
@@ -558,19 +566,22 @@ namespace moenew
                     {
                         e.row_trans += board.get(x, y) != board.get(x + 1, y);
                     }
+                    else if (x + 1 == board.w || x == 0)
+                    {
+                        e.row_trans += !board.get(x, y);
+                    }
                 }
                 if (__builtin_popcount(board.field[y]) == board.w - wide_max)
                 {
                     e.wide[wide_max]++;
                 }
+                e.hole_line += e.hole_count != check;
                 if (y - 1 >= 0)
                 {
-                    int check = e.hole_count;
-                    e.hole_count += __builtin_popcount(board.field[y] & ~board.field[y - 1]);
-                    e.hole_line += check != e.hole_count;
                     e.col_trans += __builtin_popcount(board.field[y] ^ board.field[y - 1]);
                 }
             }
+            e.col_trans += board.w - __builtin_popcount(board.field[0]);
             for (int i = 0; i < board.w; i++)
             {
                 e.aggregate_height += e.aggregate_height_arr[i];
@@ -690,12 +701,12 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            int safe = ret.board.get_safe();
+            int safe = ret.board.get_safe(down_offset[ret.next.peek()][0]);
             ret.rating += (0.
                 + like * (safe + 8)
                 + p[ATTACK] * ret.attack * (safe + 12)
-                + p[B2B] * ret.b2b * std::max<int>(1, safe - 12)
-                + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) * std::max(1, 8 - safe)
+                + p[B2B] * (ret.allspin + last.allspin + (ret.clear == 4) + (last.clear == 4) + ret.b2b) * std::max<int>(1, safe - 12)
+                + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) * ((DEFAULT_Y - down_offset[ret.next.peek()][0]- safe))
                 - 999999 * ret.dead
             );
         }
@@ -734,7 +745,7 @@ namespace moenew
                 }
                 return 21;
             };
-            int safe = ret.board.get_safe();
+            int safe = ret.board.get_safe(down_offset[ret.next.peek()][0]);
             double slot = 0;
             slot += data.s * (3.0 / (expect('S') + 1));
             slot += data.l * (2.0 / (expect('L') + 1));

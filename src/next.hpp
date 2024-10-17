@@ -62,7 +62,10 @@ namespace moenew
 		}
 		void fill(FakeNext &fake_next)
 		{
-			next += fake_next.next;
+			for (int i = 0; i < fake_next.next.size() && next.size() < 15; ++i)
+			{
+				next.push_back(fake_next.next[i]);
+			}
 		}
 		std::string to_string(int length = 5)
 		{

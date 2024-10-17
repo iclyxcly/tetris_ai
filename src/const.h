@@ -4,7 +4,7 @@
 #include <string>
 namespace moenew
 {
-	inline constexpr int BEAM_WIDTH = 4096;
+	inline constexpr int BEAM_WIDTH = 1000;
 	inline constexpr int BOARD_WIDTH = 10;
 	inline constexpr int BOARD_HEIGHT = 31;
 	inline constexpr int DEFAULT_X = 3;
