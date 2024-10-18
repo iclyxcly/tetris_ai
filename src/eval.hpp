@@ -683,8 +683,9 @@ namespace moenew
             if (ret.board.y_max == 0)
             {
                 ret.attack = atk.pc;
-                like += 99999;
+                like += 99999 * (ret.combo + ret.cumulative_attack);
             }
+            int attack_origin = ret.attack;
             ret.attack *= atk.multiplier;
             ret.send_attack = ret.attack;
             ret.under_attack.cancel(ret.send_attack);
@@ -707,6 +708,7 @@ namespace moenew
                 + p[ATTACK] * ret.attack * (safe + 12)
                 + p[B2B] * (ret.allspin + last.allspin + (ret.clear == 4) + (last.clear == 4) + ret.b2b) * std::max<int>(1, safe - 12)
                 + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) * ((DEFAULT_Y - down_offset[ret.next.peek()][0]- safe))
+                + (atk.get_combo(ret.combo) > 3 || (ret.combo > 5 && attack_origin > 6) ? 99999 : 0)
                 - 999999 * ret.dead
             );
         }
