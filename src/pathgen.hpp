@@ -237,59 +237,13 @@ namespace moenew
 			MoveDataEx copy = node;
 			if (try_sonic_left(copy))
 			{
-				if (copy.get_status() == Others)
-				{
 					copy.path.push_back('L');
-				}
-				else
-				{
-					copy.set_status(Others);
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('L');
-				}
 				try_push_coord(copy);
 			}
 			copy = node;
 			if (try_sonic_right(copy))
 			{
-				if (copy.get_status() == Others)
-				{
 					copy.path.push_back('R');
-				}
-				else
-				{
-					copy.set_status(Others);
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('l');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('r');
-					copy.path.push_back('R');
-				}
 				try_push_coord(copy);
 			}
 			copy = node;
@@ -306,19 +260,6 @@ namespace moenew
 			}
 			node.set_status(Others);
 			copy = node;
-			if (try_sonic_down(copy))
-			{
-				copy.path += std::string(5, 'd');
-				copy.path.push_back('D');
-				try_push_coord(copy);
-			}
-			copy = node;
-			if (try_down(copy))
-			{
-				copy.path.push_back('d');
-				try_push_coord(copy);
-			}
-			copy = node;
 			if (try_left(copy))
 			{
 				copy.path.push_back('l');
@@ -328,6 +269,18 @@ namespace moenew
 			if (try_right(copy))
 			{
 				copy.path.push_back('r');
+				try_push_coord(copy);
+			}
+			copy = node;
+			if (try_sonic_down(copy))
+			{
+				copy.path.push_back('D');
+				try_push_coord(copy);
+			}
+			copy = node;
+			if (try_down(copy))
+			{
+				copy.path.push_back('d');
 				try_push_coord(copy);
 			}
 			harddrop(node);

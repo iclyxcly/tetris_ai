@@ -311,10 +311,5 @@ namespace moenew
             }
             return beam.get_result().decision;
         }
-
-        std::size_t memory_usage()
-        {
-            return beam.memory_usage();
-        }
     };
 }

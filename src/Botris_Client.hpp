@@ -419,10 +419,7 @@ private:
 		}
 		PathGen pathgen(status.board, engine.get_mino_draft(), result, status.next.peek());
 		auto path_str = (result.change_hold ? "v" : "") + pathgen.build();
-		if (!cycle(status, result, atk))
-		{
-			Sleep(4500);
-		}
+		cycle(status, result, atk);
 		auto path = translate_command(path_str);
 		ws_make_move(path);
 	}

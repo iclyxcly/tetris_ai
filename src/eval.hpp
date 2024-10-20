@@ -702,12 +702,12 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            int safe = ret.board.get_safe(down_offset[ret.next.peek()][0]);
+            int safe = ret.board.get_safe(ret.next.next);
             ret.rating += (0.
                 + like * (safe + 8)
                 + p[ATTACK] * ret.attack * (safe + 12)
                 + p[B2B] * (ret.allspin + last.allspin + (ret.clear == 4) + (last.clear == 4) + ret.b2b) * std::max<int>(1, safe - 12)
-                + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) * ((DEFAULT_Y - down_offset[ret.next.peek()][0]- safe))
+                + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) * ((DEFAULT_Y - (ret.next.next.empty() ? 0 : down_offset[ret.next.peek()][0]) - safe))
                 + (atk.get_combo(ret.combo) > 3 || (ret.combo > 5 && attack_origin > 6) ? 99999 : 0)
                 - 999999 * ret.dead
             );
@@ -747,7 +747,7 @@ namespace moenew
                 }
                 return 21;
             };
-            int safe = ret.board.get_safe(down_offset[ret.next.peek()][0]);
+            int safe = ret.board.get_safe(ret.next.next);
             double slot = 0;
             slot += data.s * (3.0 / (expect('S') + 1));
             slot += data.l * (2.0 / (expect('L') + 1));

@@ -78,7 +78,7 @@ namespace moenew
 		}
 		bool swap()
 		{
-			if (held || next.size() == 0 || hold == next[0])
+			if (held || next.size() <= 1 || hold == next[0])
 				return false;
 			held = true;
 			if (hold == X)
