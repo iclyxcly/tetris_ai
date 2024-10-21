@@ -70,7 +70,7 @@ namespace moenew
             row_result.push(child);
         }
 
-        void trim(int version)
+        void trim()
         {
             while (row_result.size() > BEAM_WIDTH)
             {
@@ -111,7 +111,7 @@ namespace moenew
             }
 
             insert_child(status, parent, decision);
-            trim(parent->version);
+            trim();
         }
 
         void finalize()

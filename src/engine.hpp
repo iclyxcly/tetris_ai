@@ -3,9 +3,9 @@
 #include "eval.hpp"
 #include "emu.hpp"
 #include "minotemplate.h"
+#include "thread.hpp"
 #include <mutex>
 #include <chrono>
-#include <thread>
 #include <iostream>
 
 namespace moenew
@@ -20,6 +20,7 @@ namespace moenew
         bool can_hold;
         int max_set_size{0}, total{0}, depth{0};
         std::recursive_mutex mutex;
+        ThreadPool pool;
         struct RatingCompare
         {
             bool operator()(Nodeset &left, Nodeset &right)
@@ -161,7 +162,6 @@ namespace moenew
             }
 
             std::vector<std::queue<nodeptr>> chunked_queue(thread_count);
-            std::vector<std::thread> threads;
 
             std::size_t chunk_size = queue.size() / thread_count;
             for (std::size_t i = 0; i < thread_count; ++i)
@@ -181,22 +181,14 @@ namespace moenew
 
             for (auto &chunk : chunked_queue)
             {
-                threads.emplace_back([this, &chunk]()
-                                     {
-            while (!chunk.empty())
-            {
+                pool.enqueue([this, chunk = std::move(chunk)]() mutable
+                             {
+            while (!chunk.empty()) {
                 expand_node_threaded(chunk.front());
                 chunk.pop();
             } });
             }
-
-            for (auto &thread : threads)
-            {
-                if (thread.joinable())
-                {
-                    thread.join();
-                }
-            }
+            pool.wait();
         }
 
     public:
