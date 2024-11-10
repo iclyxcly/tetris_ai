@@ -10,3 +10,7 @@ machinezone/IXWebSocket
 # key.json for Botris
 Format:
 ```{"api_token":"", "room_key":""}```
+
+# FAQ
+## This bot has no name?
+yes
