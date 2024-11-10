@@ -1,11 +1,10 @@
 #include "node.hpp"
 #include "movegen.hpp"
 #include "eval.hpp"
-#include "emu.hpp"
 #include "minotemplate.h"
+#include "thread.hpp"
 #include <mutex>
 #include <chrono>
-#include <thread>
 #include <iostream>
 
 namespace moenew
@@ -18,8 +17,10 @@ namespace moenew
         NodeManager beam;
         FakeNext fake_next;
         bool can_hold;
-        std::atomic<int> max_set_size{0}, total{0}, beam_total{0}, depth{0};
+        int id;
+        int max_set_size{0};
         std::recursive_mutex mutex;
+        ThreadPool pool;
         struct RatingCompare
         {
             bool operator()(Nodeset &left, Nodeset &right)
@@ -82,19 +83,16 @@ namespace moenew
                 template_stat.next = next;
                 process_expansion(set, data, search, template_stat, true);
             }
-            total += set.size();
-            for (auto &func : eval_engine.evaluations)
+            for (auto &new_data : set)
             {
-                for (auto &new_data : set)
-                {
-                    func(data->status, new_data.first, data->version + 1);
-                }
+                eval_engine.eval(data->status, new_data.first, data->version + 1, id);
             }
             for (auto &new_data : set)
             {
                 beam.try_insert(new_data.first, sptr, new_data.second);
             }
-            max_set_size = std::max(max_set_size.load(), (int)set.size());
+            total += set.size();
+            max_set_size = std::max(max_set_size, (int)set.size());
         }
 
         void expand_node_threaded(const nodeptr &sptr)
@@ -122,21 +120,18 @@ namespace moenew
                 template_stat.next = next;
                 process_expansion(set, data, search, template_stat, true);
             }
-            total += set.size();
-            for (auto &func : eval_engine.evaluations)
+            for (auto &new_data : set)
             {
-                for (auto &new_data : set)
-                {
-                    func(data->status, new_data.first, data->version + 1);
-                }
+                eval_engine.eval(data->status, new_data.first, data->version + 1, id);
             }
             mutex.lock();
+            total += set.size();
             for (auto &new_data : set)
             {
                 beam.try_insert(new_data.first, sptr, new_data.second);
             }
+            max_set_size = std::max(max_set_size, (int)set.size());
             mutex.unlock();
-            max_set_size = std::max(max_set_size.load(), (int)set.size());
         }
 
         void expand(bool first = false)
@@ -161,7 +156,6 @@ namespace moenew
             }
 
             std::vector<std::queue<nodeptr>> chunked_queue(thread_count);
-            std::vector<std::thread> threads;
 
             std::size_t chunk_size = queue.size() / thread_count;
             for (std::size_t i = 0; i < thread_count; ++i)
@@ -181,25 +175,18 @@ namespace moenew
 
             for (auto &chunk : chunked_queue)
             {
-                threads.emplace_back([this, &chunk]()
-                                     {
-            while (!chunk.empty())
-            {
+                pool.enqueue([this, chunk = std::move(chunk)]() mutable
+                             {
+            while (!chunk.empty()) {
                 expand_node_threaded(chunk.front());
                 chunk.pop();
             } });
             }
-
-            for (auto &thread : threads)
-            {
-                if (thread.joinable())
-                {
-                    thread.join();
-                }
-            }
+            pool.wait();
         }
 
     public:
+        int total{0}, depth{0};
         Engine() {};
         MoveData get_mino_draft()
         {
@@ -217,12 +204,11 @@ namespace moenew
         {
             return eval_engine.atk;
         }
-        void submit_form(MoveData data, Evaluation::Status status, bool can_hold)
+        void submit_form(MoveData data, Evaluation::Status status, bool can_hold, int id)
         {
-            beam.next_length = status.next.next.size();
+            this->id = id;
             status.next.fill(fake_next);
             fake_next.pop();
-            beam_total = 0;
             total = 0;
             depth = 0;
             this->can_hold = can_hold;
@@ -230,99 +216,104 @@ namespace moenew
             beam.create_root(Decision(data, can_hold), status);
             expand(true);
         }
-        Decision start()
+        auto start(long long time)
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
+            while (high_resolution_clock::now() - now < milliseconds(time) && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand();
                 beam.finalize();
                 ++depth;
             }
-            printf("Total: %d, Beam Total: %d, Depth: %d\n", total.load(), beam_total.load(), depth.load());
-            return beam.get_result().decision;
+            // printf("Total: %d, Depth: %d\n", total, depth);
+            if (depth < 13)
+            {
+                beam.target_beam = std::max(200, beam.target_beam - 30);
+            }
+            else if (depth > 15)
+            {
+                beam.target_beam = beam.target_beam + 15;
+            }
+            return beam.get_result();
         }
-        Decision start_threaded()
+        auto start_threaded(long long time)
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
+            while (high_resolution_clock::now() - now < milliseconds(time) && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand_threaded();
                 beam.finalize();
                 ++depth;
             }
-            printf("Total: %d, Beam Total: %d, Depth: %d\n", total.load(), beam_total.load(), depth.load());
-            return beam.get_result().decision;
+            // printf("Total: %d, Depth: %d\n", total, depth);
+            if (depth < 13)
+            {
+                beam.target_beam = std::max(200, beam.target_beam - 30);
+            }
+            else if (depth > 15)
+            {
+                beam.target_beam = beam.target_beam + 15;
+            }
+            return beam.get_result();
         }
-        Decision start_noded()
+        auto start_noded()
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (total.load() < 100000 && beam.check_task())
+            while (total < 100000 && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand();
                 beam.finalize();
                 ++depth;
             }
-            return beam.get_result().decision;
+            return beam.get_result();
         }
 
-        Decision start_noded_thread()
+        auto start_noded_thread()
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (total.load() < 100000 && beam.check_task())
+            while (total < 100000 && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand_threaded();
                 beam.finalize();
                 ++depth;
             }
-            return beam.get_result().decision;
+            return beam.get_result();
         }
 
-        Decision start_depth()
+        auto start_depth()
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (depth.load() < 17 && beam.check_task())
+            while (depth < 11 && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand();
                 beam.finalize();
                 ++depth;
             }
-            return beam.get_result().decision;
+            return beam.get_result();
         }
 
-        Decision start_depth_thread()
+        auto start_depth_thread()
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (depth.load() < 17 && beam.check_task())
+            while (depth < 11 && beam.check_task())
             {
                 beam.prepare();
-                beam_total += beam.get_task().size();
                 expand_threaded();
                 beam.finalize();
                 ++depth;
             }
-            return beam.get_result().decision;
-        }
-
-        std::size_t memory_usage()
-        {
-            return beam.memory_usage();
+            return beam.get_result();
         }
     };
 }

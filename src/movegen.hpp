@@ -44,7 +44,7 @@ namespace moenew
 		const int *down;
 		const int *left;
 		const int *right;
-		Piece type;
+		char type;
 		std::queue<MoveData> search;
 		std::vector<MoveData> result;
 		CoordTruthTable coords;
@@ -221,29 +221,34 @@ namespace moenew
 		{
 			return !test_up(mino) && !test_down(mino) && !test_left(mino) && !test_right(mino);
 		}
-		static bool immobile_global(const MoveData &mino, const Piece &type, const Board &board)
+		static bool immobile_global(const MoveData &mino, const char &type, const Board &board)
 		{
 			const Minocache *data = &mino_cache[type];
 			const int *up = up_offset[type];
 			const int *down = down_offset[type];
 			const int *left = left_offset[type];
 			const int *right = right_offset[type];
-			auto integrate = [&board, &data](const int8_t &x, const int8_t &y, const int8_t &r) -> bool {
+			auto integrate = [&board, &data](const int8_t &x, const int8_t &y, const int8_t &r) -> bool
+			{
 				const auto *rows = data->get(r, x);
 				return board.integrate(rows, y);
 			};
-			auto test_up = [&integrate](const MoveData &mino) -> bool {
+			auto test_up = [&integrate](const MoveData &mino) -> bool
+			{
 				return integrate(mino.get_x(), mino.get_y() + 1, mino.get_r());
 			};
-			auto test_down = [&integrate, &down](const MoveData &mino) -> bool {
+			auto test_down = [&integrate, &down](const MoveData &mino) -> bool
+			{
 				int y = mino.get_y() - 1;
 				return y >= down[mino.get_r()] && integrate(mino.get_x(), y, mino.get_r());
 			};
-			auto test_left = [&integrate, &left](const MoveData &mino) -> bool {
+			auto test_left = [&integrate, &left](const MoveData &mino) -> bool
+			{
 				int x = mino.get_x() - 1;
 				return x >= left[mino.get_r()] && integrate(x, mino.get_y(), mino.get_r());
 			};
-			auto test_right = [&integrate, &right, &board](const MoveData &mino) -> bool {
+			auto test_right = [&integrate, &right, &board](const MoveData &mino) -> bool
+			{
 				int x = mino.get_x() + 1;
 				return x <= board.w - right[mino.get_r()] - 4 && integrate(x, mino.get_y(), mino.get_r());
 			};
@@ -298,7 +303,7 @@ namespace moenew
 				search.pop();
 			}
 		}
-		void init(Board &target, MoveData loc, Piece type)
+		void init(Board &target, MoveData loc, char type)
 		{
 			if (target.y_max >= loc.get_y())
 			{
@@ -317,11 +322,11 @@ namespace moenew
 			left = left_offset[type];
 			right = right_offset[type];
 			search.emplace(loc);
-			search.front().set_y(std::min(search.front().get_y(), target.y_max));
+			search.front().set_y(std::min<int>(search.front().get_y(), target.y_max));
 			landpoints.reserve(max_landpoints);
 			result.reserve(max_landpoints);
 		}
-		MoveGen(Board &target, MoveData loc, Piece type)
+		MoveGen(Board &target, MoveData loc, char type)
 		{
 			init(target, loc, type);
 		}

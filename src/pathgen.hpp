@@ -15,6 +15,7 @@ namespace moenew
 			MoveDataEx() : MoveData() {}
 			MoveDataEx(const MoveData &data) : MoveData(data) {}
 		};
+
 	public:
 		Board target;
 		const Minocache *data;
@@ -22,7 +23,7 @@ namespace moenew
 		const int *down;
 		const int *left;
 		const int *right;
-		Piece type;
+		char type;
 		MoveData mino_target;
 		MoveDataEx path_result;
 		std::queue<MoveDataEx> search;
@@ -111,6 +112,36 @@ namespace moenew
 		{
 			mino.set_x(mino.get_x() + 1);
 			return mino.get_x() <= target.w - right[mino.get_r()] - 4 && integrate(mino.get_x(), mino.get_y(), mino.get_r());
+		}
+		bool try_sonic_down(MoveDataEx &mino) const
+		{
+			int ret = 0;
+			do
+			{
+				ret++;
+			} while (try_down(mino));
+			mino.set_y(mino.get_y() + 1);
+			return ret;
+		}
+		bool try_sonic_left(MoveDataEx &mino) const
+		{
+			int ret = 0;
+			do
+			{
+				ret++;
+			} while (try_left(mino));
+			mino.set_x(mino.get_x() + 1);
+			return ret;
+		}
+		bool try_sonic_right(MoveDataEx &mino) const
+		{
+			int ret = 0;
+			do
+			{
+				ret++;
+			} while (try_right(mino));
+			mino.set_x(mino.get_x() - 1);
+			return ret;
 		}
 		bool try_cw(MoveDataEx &mino) const
 		{
@@ -205,21 +236,15 @@ namespace moenew
 		void expand(MoveDataEx &node)
 		{
 			MoveDataEx copy = node;
-			if (try_down(copy))
+			if (try_sonic_left(copy))
 			{
-				copy.path.push_back('d');
+				copy.path.push_back('L');
 				try_push_coord(copy);
 			}
 			copy = node;
-			if (try_left(copy))
+			if (try_sonic_right(copy))
 			{
-				copy.path.push_back('l');
-				try_push_coord(copy);
-			}
-			copy = node;
-			if (try_right(copy))
-			{
-				copy.path.push_back('r');
+				copy.path.push_back('R');
 				try_push_coord(copy);
 			}
 			copy = node;
@@ -234,6 +259,31 @@ namespace moenew
 				copy.path.push_back('z');
 				try_push_coord(copy);
 			}
+			node.set_status(Others);
+			copy = node;
+			if (try_left(copy))
+			{
+				copy.path.push_back('l');
+				try_push_coord(copy);
+			}
+			copy = node;
+			if (try_right(copy))
+			{
+				copy.path.push_back('r');
+				try_push_coord(copy);
+			}
+			copy = node;
+			if (try_sonic_down(copy))
+			{
+				copy.path.push_back('D');
+				try_push_coord(copy);
+			}
+			copy = node;
+			if (try_down(copy))
+			{
+				copy.path.push_back('d');
+				try_push_coord(copy);
+			}
 			harddrop(node);
 		}
 		std::string build()
@@ -245,7 +295,7 @@ namespace moenew
 			}
 			return path_result.path;
 		}
-		void init(Board &target, MoveData loc, MoveData move_target, Piece type)
+		void init(Board &target, MoveData loc, MoveData move_target, char type)
 		{
 			this->target = target;
 			this->type = type;
@@ -255,9 +305,10 @@ namespace moenew
 			left = left_offset[type];
 			right = right_offset[type];
 			mino_target = move_target;
+			loc.set_status(LR);
 			search.emplace(loc);
 		}
-		PathGen(Board &target, MoveData loc, MoveData move_target, Piece type)
+		PathGen(Board &target, MoveData loc, MoveData move_target, char type)
 		{
 			init(target, loc, move_target, type);
 		}

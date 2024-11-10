@@ -5,33 +5,10 @@
 #include <iostream>
 int main()
 {
+    // idk lol
     srand(time(nullptr));
     using namespace moenew;
     Board board(10, 40);
-    // for (int i = 2; i < 21; i += 3)
-    // {
-    //     board.set(2, i);
-    //     board.set(5, i);
-    //     board.set(8, i);
-    // }
-    
-    // for (int i = 0; i < 9; i ++)
-    // {
-    //     board.set(0, i);
-    //     board.set(9, i);
-    // }
-    // for (int i = 0; i < 5; i ++)
-    // {
-    //     board.set(1, i);
-    //     board.set(8, i);
-    // }
-    // for (int i = 0; i < 2; i ++)
-    // {
-    //     board.set(2, i);
-    //     board.set(7, i);
-    // }
-    //     board.set(3, 0);
-    //     board.set(6, 0);
     board.tidy();
     MoveData mino;
     mino.set_x(3);
@@ -43,13 +20,13 @@ int main()
     int total = 0;
     do
     {
-        MoveGen movegen(board, mino, static_cast<Piece>(rand() % 7));
+        MoveGen movegen(board, mino, static_cast<char>(rand() % 7));
         movegen.start();
         ++runs;
         total += movegen.landpoints.size();
     } while (duration_cast<milliseconds>(high_resolution_clock::now() - now).count() < 1000);
     auto end = high_resolution_clock::now();
-    Piece type = static_cast<Piece>(rand() % 7);
+    char type = static_cast<char>(rand() % 7);
     MoveGen movegen(board, mino, type);
     movegen.start();
     for (auto &i : movegen.result)

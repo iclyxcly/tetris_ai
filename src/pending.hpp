@@ -22,13 +22,7 @@ namespace moenew
 	class Pending
 	{
 	public:
-		struct PendingLine
-		{
-			int amt;
-			int delay;
-			PendingLine(int amt, int delay) : amt(amt), delay(delay) {}
-		};
-		std::deque<PendingLine> lines;
+		int lines[2];
 		Random rng;
 		void rngify()
 		{
@@ -40,103 +34,62 @@ namespace moenew
 			{
 				return;
 			}
-			lines.emplace_back(amt, delay);
+			lines[delay] += amt;
 		}
 		void decay()
 		{
-			if (lines.empty())
-			{
-				return;
-			}
-			for (auto &line : lines)
-			{
-				line.delay--;
-			}
-		}
-		void decay_rem()
-		{
-			decay();
-			while (!lines.empty() && lines[0].delay <= 0)
-			{
-				lines.pop_front();
-			}
+			lines[0] = lines[1];
+			lines[1] = 0;
 		}
 		int estimate() const
 		{
-			int ret = 0;
-			for (const auto &line : lines)
-			{
-				if (line.delay <= 0)
-				{
-					ret += line.amt;
-				}
-			}
-			return ret;
-		}
-		double estimate_mess() const
-		{
-			double ret = 0;
-			int cnt = 0;
-			for (const auto &line : lines)
-			{
-				if (line.delay <= 0)
-				{
-					ret += line.amt;
-					cnt++;
-				}
-			}
-			return cnt == 0 ? 0 : ret / cnt;
+			return lines[0];
 		}
 		int total()
 		{
-			if (lines.empty())
-			{
-				return 0;
-			}
-			return std::accumulate(lines.begin(), lines.end(), 0, [](int acc, PendingLine &line)
-								   { return acc + line.amt; });
+			return lines[0] + lines[1];
 		}
 		void cancel(int &amt)
 		{
-			while (amt > 0 && !lines.empty())
+			while (amt > 0 && (lines[0] > 0 || lines[1] > 0))
 			{
-				if (lines[0].amt <= amt)
+				--amt;
+				if (lines[0] == 0)
 				{
-					amt -= lines[0].amt;
-					lines.pop_front();
+					--lines[1];
 				}
 				else
 				{
-					lines[0].amt -= amt;
-					amt = 0;
+					--lines[0];
 				}
 			}
 		}
 		void accept(Board &src, const double &mess)
 		{
-			while (!lines.empty() && lines[0].delay <= 0)
+			if (lines[0] > 0)
 			{
 				int index = rng.next() % src.w;
-				int acc = 0;
-				for (int i = 0; i < lines[0].amt; i++)
+				src.rise_alloc(lines[0]);
+				for (int i = 0; i < lines[0]; i++)
 				{
-					++acc;
 					if (rng.next() % 100 < mess * 100)
 					{
 						index = rng.next() % src.w;
 					}
-					src.rise(1, index);
+					src.rise(i, index);
 				}
-				lines.pop_front();
+				src.tidy();
 			}
+			decay();
 		}
 		bool empty() const
 		{
-			return lines.empty();
+			return lines[0] == 0 && lines[1] == 0;
 		}
-		int size() const
+		void clear()
 		{
-			return lines.size();
+			lines[0] = 0;
+			lines[1] = 0;
 		}
 		Pending() : rng(rand()) {}
 		Pending(Random &rng) : rng(rng) {}

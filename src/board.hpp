@@ -3,40 +3,40 @@
 #include <format>
 #include <cstring>
 #include <bit>
+#include <array>
+#include <bitset>
 #include "mino.hpp"
 #include "const.h"
+#include "minotemplate.h"
+
 namespace moenew
 {
 	class Board
 	{
 	public:
-		Board()
+		uint8_t y_max, w, h;
+		uint16_t count;
+		uint16_t field[BOARD_HEIGHT];
+		Board(int width = BOARD_WIDTH, int height = BOARD_HEIGHT)
+			: w(width), h(height), y_max(0), count(0)
 		{
-			w = BOARD_WIDTH;
-			h = BOARD_HEIGHT;
-			y_max = 0;
-			cnt = 0;
-			std::memset(field, 0, sizeof(field));
-		}
-		Board(int w, int h)
-		{
-			this->w = w;
-			this->h = h;
-			y_max = 0;
-			cnt = 0;
 			std::memset(field, 0, sizeof(field));
 		}
 		std::string print(int top) const
 		{
 			std::string ret;
+			std::string result;
 			for (int y = top; y >= 0; y--)
 			{
 				ret += std::format("{:2d}|", y);
+				result += std::format("{:2d}|", y);
 				for (int x = 0; x < w; x++)
 				{
 					ret += get(x, y) ? "[]" : "  ";
+					result += get(x, y) ? "[]" : "  ";
 				}
 				ret += "|\n";
+				result += "|\n";
 			}
 			return ret;
 		}
@@ -57,7 +57,6 @@ namespace moenew
 		{
 			std::memset(field, 0, sizeof(field));
 			y_max = 0;
-			cnt = 0;
 		}
 		int flush()
 		{
@@ -70,7 +69,7 @@ namespace moenew
 					trim(y);
 				}
 			}
-			cnt -= clear * (w - 1);
+			count -= clear * w;
 			return clear;
 		}
 		void tidy()
@@ -81,27 +80,26 @@ namespace moenew
 				y--;
 			}
 			y_max = y;
-			cnt = 0;
-			for (; y >= 0; y--)
+			count = 0;
+			while (--y >= 0)
 			{
-				if (field[y] != 0)
+				count += __builtin_popcount(field[y]);
+			}
+		}
+		void rise_alloc(int amt)
+		{
+			for (int y = y_max; y >= 0; y--)
+			{
+				if (y + amt < h)
 				{
-					cnt += std::popcount(loc_c.of(w) & field[y]);
+					field[y + amt] = field[y];
 				}
 			}
 		}
-		void rise(int amt, int i)
+		void rise(int h, int i)
 		{
 			auto data = loc_c.of(w - 1) & ~loc_x.of(i);
-			for (int y = y_max; y >= 0; y--)
-			{
-				field[y + amt] = field[y];
-			}
-			for (int y = 0; y < amt; y++)
-			{
-				field[y] = data;
-			}
-			tidy();
+			field[h] = data;
 		}
 		void trim(int &y)
 		{
@@ -139,10 +137,35 @@ namespace moenew
 			}
 			return true;
 		}
-		int8_t y_max;
-		int cnt;
-		int w;
-		int h;
-		uint64_t field[BOARD_HEIGHT];
+		uint8_t safe(int offset) const
+		{
+			uint8_t safe = DEFAULT_Y - offset;
+			while (safe > 0 && !get(DEFAULT_X, safe - 1) && !get(DEFAULT_X + 1, safe - 1) && !get(DEFAULT_X + 2, safe - 1) && !get(DEFAULT_X + 3, safe - 1))
+			{
+				--safe;
+			}
+			return (DEFAULT_Y - offset) - safe;
+		}
+		uint8_t safe() const
+		{
+			uint8_t safe = DEFAULT_Y;
+			while (safe > 0 && !get(DEFAULT_X, safe - 1) && !get(DEFAULT_X + 1, safe - 1) && !get(DEFAULT_X + 2, safe - 1) && !get(DEFAULT_X + 3, safe - 1))
+			{
+				--safe;
+			}
+			return DEFAULT_Y - safe;
+		}
+		uint8_t get_safe(std::string &next) const
+		{
+			if (!next.empty())
+			{
+				return safe(down_offset[next[0]][0]);
+			}
+			return safe();
+		}
+		double get_safe_rate(std::string &next) const
+		{
+			return (double)get_safe(next) / (next.empty() ? DEFAULT_Y : DEFAULT_Y - down_offset[next[0]][0]);
+		}
 	};
 }

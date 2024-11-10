@@ -44,30 +44,52 @@ namespace moenew
             int clear;
             int combo;
             int attack;
+            int max_attack;
             int send_attack;
-            int cumulative_attack;
-            int attack_since;
+            int max_send_attack;
+            int spike;
+            int send_spike;
+            int timing;
+            int allspin_chain;
+            int b2b_chain;
             bool allspin;
             bool dead;
             bool b2b;
             Pending under_attack;
             Next next;
             Board board;
+            struct
+            {
+                int col_trans;
+                int row_trans;
+                int hole_count;
+                int hole_line;
+                int aggregate_height;
+                int aggregate_height_arr[16];
+                int bumpiness;
+                int wide[16];
+            } e;
             void reset()
             {
                 rating = 0;
                 clear = 0;
                 combo = 0;
                 attack = 0;
+                max_attack = 0;
                 send_attack = 0;
-                cumulative_attack = 0;
-                attack_since = 0;
+                max_send_attack = 0;
+                spike = 0;
+                send_spike = 0;
+                timing = 0;
+                allspin_chain = 0;
+                b2b_chain = 0;
                 allspin = false;
                 dead = false;
                 b2b = false;
-                under_attack.lines.clear();
+                under_attack.clear();
                 next.reset();
                 board.clear();
+                memset(&e, 0, sizeof(e));
             }
         };
         enum Param
@@ -93,6 +115,8 @@ namespace moenew
             WIDE_2,
             WIDE_3,
             WIDE_4,
+            AGGREGATE_HEIGHT,
+            BUMPINESS,
             BUILD_ATTACK,
             SPIKE,
             PENDING_LOCK,
@@ -111,13 +135,13 @@ namespace moenew
                 memset(param, 0, sizeof(param));
                 // param[COL_TRANS] = 1;
                 // param[ROW_TRANS] = 1;
-                // param[HOLE_COUNT] = -1;
+                // param[HOLE_COUNT] = 1;
                 // param[HOLE_LINE] = 1;
                 // param[WIDE_2] = 1;
                 // param[WIDE_3] = 1;
                 // param[WIDE_4] = 1;
-                // param[BUILD_ATTACK] = 1;
-                // param[SPIKE] = 5;
+                // param[AGGREGATE_HEIGHT] = 0.1;
+                // param[B2B] = 10;
             }
             bool operator==(const Playstyle &rhs) const
             {
@@ -126,9 +150,189 @@ namespace moenew
         };
         Playstyle p;
         AttackTable atk;
-        static void find_every_spin(const Board &board, int &val)
+        struct ASpinValue
         {
-            for (int y = board.y_max; y >= std::max<int>(0, board.y_max - 4); --y)
+            int s;
+            int l;
+            int z;
+            int i;
+            int t;
+            int o;
+            int j;
+        };
+        void eval_experimental(const Status &last, Status &ret, int depth)
+        {
+            const auto &board = ret.board;
+            auto &e = ret.e;
+            memset(&e, 0, sizeof(e));
+            for (int y = board.y_max; y >= 0; y--)
+            {
+                int wide_max = 0;
+                int wide_count = 0;
+                int check = e.hole_count;
+                for (int x = 0; x < board.w; x++)
+                {
+                    bool left = x == 0 || board.get(x - 1, y);
+                    bool right = x + 1 >= board.w || board.get(x + 1, y);
+                    bool up = y == 0 || board.get(x, y - 1);
+                    if (left && right && up && !board.get(x, y))
+                    {
+                        e.hole_count++;
+                    }
+                    if (board.get(x, y))
+                    {
+                        if (e.aggregate_height_arr[x] == 0)
+                        {
+                            e.aggregate_height_arr[x] = y + 1;
+                        }
+                        if (wide_count > wide_max)
+                        {
+                            wide_max = wide_count;
+                        }
+                        wide_count = 0;
+                    }
+                    else
+                    {
+                        wide_count++;
+                    }
+                    if (x + 1 != board.w)
+                    {
+                        e.row_trans += board.get(x, y) != board.get(x + 1, y);
+                    }
+                    else if (x + 1 == board.w || x == 0)
+                    {
+                        e.row_trans += !board.get(x, y);
+                    }
+                }
+                if (__builtin_popcount(board.field[y]) == board.w - wide_max)
+                {
+                    e.wide[wide_max]++;
+                }
+                e.hole_line += e.hole_count != check;
+                if (y - 1 >= 0)
+                {
+                    e.col_trans += __builtin_popcount(board.field[y] ^ board.field[y - 1]);
+                }
+            }
+            e.col_trans += board.w - __builtin_popcount(board.field[0]);
+            for (int i = 0; i < board.w; i++)
+            {
+                e.aggregate_height += e.aggregate_height_arr[i];
+                if (i != 0)
+                {
+                    e.bumpiness += std::abs(e.aggregate_height_arr[i - 1] - e.aggregate_height_arr[i]);
+                }
+            }
+
+            switch (ret.clear)
+            {
+            case 0:
+                ret.combo = 0;
+                ret.attack = 0;
+                ret.max_attack = 0;
+                ret.send_attack = 0;
+                ret.max_send_attack = 0;
+                ret.spike = 0;
+                ret.send_spike = 0;
+                if (ret.under_attack.empty())
+                {
+                    ret.timing = std::max(10, ret.timing + 1);
+                }
+                else
+                {
+                    ret.timing += ret.under_attack.estimate();
+                    ret.timing = std::max(10, ret.timing);
+                    ret.under_attack.accept(ret.board, atk.messiness);
+                }
+                break;
+            case 1:
+                if (ret.allspin)
+                {
+                    ret.attack = atk.aspin_1 + atk.b2b;
+                    ret.b2b = true;
+                }
+                else
+                {
+                    ret.attack = atk.clear_1;
+                    ret.b2b = false;
+                }
+                ret.attack += atk.get_combo(++ret.combo);
+                break;
+            case 2:
+                if (ret.allspin)
+                {
+                    ret.attack = atk.aspin_2 + atk.b2b;
+                    ret.b2b = true;
+                }
+                else
+                {
+                    ret.attack = atk.clear_2;
+                    ret.b2b = false;
+                }
+                ret.attack += atk.get_combo(++ret.combo);
+                break;
+            case 3:
+                if (ret.allspin)
+                {
+                    ret.attack = atk.aspin_3 + atk.b2b;
+                    ret.b2b = true;
+                }
+                else
+                {
+                    ret.attack = atk.clear_3;
+                    ret.b2b = false;
+                }
+                ret.attack += atk.get_combo(++ret.combo);
+                break;
+            case 4:
+                ret.attack = atk.clear_4 + atk.b2b;
+                ret.b2b = true;
+                ret.attack += atk.get_combo(++ret.combo);
+                break;
+            }
+            if (ret.clear && ret.allspin)
+            {
+                ret.allspin_chain++;
+                if (last.b2b)
+                    ret.b2b_chain++;
+            }
+            else if (last.b2b && ret.clear == 4)
+            {
+                ret.b2b_chain++;
+            }
+            else
+            {
+                ret.allspin_chain = 0;
+                ret.b2b_chain = 0;
+            }
+            if (ret.board.y_max == 0)
+            {
+                ret.attack = atk.pc;
+            }
+            ret.attack *= atk.multiplier;
+            ret.spike += ret.attack;
+            ret.send_attack = ret.attack;
+            ret.under_attack.cancel(ret.send_attack);
+            ret.send_spike += ret.send_attack;
+            ret.max_attack = std::max(ret.attack, ret.max_attack);
+            ret.max_send_attack = std::max(ret.send_attack, ret.max_send_attack);
+            if (!ret.clear && last.clear)
+            {
+                ret.timing = 0;
+            }
+            if (!ret.dead && !ret.next.next.empty())
+            {
+                const uint32_t *mino = cache_get(ret.next.peek(), DEFAULT_R, DEFAULT_X);
+                if (!ret.board.integrate(mino, DEFAULT_Y))
+                {
+                    ret.dead = true;
+                }
+            }
+            ret.rating = (0. - board.y_max - e.col_trans * 2 - e.row_trans * 3 - e.hole_count - e.hole_line - e.aggregate_height * 0.5 - e.bumpiness + e.wide[5] * 1 + e.wide[6] * 2 + e.wide[7] * 4 + ret.spike * ret.attack * 12 + ret.attack * ret.max_attack * 8 + (ret.b2b_chain + ret.allspin_chain) * 22 + (ret.attack - ret.send_attack) * -4 - ret.under_attack.estimate() * 10 * depth - 999999 * ret.dead);
+        }
+        static void find_every_spin(const Board &board, ASpinValue &data)
+        {
+            for (int y = board.y_max - 1; y >= std::max<int>(0, board.y_max - 4); --y)
             {
                 int rowm1 = board.field[y - 1];
                 int row0 = board.field[y];
@@ -136,9 +340,9 @@ namespace moenew
                 int row2 = board.field[y + 2];
                 int row3 = board.field[y + 3];
                 int row4 = board.field[y + 4];
-                int count0 = std::popcount(board.field[y]);
-                int count1 = std::popcount(board.field[y + 1]);
-                int count2 = std::popcount(board.field[y + 2]);
+                int count0 = __builtin_popcount(board.field[y]);
+                int count1 = __builtin_popcount(board.field[y + 1]);
+                int count2 = __builtin_popcount(board.field[y + 2]);
                 for (int x = 0; x < board.w; ++x)
                 {
                     int xm1 = x - 1;
@@ -154,14 +358,14 @@ namespace moenew
                             // double/single
                             if ((row0 & loc_x.of(x2) || (y == 0 || rowm1 & loc_x.of(x1))) && (row1 & loc_x.of(x) || (row2 & loc_x.of(x2) && (x == 0 || row0 & loc_x.of(xm1)))))
                             {
-                                ++val;
+                                ++data.s;
                                 if (count0 == 8)
                                 {
-                                    val += 2;
+                                    data.s += 2;
                                 }
                                 if (count1 == 8)
                                 {
-                                    val += 2;
+                                    data.s += 2;
                                 }
                             }
                         }
@@ -171,18 +375,18 @@ namespace moenew
                             // triple
                             if (row0 & loc_x.of(x) && (row2 & loc_x.of(x1) || (row0 & loc_x.of(x2) && row3 & loc_x.of(x))))
                             {
-                                ++val;
+                                ++data.s;
                                 if (count0 == 9)
                                 {
-                                    val += 2;
+                                    data.s += 2;
                                 }
                                 if (count1 == 2)
                                 {
-                                    val += 2;
+                                    data.s += 2;
                                 }
                                 if (count2 == 9)
                                 {
-                                    val += 2;
+                                    data.s += 2;
                                 }
                             }
                         }
@@ -192,14 +396,14 @@ namespace moenew
                             // double/single
                             if ((row0 & loc_x.of(x) || (y == 0 || rowm1 & loc_x.of(x))) && (row1 & loc_x.of(x2) || (row2 & loc_x.of(x) && (x3 == board.w || row0 & loc_x.of(x3)))))
                             {
-                                ++val;
+                                ++data.z;
                                 if (count0 == 8)
                                 {
-                                    val += 2;
+                                    data.z += 2;
                                 }
                                 if (count1 == 8)
                                 {
-                                    val += 2;
+                                    data.z += 2;
                                 }
                             }
                         }
@@ -208,18 +412,18 @@ namespace moenew
                             // triple
                             if (row0 & loc_x.of(x1) && (row2 & loc_x.of(x) || ((x != 0 && row0 & loc_x.of(xm1)) && row3 & loc_x.of(x1))))
                             {
-                                ++val;
+                                ++data.z;
                                 if (count0 == 9)
                                 {
-                                    val += 2;
+                                    data.z += 2;
                                 }
                                 if (count1 == 2)
                                 {
-                                    val += 2;
+                                    data.z += 2;
                                 }
                                 if (count2 == 9)
                                 {
-                                    val += 2;
+                                    data.z += 2;
                                 }
                             }
                         }
@@ -232,14 +436,14 @@ namespace moenew
                             bool cond3 = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1) || rowm1 & loc_x.of(x2);
                             if (cond1 && cond2 && cond3)
                             {
-                                ++val;
+                                ++data.l;
                                 if (count0 == 7)
                                 {
-                                    val += 2;
+                                    data.l += 2;
                                 }
                                 if (count1 == 9)
                                 {
-                                    val += 2;
+                                    data.l += 2;
                                 }
                             }
                         }
@@ -254,24 +458,24 @@ namespace moenew
                             {
                                 if (count0 == 9)
                                 {
-                                    val += 2;
+                                    data.l += 2;
                                 }
                                 if (count1 == 7)
                                 {
-                                    val += 2;
+                                    data.l += 2;
                                 }
                             }
                             if (cond1)
                             {
-                                ++val;
+                                ++data.l;
                             }
                             if (cond2)
                             {
-                                ++val;
+                                ++data.l;
                             }
                             if (cond3)
                             {
-                                ++val;
+                                ++data.l;
                             }
                         }
                         // L spin
@@ -283,18 +487,18 @@ namespace moenew
                             bool cond3 = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1);
                             if (cond1 && cond2 && cond3)
                             {
-                                ++val;
+                                ++data.l;
                                 if (count0 == 8)
                                 {
-                                    val += 2;
+                                    data.l += 2;
                                 }
                                 if (count1 == 9)
                                 {
-                                    val += 2;
+                                    data.l += 2;
                                 }
                                 if (count2 == 9)
                                 {
-                                    val += 2;
+                                    data.l += 2;
                                 }
                             }
                         }
@@ -307,14 +511,14 @@ namespace moenew
                             bool cond3 = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1) || rowm1 & loc_x.of(x2);
                             if (cond1 && cond2 && cond3)
                             {
-                                ++val;
+                                ++data.j;
                                 if (count0 == 7)
                                 {
-                                    val += 2;
+                                    data.j += 2;
                                 }
                                 if (count1 == 9)
                                 {
-                                    val += 2;
+                                    data.j += 2;
                                 }
                             }
                         }
@@ -329,24 +533,24 @@ namespace moenew
                             {
                                 if (count0 == 9)
                                 {
-                                    val += 2;
+                                    data.j += 2;
                                 }
                                 if (count1 == 7)
                                 {
-                                    val += 2;
+                                    data.j += 2;
                                 }
                             }
                             if (cond1)
                             {
-                                ++val;
+                                ++data.j;
                             }
                             if (cond2)
                             {
-                                ++val;
+                                ++data.j;
                             }
                             if (cond3)
                             {
-                                ++val;
+                                ++data.j;
                             }
                         }
                         // J spin
@@ -358,18 +562,18 @@ namespace moenew
                             bool cond3 = y == 0 || rowm1 & loc_x.of(x) || rowm1 & loc_x.of(x1);
                             if (cond1 && cond2 && cond3)
                             {
-                                ++val;
+                                ++data.j;
                                 if (count0 == 8)
                                 {
-                                    val += 2;
+                                    data.j += 2;
                                 }
                                 if (count1 == 9)
                                 {
-                                    val += 2;
+                                    data.j += 2;
                                 }
                                 if (count2 == 9)
                                 {
-                                    val += 2;
+                                    data.j += 2;
                                 }
                             }
                         }
@@ -379,18 +583,18 @@ namespace moenew
                             // double
                             if (row0 & loc_x.of(x) && row0 & loc_x.of(x2) && (row2 & loc_x.of(x) || row2 & loc_x.of(x2)))
                             {
-                                ++val;
+                                ++data.t;
                                 if (count0 == 9)
                                 {
-                                    val += 2;
+                                    data.t += 2;
                                 }
                                 if (count1 == 7)
                                 {
-                                    val += 2;
+                                    data.t += 2;
                                 }
                                 if (count2 == 9)
                                 { // imperial cross?
-                                    val += 2;
+                                    data.t += 2;
                                 }
                             }
                         }
@@ -402,18 +606,18 @@ namespace moenew
                                 // triple
                                 if (row0 & loc_x.of(x) && row0 & loc_x.of(x2) && row2 & loc_x.of(x) && row2 & loc_x.of(x2))
                                 {
-                                    ++val;
+                                    ++data.t;
                                     if (count0 == 9)
                                     {
-                                        val += 2;
+                                        data.t += 2;
                                     }
                                     if (count1 == 8)
                                     {
-                                        val += 2;
+                                        data.t += 2;
                                     }
                                     if (count2 == 9)
                                     {
-                                        val += 2;
+                                        data.t += 2;
                                     }
                                 }
                             }
@@ -429,16 +633,16 @@ namespace moenew
                             {
                                 if (count0 == 7)
                                 {
-                                    val += 2;
+                                    data.t += 2;
                                 }
                             }
                             if (cond1)
                             {
-                                ++val;
+                                ++data.t;
                             }
                             if (cond2)
                             {
-                                ++val;
+                                ++data.t;
                             }
                         }
                     }
@@ -449,10 +653,10 @@ namespace moenew
                         bool up_cover = row1 & loc_x.of(x) || row1 & loc_x.of(x1) || row1 & loc_x.of(x2) || row1 & loc_x.of(x3);
                         if ((x == 0 || row0 & loc_x.of(xm1)) && (x4 == board.w || row0 & loc_x.of(x4)) && up_cover)
                         {
-                            ++val;
+                            ++data.i;
                             if (count0 == 6)
                             {
-                                val += 2;
+                                data.i += 2;
                             }
                         }
                     }
@@ -463,18 +667,18 @@ namespace moenew
                         bool right_cover = x1 == board.w || row0 & loc_x.of(x1) || row1 & loc_x.of(x1) || row2 & loc_x.of(x1) || row3 & loc_x.of(x1);
                         if (row4 & loc_x.of(x) && left_cover && right_cover && (y == 0 || rowm1 & loc_x.of(x)))
                         {
-                            ++val;
+                            ++data.i;
                             if (count0 == 9)
                             {
-                                val += 2;
+                                data.i += 2;
                             }
                             if (count1 == 9)
                             {
-                                val += 2;
+                                data.i += 2;
                             }
                             if (count2 == 9)
                             {
-                                val += 2;
+                                data.i += 2;
                             }
                         }
                     }
@@ -487,24 +691,20 @@ namespace moenew
                         bool up_cover = row2 & loc_x.of(x) || row2 & loc_x.of(x1);
                         if (down_cover && left_cover && right_cover && up_cover)
                         {
-                            ++val;
+                            ++data.o;
                             if (count0 == 8)
                             {
-                                val += 2;
+                                data.o += 2;
                             }
                             if (count1 == 8)
                             {
-                                val += 2;
+                                data.o += 2;
                             }
                         }
                     }
                 }
             }
         }
-        // Level 1: Evaluate the board
-        // Level 2: Evaluate line clear, consequences of accepting garbage
-        // Level 3: Evaluate allspin setups, wasted, held minos, and other misc stuff
-        // Pruning is done each time the decision is evaluated
         void evaluation_level_1(const Status &last, Status &ret, int depth)
         {
             struct
@@ -513,6 +713,9 @@ namespace moenew
                 int row_trans;
                 int hole_count;
                 int hole_line;
+                int aggregate_height;
+                int aggregate_height_arr[32];
+                int bumpiness;
                 int wide[32];
             } e;
             memset(&e, 0, sizeof(e));
@@ -521,10 +724,22 @@ namespace moenew
             {
                 int wide_max = 0;
                 int wide_count = 0;
+                int check = e.hole_count;
                 for (int x = 0; x < board.w; x++)
                 {
+                    bool left = x == 0 || board.get(x - 1, y);
+                    bool right = x + 1 >= board.w || board.get(x + 1, y);
+                    bool up = y == 0 || board.get(x, y - 1);
+                    if (left && right && up && !board.get(x, y))
+                    {
+                        e.hole_count++;
+                    }
                     if (board.get(x, y))
                     {
+                        if (e.aggregate_height_arr[x] == 0)
+                        {
+                            e.aggregate_height_arr[x] = y + 1;
+                        }
                         if (wide_count > wide_max)
                         {
                             wide_max = wide_count;
@@ -539,17 +754,28 @@ namespace moenew
                     {
                         e.row_trans += board.get(x, y) != board.get(x + 1, y);
                     }
+                    else if (x + 1 == board.w || x == 0)
+                    {
+                        e.row_trans += !board.get(x, y);
+                    }
                 }
-                if (std::popcount(board.field[y]) == board.w - wide_max)
+                if (__builtin_popcount(board.field[y]) == board.w - wide_max)
                 {
                     e.wide[wide_max]++;
                 }
+                e.hole_line += e.hole_count != check;
                 if (y - 1 >= 0)
                 {
-                    int check = e.hole_count;
-                    e.hole_count += std::popcount(board.field[y] & ~board.field[y - 1]);
-                    e.hole_line += check != e.hole_count;
-                    e.col_trans += std::popcount(board.field[y] ^ board.field[y - 1]);
+                    e.col_trans += __builtin_popcount(board.field[y] ^ board.field[y - 1]);
+                }
+            }
+            e.col_trans += board.w - __builtin_popcount(board.field[0]);
+            for (int i = 0; i < board.w; i++)
+            {
+                e.aggregate_height += e.aggregate_height_arr[i];
+                if (i != 0)
+                {
+                    e.bumpiness += std::abs(e.aggregate_height_arr[i - 1] - e.aggregate_height_arr[i]);
                 }
             }
             if (!ret.next.next.empty())
@@ -560,7 +786,7 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            ret.rating = (0. - p[HEIGHT] * board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE] * e.hole_line + p[WIDE_2] * e.wide[2] + p[WIDE_3] * e.wide[3] + p[WIDE_4] * e.wide[4] - 999999 * ret.dead);
+            ret.rating = (0. - p[HEIGHT] * board.y_max - p[COL_TRANS] * e.col_trans - p[ROW_TRANS] * e.row_trans - p[HOLE_COUNT] * e.hole_count - p[HOLE_LINE] * e.hole_line - p[AGGREGATE_HEIGHT] * e.aggregate_height - p[BUMPINESS] * e.bumpiness + p[WIDE_2] * e.wide[2] + p[WIDE_3] * e.wide[3] + p[WIDE_4] * e.wide[4] - 999999 * ret.dead);
         }
         void evaluation_level_2(const Status &last, Status &ret, int depth)
         {
@@ -569,12 +795,11 @@ namespace moenew
             switch (ret.clear)
             {
             case 0:
-                like += (ret.under_attack.estimate_mess() - 4) * p[TANK_CLEAN];
-                ret.under_attack.accept(ret.board, atk.messiness);
-                ret.under_attack.decay();
-                if (!ret.under_attack.lines.empty())
+                if (!ret.under_attack.empty())
                 {
-                    like += ret.under_attack.lines[0].delay == 0 ? (ret.under_attack.estimate() * (ret.under_attack.estimate() - last.combo)) * p[PENDING_LOCK] : 0;
+                    like += (ret.under_attack.estimate() - 4) * p[TANK_CLEAN];
+                    ret.under_attack.accept(ret.board, atk.messiness);
+                    like += (!ret.under_attack.lines[0] && ret.under_attack.lines[1]) ? (ret.under_attack.estimate() * (ret.under_attack.estimate() - last.combo)) * p[PENDING_LOCK] : 0;
                 }
                 ret.combo = 0;
                 break;
@@ -633,8 +858,9 @@ namespace moenew
             if (ret.board.y_max == 0)
             {
                 ret.attack = atk.pc;
-                like += 99999;
+                like += 99999 * (ret.combo + ret.send_spike);
             }
+            int attack_origin = ret.attack;
             ret.attack *= atk.multiplier;
             ret.send_attack = ret.attack;
             ret.under_attack.cancel(ret.send_attack);
@@ -651,38 +877,72 @@ namespace moenew
                     ret.dead = true;
                 }
             }
-            ret.rating += (0. + like + p[ATTACK] * ret.attack + p[B2B] * ret.b2b + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) - 999999 * ret.dead);
+            int safe = ret.board.get_safe(ret.next.next);
+            ret.rating += (0. + like * (safe + 8) + p[ATTACK] * ret.attack * (safe + 12) + p[B2B] * (ret.allspin + last.allspin + (ret.clear == 4) + (last.clear == 4) + ret.b2b) * std::max<int>(1, safe - 12) + p[COMBO] * (ret.combo + atk.get_combo(ret.combo)) * ((DEFAULT_Y - (ret.next.next.empty() ? 0 : down_offset[ret.next.peek()][0]) - safe)) + (atk.get_combo(ret.combo) > 3 || (ret.combo > 5 && attack_origin > 6) ? 99999 : 0) - 999999 * ret.dead);
         }
         void evaluation_level_3(const Status &last, Status &ret, int depth)
         {
             double like = 0;
             if (!ret.clear)
             {
-                ++ret.attack_since;
-                ret.cumulative_attack = 0;
+                ++ret.timing;
+                ret.send_spike = 0;
             }
             else
             {
-                ret.cumulative_attack += ret.send_attack;
-                ret.attack_since = 0;
+                ret.send_spike += ret.send_attack;
+                ret.timing = 0;
             }
-            if (ret.attack_since < last.attack_since)
+            if (ret.timing < last.timing)
             {
-                like += p[BUILD_ATTACK] * (last.attack_since - ret.attack_since) * ret.send_attack;
+                like += p[BUILD_ATTACK] * last.timing * ret.send_attack;
             }
-            int val = 0;
-            find_every_spin(ret.board, val);
-            ret.rating += 0. + like + p[SPIKE] * (ret.cumulative_attack * ret.send_attack) + p[ASPIN_SLOT] * val;
+            ASpinValue data;
+            memset(&data, 0, sizeof(data));
+            find_every_spin(ret.board, data);
+            auto expect = [&](char target) -> int
+            {
+                if (ret.next.hold == target)
+                {
+                    return 0;
+                }
+                for (int i = 0; i < ret.next.next.size(); i++)
+                {
+                    if (ret.next.next[i] == target)
+                    {
+                        return i;
+                    }
+                }
+                return 21;
+            };
+            int safe = ret.board.get_safe(ret.next.next);
+            double slot = 0;
+            slot += data.s * (3.0 / (expect('S') + 1));
+            slot += data.l * (2.0 / (expect('L') + 1));
+            slot += data.z * (3.0 / (expect('Z') + 1));
+            slot += data.i * (1.0 / (expect('I') + 1));
+            slot += data.t * (2.0 / (expect('T') + 1));
+            slot += data.o * (4.0 / (expect('O') + 1));
+            slot += data.j * (2.0 / (expect('J') + 1));
+            slot *= p[ASPIN_SLOT] * std::max<int>(1, safe - 8);
+            ret.rating += (0. + like + p[SPIKE] * (ret.send_spike * ret.send_attack * std::max(1, safe - 12)) + slot);
         }
-        std::vector<std::function<void(const Status &, Status &, int)>> evaluations;
-        Evaluation()
+        void eval_stable(const Status &last, Status &ret, int depth)
         {
-            evaluations.push_back([this](const Status &a, Status &b, int c)
-                                  { return evaluation_level_1(a, b, c); });
-            evaluations.push_back([this](const Status &a, Status &b, int c)
-                                  { return evaluation_level_2(a, b, c); });
-            evaluations.push_back([this](const Status &a, Status &b, int c)
-                                  { return evaluation_level_3(a, b, c); });
+            evaluation_level_1(last, ret, depth);
+            evaluation_level_2(last, ret, depth);
+            evaluation_level_3(last, ret, depth);
+        }
+        void eval(const Status &last, Status &ret, int depth, int id)
+        {
+            if (id == 0)
+            {
+                eval_experimental(last, ret, depth);
+            }
+            else
+            {
+                eval_stable(last, ret, depth);
+            }
         }
     };
 }

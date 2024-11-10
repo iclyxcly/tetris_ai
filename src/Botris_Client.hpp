@@ -2,7 +2,6 @@
 #include "engine.hpp"
 #include "board.hpp"
 #include "next.hpp"
-#include "emu.hpp"
 #include "pathgen.hpp"
 #include "pending.hpp"
 #include "eval.hpp"
@@ -96,7 +95,8 @@ private:
 		std::chrono::steady_clock::time_point end;
 		int start_margin;
 		int end_margin;
-		void init(double i_mul, double f_mul, int s_margin, int e_margin) {
+		void init(double i_mul, double f_mul, int s_margin, int e_margin)
+		{
 			initial_multiplier = i_mul;
 			final_multiplier = f_mul;
 			start_margin = s_margin;
@@ -131,6 +131,7 @@ private:
 	Payload::SessionId session_id;
 	Payload::RoomData room_data;
 	std::recursive_mutex mutex;
+	int id;
 
 	uint8_t translate_mino(std::string mino)
 	{
@@ -195,8 +196,9 @@ private:
 
 	void read_config(Evaluation::Playstyle &param)
 	{
-		FILE* file = fopen("best_param.txt", "r");
-		if (file == nullptr) {
+		FILE *file = fopen("best_param.txt", "r");
+		if (file == nullptr)
+		{
 			utils::println(utils::ERR, " -> Failed to open best_param.txt");
 			return;
 		}
@@ -368,22 +370,22 @@ private:
 		}
 		status.board.tidy();
 		status.next.reset();
+		status.next.next = translate_mino(data["current"]["piece"]);
 		for (auto &i : data["queue"])
 		{
-			status.next.next.push_back((Piece)translate_mino(i));
+			status.next.next += translate_mino(i);
 		}
-		status.next.next.push_front((Piece)translate_mino(data["current"]["piece"]));
 		if (data["held"].is_null())
 		{
 			status.next.hold = X;
 		}
 		else
 		{
-			status.next.hold = (Piece)translate_mino(data["held"]);
+			status.next.hold = translate_mino(data["held"]);
 		}
 		int last_delay = -1;
 		uint8_t total = 0;
-		status.under_attack.lines.clear();
+		status.under_attack.clear();
 		for (auto &i : data["garbageQueued"])
 		{
 			if (last_delay == -1)
@@ -410,33 +412,19 @@ private:
 		status.b2b = data["b2b"];
 		status.combo = data["combo"];
 		auto &atk = engine.get_attack_table();
-		atk.messiness = 0.05;
-		atk.aspin_1 = 2;
-		atk.aspin_2 = 4;
-		atk.aspin_3 = 6;
-		atk.clear_1 = 0;
-		atk.clear_2 = 1;
-		atk.clear_3 = 2;
-		atk.clear_4 = 4;
-		atk.pc = 10;
-		atk.b2b = 1;
 		atk.multiplier = timer.get_multiplier();
-		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
-		memcpy(atk.combo, combo_table, sizeof(atk.combo));
-		engine.submit_form(engine.get_mino_draft(), status, data["canHold"]);
-		auto result = engine.start_depth_thread();
+		engine.submit_form(engine.get_mino_draft(), status, data["canHold"], id);
+		auto raw_result = engine.start_threaded(100);
+		auto result = raw_result.decision;
 		if (result.change_hold)
 		{
 			status.next.swap();
 		}
 		PathGen pathgen(status.board, engine.get_mino_draft(), result, status.next.peek());
 		auto path_str = (result.change_hold ? "v" : "") + pathgen.build();
-		if (!cycle(status, result, atk))
-		{
-			return;
-		}
 		auto path = translate_command(path_str);
 		ws_make_move(path);
+		status = raw_result.status;
 	}
 	void handle_msg_player_action(json data) {}
 	void handle_msg_player_damage_received(json data) {}
@@ -501,6 +489,19 @@ private:
 			else if (msg->type == ix::WebSocketMessageType::Error)
 				handle_ws_connection_error(msg->errorInfo.reason); });
 		web_socket.start();
+		auto &atk = engine.get_attack_table();
+		atk.messiness = 0.05;
+		atk.aspin_1 = 2;
+		atk.aspin_2 = 4;
+		atk.aspin_3 = 6;
+		atk.clear_1 = 0;
+		atk.clear_2 = 1;
+		atk.clear_3 = 2;
+		atk.clear_4 = 4;
+		atk.pc = 10;
+		atk.b2b = 1;
+		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+		memcpy(atk.combo, combo_table, sizeof(atk.combo));
 	}
 
 public:
@@ -526,7 +527,8 @@ public:
 		data["type"] = "action";
 		data["payload"] = {{"commands", commands}};
 
-		//utils::println(utils::INFO, "<-  Making move: " + boost::algorithm::join(moves, ","));
+		// utils::println(utils::INFO, "<-  Making move: " + boost::algorithm::join(moves, ","));
 		web_socket.send(data.dump());
 	}
+	Botris_Client(int id) : id(id) {}
 };
