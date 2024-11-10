@@ -15,6 +15,7 @@ namespace moenew
 			MoveDataEx() : MoveData() {}
 			MoveDataEx(const MoveData &data) : MoveData(data) {}
 		};
+
 	public:
 		Board target;
 		const Minocache *data;
@@ -237,13 +238,13 @@ namespace moenew
 			MoveDataEx copy = node;
 			if (try_sonic_left(copy))
 			{
-					copy.path.push_back('L');
+				copy.path.push_back('L');
 				try_push_coord(copy);
 			}
 			copy = node;
 			if (try_sonic_right(copy))
 			{
-					copy.path.push_back('R');
+				copy.path.push_back('R');
 				try_push_coord(copy);
 			}
 			copy = node;

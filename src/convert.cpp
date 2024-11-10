@@ -62,6 +62,7 @@ int main()
 	auto &t_mino = moenew::Minos::get(moenew::T);
 	auto &o_mino = moenew::Minos::get(moenew::O);
 	auto &j_mino = moenew::Minos::get(moenew::J);
+	//--------------------------------------------------------------------- real
 	fprintf(out, "#pragma once\n");
 	fprintf(out, "#include <cstdint>\n");
 	fprintf(out, "#include <vector>\n");

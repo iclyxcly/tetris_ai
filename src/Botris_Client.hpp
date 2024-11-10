@@ -2,7 +2,6 @@
 #include "engine.hpp"
 #include "board.hpp"
 #include "next.hpp"
-#include "emu.hpp"
 #include "pathgen.hpp"
 #include "pending.hpp"
 #include "eval.hpp"
@@ -96,7 +95,8 @@ private:
 		std::chrono::steady_clock::time_point end;
 		int start_margin;
 		int end_margin;
-		void init(double i_mul, double f_mul, int s_margin, int e_margin) {
+		void init(double i_mul, double f_mul, int s_margin, int e_margin)
+		{
 			initial_multiplier = i_mul;
 			final_multiplier = f_mul;
 			start_margin = s_margin;
@@ -131,6 +131,7 @@ private:
 	Payload::SessionId session_id;
 	Payload::RoomData room_data;
 	std::recursive_mutex mutex;
+	int id;
 
 	uint8_t translate_mino(std::string mino)
 	{
@@ -195,8 +196,9 @@ private:
 
 	void read_config(Evaluation::Playstyle &param)
 	{
-		FILE* file = fopen("best_param.txt", "r");
-		if (file == nullptr) {
+		FILE *file = fopen("best_param.txt", "r");
+		if (file == nullptr)
+		{
 			utils::println(utils::ERR, " -> Failed to open best_param.txt");
 			return;
 		}
@@ -383,7 +385,7 @@ private:
 		}
 		int last_delay = -1;
 		uint8_t total = 0;
-		status.under_attack.lines.clear();
+		status.under_attack.clear();
 		for (auto &i : data["garbageQueued"])
 		{
 			if (last_delay == -1)
@@ -411,17 +413,18 @@ private:
 		status.combo = data["combo"];
 		auto &atk = engine.get_attack_table();
 		atk.multiplier = timer.get_multiplier();
-		engine.submit_form(engine.get_mino_draft(), status, data["canHold"]);
-		auto result = engine.start_depth_thread();
+		engine.submit_form(engine.get_mino_draft(), status, data["canHold"], id);
+		auto raw_result = engine.start_threaded(100);
+		auto result = raw_result.decision;
 		if (result.change_hold)
 		{
 			status.next.swap();
 		}
 		PathGen pathgen(status.board, engine.get_mino_draft(), result, status.next.peek());
 		auto path_str = (result.change_hold ? "v" : "") + pathgen.build();
-		cycle(status, result, atk);
 		auto path = translate_command(path_str);
 		ws_make_move(path);
+		status = raw_result.status;
 	}
 	void handle_msg_player_action(json data) {}
 	void handle_msg_player_damage_received(json data) {}
@@ -524,7 +527,8 @@ public:
 		data["type"] = "action";
 		data["payload"] = {{"commands", commands}};
 
-		//utils::println(utils::INFO, "<-  Making move: " + boost::algorithm::join(moves, ","));
+		// utils::println(utils::INFO, "<-  Making move: " + boost::algorithm::join(moves, ","));
 		web_socket.send(data.dump());
 	}
+	Botris_Client(int id) : id(id) {}
 };

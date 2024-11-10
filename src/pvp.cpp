@@ -1,6 +1,5 @@
 #include "engine.hpp"
 #include "movegen.hpp"
-#include "emu.hpp"
 #include <random>
 #include <stdio.h>
 #include <vector>
@@ -24,6 +23,7 @@ struct TetrisPlayer
     int clear;
     int attack;
     int receive;
+    int id;
 
     void push_damage(uint8_t lines)
     {
@@ -35,9 +35,10 @@ struct TetrisPlayer
         receive += lines;
     }
 
-    TetrisPlayer(Playstyle &param, uint64_t seed)
+    TetrisPlayer(Playstyle &param, uint64_t seed, int id)
         : count(0), clear(0), attack(0), receive(0), rand(seed)
     {
+        this->id = id;
         status.reset();
         engine.get_param() = param;
         this->param = param;
@@ -69,21 +70,18 @@ struct TetrisPlayer
         status.next.next = real_next.get(next);
         status.next.hold = real_next.hold;
         auto mino_loc = engine.get_mino_draft();
-        engine.submit_form(mino_loc, status, true);
-        auto result = engine.start_depth_thread();
+        engine.submit_form(mino_loc, status, true, id);
+        auto raw_result = engine.start_threaded(100);
+        status = raw_result.status;
         status.under_attack.rngify();
+        auto result = raw_result.decision;
         if (result.change_hold)
         {
             real_next.swap();
-            status.next.swap();
-        }
-        if (!cycle(status, result, engine.get_attack_table()))
-        {
-            status.dead = true;
         }
         real_next.pop();
         ++count;
-        attack += status.attack;
+        attack += status.attack / engine.get_attack_table().multiplier;
         clear += status.clear;
         return !status.dead;
     }
@@ -149,7 +147,7 @@ bool run_parallel(TetrisPlayer &p1, TetrisPlayer &p2)
     for (int i = 0; i < 2; ++i)
     {
         threads.push_back(std::thread([&, i](TetrisPlayer &player)
-                                        { 
+                                      { 
                                             player.run();
                                             if (player.status.send_attack)
                                             {
@@ -164,8 +162,7 @@ bool run_parallel(TetrisPlayer &p1, TetrisPlayer &p2)
                                                 }
                                                 player.status.send_attack = 0;
                                                 mutex.unlock();
-                                            }
-                                        }, i ? std::ref(p2) : std::ref(p1)));
+                                            } }, i ? std::ref(p2) : std::ref(p1)));
     }
     for (auto &i : threads)
     {
@@ -174,10 +171,28 @@ bool run_parallel(TetrisPlayer &p1, TetrisPlayer &p2)
     return !p1.status.dead && !p2.status.dead;
 }
 
+bool run(TetrisPlayer &p1, TetrisPlayer &p2)
+{
+    p1.run();
+    p2.run();
+    int p1_attack = p1.status.send_attack;
+    int p2_attack = p2.status.send_attack;
+    if (p1_attack)
+    {
+        p2.push_damage(p1_attack);
+    }
+    if (p2_attack)
+    {
+        p1.push_damage(p2_attack);
+    }
+    p1.status.send_attack = 0;
+    p2.status.send_attack = 0;
+    return !p1.status.dead && !p2.status.dead;
+}
+
 void read_config(Playstyle &p1, Playstyle &p2)
 {
-    read_config(p1, "best_param.txt");
-    read_config(p2, "best_param_2.txt");
+    read_config(p2, "best_param.txt");
 }
 
 int main()
@@ -185,10 +200,12 @@ int main()
     Playstyle p1, p2;
     read_config(p1, p2);
     int wins[2] = {0, 0};
+    std::vector<double> app_1, app_2;
+
     while (true)
     {
-        TetrisPlayer player_1(p1, rand());
-        TetrisPlayer player_2(p2, rand());
+        TetrisPlayer player_1(p1, rand(), 0);
+        TetrisPlayer player_2(p2, rand(), 1);
         while (run_parallel(player_1, player_2))
         {
             Playstyle _p1, _p2;
@@ -199,8 +216,11 @@ int main()
                 p2 = _p2;
                 wins[0] = 0;
                 wins[1] = 0;
+                app_1.clear();
+                app_2.clear();
                 break;
             }
+            // view(player_1, player_2, wins);
             view(player_1, player_2, wins);
         }
         if (player_1.status.dead)
@@ -211,9 +231,27 @@ int main()
         {
             ++wins[0];
         }
+        printf("Player 1: %d, Player 2: %d\n", wins[0], wins[1]);
+        app_1.push_back((double)player_1.attack / (double)player_1.count);
+        app_2.push_back((double)player_2.attack / (double)player_2.count);
         if (wins[0] == 15 || wins[1] == 15)
         {
-            std::cin.get();
+            printf("Player 1: %d\nPlayer 2: %d\n", wins[0], wins[1]);
+            double avg1 = 0;
+            double avg2 = 0;
+            for (auto &i : app_1)
+            {
+                avg1 += i;
+            }
+            for (auto &i : app_2)
+            {
+                avg2 += i;
+            }
+            avg1 /= app_1.size();
+            avg2 /= app_2.size();
+            printf("APP 1: %3.2f\nAPP 2: %3.2f\n", avg1, avg2);
+            return 0;
+            // std::cin.get();
             wins[0] = 0;
             wins[1] = 0;
         }

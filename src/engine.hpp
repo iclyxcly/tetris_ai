@@ -1,7 +1,6 @@
 #include "node.hpp"
 #include "movegen.hpp"
 #include "eval.hpp"
-#include "emu.hpp"
 #include "minotemplate.h"
 #include "thread.hpp"
 #include <mutex>
@@ -18,7 +17,8 @@ namespace moenew
         NodeManager beam;
         FakeNext fake_next;
         bool can_hold;
-        int max_set_size{0}, total{0}, depth{0};
+        int id;
+        int max_set_size{0};
         std::recursive_mutex mutex;
         ThreadPool pool;
         struct RatingCompare
@@ -83,12 +83,9 @@ namespace moenew
                 template_stat.next = next;
                 process_expansion(set, data, search, template_stat, true);
             }
-            for (auto &func : eval_engine.evaluations)
+            for (auto &new_data : set)
             {
-                for (auto &new_data : set)
-                {
-                    func(data->status, new_data.first, data->version + 1);
-                }
+                eval_engine.eval(data->status, new_data.first, data->version + 1, id);
             }
             for (auto &new_data : set)
             {
@@ -123,12 +120,9 @@ namespace moenew
                 template_stat.next = next;
                 process_expansion(set, data, search, template_stat, true);
             }
-            for (auto &func : eval_engine.evaluations)
+            for (auto &new_data : set)
             {
-                for (auto &new_data : set)
-                {
-                    func(data->status, new_data.first, data->version + 1);
-                }
+                eval_engine.eval(data->status, new_data.first, data->version + 1, id);
             }
             mutex.lock();
             total += set.size();
@@ -192,6 +186,7 @@ namespace moenew
         }
 
     public:
+        int total{0}, depth{0};
         Engine() {};
         MoveData get_mino_draft()
         {
@@ -209,8 +204,9 @@ namespace moenew
         {
             return eval_engine.atk;
         }
-        void submit_form(MoveData data, Evaluation::Status status, bool can_hold)
+        void submit_form(MoveData data, Evaluation::Status status, bool can_hold, int id)
         {
+            this->id = id;
             status.next.fill(fake_next);
             fake_next.pop();
             total = 0;
@@ -220,35 +216,51 @@ namespace moenew
             beam.create_root(Decision(data, can_hold), status);
             expand(true);
         }
-        Decision start()
+        auto start(long long time)
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
+            while (high_resolution_clock::now() - now < milliseconds(time) && beam.check_task())
             {
                 beam.prepare();
                 expand();
                 beam.finalize();
                 ++depth;
             }
-            printf("Total: %d, Depth: %d\n", total, depth);
-            return beam.get_result().decision;
+            // printf("Total: %d, Depth: %d\n", total, depth);
+            if (depth < 13)
+            {
+                beam.target_beam = std::max(200, beam.target_beam - 30);
+            }
+            else if (depth > 15)
+            {
+                beam.target_beam = beam.target_beam + 15;
+            }
+            return beam.get_result();
         }
-        Decision start_threaded()
+        auto start_threaded(long long time)
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
-            while (high_resolution_clock::now() - now < milliseconds(100) && beam.check_task())
+            while (high_resolution_clock::now() - now < milliseconds(time) && beam.check_task())
             {
                 beam.prepare();
                 expand_threaded();
                 beam.finalize();
                 ++depth;
             }
-            printf("Total: %d, Depth: %d\n", total, depth);
-            return beam.get_result().decision;
+            // printf("Total: %d, Depth: %d\n", total, depth);
+            if (depth < 13)
+            {
+                beam.target_beam = std::max(200, beam.target_beam - 30);
+            }
+            else if (depth > 15)
+            {
+                beam.target_beam = beam.target_beam + 15;
+            }
+            return beam.get_result();
         }
-        Decision start_noded()
+        auto start_noded()
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
@@ -259,10 +271,10 @@ namespace moenew
                 beam.finalize();
                 ++depth;
             }
-            return beam.get_result().decision;
+            return beam.get_result();
         }
 
-        Decision start_noded_thread()
+        auto start_noded_thread()
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
@@ -273,10 +285,10 @@ namespace moenew
                 beam.finalize();
                 ++depth;
             }
-            return beam.get_result().decision;
+            return beam.get_result();
         }
 
-        Decision start_depth()
+        auto start_depth()
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
@@ -287,10 +299,10 @@ namespace moenew
                 beam.finalize();
                 ++depth;
             }
-            return beam.get_result().decision;
+            return beam.get_result();
         }
 
-        Decision start_depth_thread()
+        auto start_depth_thread()
         {
             using namespace std::chrono;
             auto now = high_resolution_clock::now();
@@ -301,7 +313,7 @@ namespace moenew
                 beam.finalize();
                 ++depth;
             }
-            return beam.get_result().decision;
+            return beam.get_result();
         }
     };
 }

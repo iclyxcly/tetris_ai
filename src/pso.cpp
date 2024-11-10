@@ -1,6 +1,5 @@
 #include "engine.hpp"
 #include "movegen.hpp"
-#include "emu.hpp"
 #include <random>
 #include <stdio.h>
 #include <vector>
@@ -93,19 +92,19 @@ struct TetrisPlayer
         engine.get_param() = param;
         this->param = param;
         auto &atk = engine.get_attack_table();
-		atk.messiness = 0.05;
-		atk.aspin_1 = 2;
-		atk.aspin_2 = 4;
-		atk.aspin_3 = 6;
-		atk.clear_1 = 0;
-		atk.clear_2 = 1;
-		atk.clear_3 = 2;
-		atk.clear_4 = 4;
-		atk.pc = 10;
-		atk.b2b = 1;
+        atk.messiness = 0.05;
+        atk.aspin_1 = 2;
+        atk.aspin_2 = 4;
+        atk.aspin_3 = 6;
+        atk.clear_1 = 0;
+        atk.clear_2 = 1;
+        atk.clear_3 = 2;
+        atk.clear_4 = 4;
+        atk.pc = 10;
+        atk.b2b = 1;
         atk.multiplier = 1;
-		int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
-		memcpy(atk.combo, combo_table, sizeof(atk.combo));
+        int combo_table[21] = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
+        memcpy(atk.combo, combo_table, sizeof(atk.combo));
         next = 5;
     }
 
@@ -120,17 +119,15 @@ struct TetrisPlayer
         status.next.next = real_next.get(next);
         status.next.hold = real_next.hold;
         auto mino_loc = engine.get_mino_draft();
-        engine.submit_form(mino_loc, status, true);
-        auto result = engine.start_depth();
+        engine.submit_form(mino_loc, status, true, 1);
+        auto raw_result = engine.start_depth();
+        auto result = raw_result.decision;
         status.under_attack.rngify();
+        status = raw_result.status;
         if (result.change_hold)
         {
             real_next.swap();
             status.next.swap();
-        }
-        if (!cycle(status, result, engine.get_attack_table()))
-        {
-            status.dead = true;
         }
         real_next.pop();
         ++count;
@@ -205,7 +202,7 @@ struct PSOParticleData
             best = rating;
             pos[PSO_BEST_PERSONAL] = pos[PSO_CURRENT];
         }
-        else 
+        else
         {
             best = best * 0.95 + rating * 0.05;
         }
@@ -224,7 +221,7 @@ struct PSOParticleData
         }
     }
     PSOParticleData(int id, Playstyle &param)
-        : id(id), best(0), gen(0), match(0), ingame(0), rating(ELO_DEFAULT) 
+        : id(id), best(0), gen(0), match(0), ingame(0), rating(ELO_DEFAULT)
     {
         for (int i = 0; i < 4; ++i)
         {

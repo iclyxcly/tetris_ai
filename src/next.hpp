@@ -7,7 +7,7 @@ namespace moenew
 {
 	class FakeNext
 	{
-		public:
+	public:
 		std::string next;
 		FakeNext()
 		{

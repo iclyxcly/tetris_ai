@@ -228,22 +228,27 @@ namespace moenew
 			const int *down = down_offset[type];
 			const int *left = left_offset[type];
 			const int *right = right_offset[type];
-			auto integrate = [&board, &data](const int8_t &x, const int8_t &y, const int8_t &r) -> bool {
+			auto integrate = [&board, &data](const int8_t &x, const int8_t &y, const int8_t &r) -> bool
+			{
 				const auto *rows = data->get(r, x);
 				return board.integrate(rows, y);
 			};
-			auto test_up = [&integrate](const MoveData &mino) -> bool {
+			auto test_up = [&integrate](const MoveData &mino) -> bool
+			{
 				return integrate(mino.get_x(), mino.get_y() + 1, mino.get_r());
 			};
-			auto test_down = [&integrate, &down](const MoveData &mino) -> bool {
+			auto test_down = [&integrate, &down](const MoveData &mino) -> bool
+			{
 				int y = mino.get_y() - 1;
 				return y >= down[mino.get_r()] && integrate(mino.get_x(), y, mino.get_r());
 			};
-			auto test_left = [&integrate, &left](const MoveData &mino) -> bool {
+			auto test_left = [&integrate, &left](const MoveData &mino) -> bool
+			{
 				int x = mino.get_x() - 1;
 				return x >= left[mino.get_r()] && integrate(x, mino.get_y(), mino.get_r());
 			};
-			auto test_right = [&integrate, &right, &board](const MoveData &mino) -> bool {
+			auto test_right = [&integrate, &right, &board](const MoveData &mino) -> bool
+			{
 				int x = mino.get_x() + 1;
 				return x <= board.w - right[mino.get_r()] - 4 && integrate(x, mino.get_y(), mino.get_r());
 			};

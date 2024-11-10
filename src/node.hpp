@@ -52,6 +52,7 @@ namespace moenew
 
         struct NodeResult
         {
+            Evaluation::Status status;
             Decision decision;
         };
         std::priority_queue<nodeptr, std::vector<nodeptr>, NodeCompare> row_result;
@@ -72,13 +73,15 @@ namespace moenew
 
         void trim()
         {
-            while (row_result.size() > BEAM_WIDTH)
+            while (row_result.size() > target_beam)
             {
                 row_result.pop();
             }
         }
 
     public:
+        int target_beam = BEAM_WIDTH;
+
         NodeManager() {};
 
         NodeManager(const Decision decision, const Evaluation::Status &status)
@@ -99,7 +102,7 @@ namespace moenew
 
         void try_insert(const Evaluation::Status &status, const nodeptr &parent, const Decision &decision)
         {
-            if (row_result.size() < BEAM_WIDTH)
+            if (row_result.size() < target_beam)
             {
                 insert_child(status, parent, decision);
                 return;
@@ -122,6 +125,7 @@ namespace moenew
                 if (row_result.size() == 1)
                 {
                     auto data = row_result.top()->get_first();
+                    result.status = data.status;
                     result.decision = data.decision;
                 }
                 row_result.pop();

@@ -28,7 +28,8 @@ namespace moenew
         {
             for (size_t i = 0; i < size; ++i)
             {
-                workers.emplace_back([this] { work_func(); });
+                workers.emplace_back([this]
+                                     { work_func(); });
             }
         }
         void enqueue(std::function<void()> task)
